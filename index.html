@@ -140,7 +140,7 @@ import {
   getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, deleteUser
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import {
-  getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where,
+  getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where,
   addDoc, serverTimestamp, arrayUnion, arrayRemove
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
@@ -184,6 +184,7 @@ const ICONS = {
   checksq:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 12.3l2.5 2.5 5-5.6"/>',
   eye:'<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.7"/>',
   pencil:'<path d="M4 20l1-4 10.5-10.5a2 2 0 0 1 2.8 0l.7.7a2 2 0 0 1 0 2.8L8.5 19.5 4 20Z"/>',
+  trash:'<path d="M4 7h16M9 7V4.5A1 1 0 0 1 10 3.5h4A1 1 0 0 1 15 4.5V7M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/>',
   cam:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8.5 7 10 4.5h4L15.5 7"/><circle cx="12" cy="13.5" r="3.3"/>',
 };
 function icon(name, size=20, sw=1.7){ return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||''}</svg>`; }
@@ -204,12 +205,13 @@ const CONTENT_DEFAULTS = {
   plan_tajweed_l2_name:'المستوى الثاني', plan_tajweed_l2_text:'أحكام المدود الطبيعي والفرعي، وصفات الحروف الأساسية، وتصحيح مخارج الحروف من خلال تسميع فردي مباشر مع المشرف.',
   plan_tajweed_l3_name:'المستوى الثالث', plan_tajweed_l3_text:'أحكام الوقف والابتداء، وتطبيق التجويد على أجزاء كاملة من القرآن، تمهيدًا لتأهيل الطالب للسند برواية حفص عن عاصم.',
   plan_review_title:'خطة المراجعة', plan_ijaza_title:'السند والإجازة',
+  plan_hifz_levelCount:'3', plan_tajweed_levelCount:'3', plan_review_levelCount:'0', plan_ijaza_levelCount:'0',
 };
 const PLAN_KEYS = {
-  hifz:{icon:'book', levels:['l1','l2','l3']},
-  tajweed:{icon:'checksq', levels:['l1','l2','l3']},
-  review:{icon:'trend', levels:[]},
-  ijaza:{icon:'idcard', levels:[]},
+  hifz:{icon:'book'},
+  tajweed:{icon:'checksq'},
+  review:{icon:'trend'},
+  ijaza:{icon:'idcard'},
 };
 const POINT_RULES = [
   {label:'المواعيد', items:[['حضور','7'],['تأخير','3'],['غياب','0']]},
@@ -219,10 +221,10 @@ const POINT_RULES = [
 ];
 
 /* ================= App state & cache ================= */
-let state = { role:null, personEmail:null, personName:null, personPhoto:null, view:'login', params:{}, loginMode:'signin', editMode:false };
+let state = { role:null, personEmail:null, personName:null, personPhoto:null, view:'login', params:{}, loginMode:'signin', editMode:false, capabilities:{}, branchIds:[] };
 let cache = { branches:[], students:[], supervisors:[], details:{}, content:{} };
 let editReturn = null;
-function C(key){ return (cache.content[key] !== undefined && cache.content[key] !== '') ? cache.content[key] : CONTENT_DEFAULTS[key]; }
+function C(key){ const v = cache.content[key]; if(v !== undefined && v !== '') return v; return CONTENT_DEFAULTS[key] !== undefined ? CONTENT_DEFAULTS[key] : ''; }
 function gradeToPct(g){ return {'ممتاز':100,'جيد جدًا':85,'جيد':70,'مقبول':55}[g] ?? 70; }
 function studentCycle(hifzLog){
   const log = [...hifzLog].sort((a,b)=>a.date.localeCompare(b.date));
@@ -247,13 +249,13 @@ function mapAuthError(e){
 /* ================= Data loading ================= */
 async function loadBranches(){ const snap = await getDocs(collection(db,'branches')); cache.branches = snap.docs.map(d=>({id:d.id,...d.data()})); }
 async function loadStudentsForRole(){
-  if(state.role==='admin'){ const snap = await getDocs(collection(db,'students')); cache.students = snap.docs.map(d=>({id:d.id,...d.data()})); }
-  else if(state.role==='supervisor'){
-    const bids = state.branchIds && state.branchIds.length ? state.branchIds : ['__none__'];
-    const snap = await getDocs(query(collection(db,'students'), where('branchId','in', bids.slice(0,30))));
+  if(state.role==='admin' || state.role==='supervisor'){
+    const snap = await getDocs(collection(db,'students'));
     cache.students = snap.docs.map(d=>({id:d.id,...d.data()}));
   } else { cache.students = []; }
 }
+function canEditBranch(branchId){ return state.role==='admin' || (state.role==='supervisor' && (state.branchIds||[]).includes(branchId)); }
+function canDo(cap){ return state.role==='admin' || (state.capabilities && state.capabilities[cap] !== false); }
 async function loadSupervisors(){ const snap = await getDocs(query(collection(db,'people'), where('role','==','supervisor'))); cache.supervisors = snap.docs.map(d=>({id:d.id,...d.data()})); }
 async function loadContent(){ const snap = await getDocs(collection(db,'siteContent')); cache.content = {}; snap.docs.forEach(d=>{ cache.content[d.id] = d.data().text; }); }
 async function ensureStudentDetail(sid, force){
@@ -274,14 +276,14 @@ async function bootSession(user){
   const email = user.email.toLowerCase();
   const pdoc = await getDoc(doc(db,'people',email));
   if(!pdoc.exists()){
-    state = {role:null, personEmail:null, personName:null, personPhoto:null, view:'login', params:{}, loginMode:'signin', editMode:false};
+    state = {role:null, personEmail:null, personName:null, personPhoto:null, view:'login', params:{}, loginMode:'signin', editMode:false, capabilities:{}, branchIds:[]};
     renderLoginError('لا يوجد حساب مُعرَّف لهذا البريد داخل النظام. تواصل مع مدير النظام.');
     await signOut(auth);
     return;
   }
   const p = pdoc.data();
   state.role = p.role; state.personEmail = email; state.personName = p.name || email; state.personPhoto = p.photo || null;
-  state.branchIds = p.branchIds || []; state.studentId = p.studentId || null;
+  state.branchIds = p.branchIds || []; state.studentId = p.studentId || null; state.capabilities = p.capabilities || {};
   await loadBranches();
   await loadContent();
   if(state.role==='student'){
@@ -293,7 +295,7 @@ async function bootSession(user){
 onAuthStateChanged(auth, async (user)=>{
   if(activating) return;
   if(user){ await bootSession(user); }
-  else { state = {role:null, personEmail:null, personName:null, personPhoto:null, view:'login', params:{}, loginMode:'signin', editMode:false}; render(); }
+  else { state = {role:null, personEmail:null, personName:null, personPhoto:null, view:'login', params:{}, loginMode:'signin', editMode:false, capabilities:{}, branchIds:[]}; render(); }
 });
 
 async function doSignIn(){
@@ -455,7 +457,7 @@ function subheader(title, back){ return `<div class="subheader"><div class="back
 function renderBottomNav(){
   let items=[];
   if(state.role==='admin') items=[['adminHome','home','الرئيسية'],['adminBranches','building','الشعب'],['adminDirectory','idcard','الطلاب'],['adminPoints','star','النقاط'],['accountAdmin','user','حسابي']];
-  if(state.role==='supervisor') items=[['supervisorHome','home','شعبتي'],['accountSup','user','حسابي']];
+  if(state.role==='supervisor') items=[['supervisorHome','home','الشعب'],['accountSup','user','حسابي']];
   if(state.role==='student') items=[['studentHome','home','ملفي'],['accountStd','user','حسابي']];
   const activeRoot = {branchDetail:'adminBranches'}[state.view] || state.view;
   return `<div class="bottomnav">${items.map(([v,ic,label])=>`
@@ -474,14 +476,15 @@ async function renderView(){
     case 'planDetail': return planDetail();
     case 'achievementsHome': return await achievementsHome();
     case 'adminPoints': return pointsHome();
-    case 'studentProfile': return await studentProfileView(true);
+    case 'studentProfile': return await studentProfileView('manage');
+    case 'editStudentForm': return editStudentForm();
     case 'wirdForm': return wirdForm();
     case 'accountAdmin': return await accountView();
     case 'inviteForm': return inviteForm();
     case 'supervisorPermissions': return supervisorPermissions();
     case 'supervisorHome': return supervisorHome();
     case 'accountSup': return await accountView();
-    case 'studentHome': return await studentProfileView(false);
+    case 'studentHome': return await studentProfileView('self');
     case 'accountStd': return await accountView();
     case 'editContentForm': return editContentForm();
     default: return `<div class="empty">الصفحة غير موجودة</div>`;
@@ -562,21 +565,72 @@ async function submitAddStudent(){
   setTimeout(()=>goto('adminDirectory'), 700);
 }
 
+function editStudentForm(){
+  const s = findStudent(state.params.id);
+  const from = state.params.from || 'adminDirectory';
+  const opts = cache.branches.map(b=>`<option value="${b.id}" ${b.id===s.branchId?'selected':''}>${b.name}</option>`).join('');
+  return `<div class="subheader"><div class="back-btn" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'data',from:'${from}'})">${icon('chevronR',16)}</div><h1>تعديل بيانات الطالب</h1></div>
+  <div class="field"><label>الاسم</label><input id="es-name" value="${s.name||''}"></div>
+  <div class="field"><label>الشعبة</label><select id="es-branch">${opts}</select></div>
+  <div class="field"><label>العمر</label><input id="es-age" type="number" value="${s.age||''}"></div>
+  <div class="field"><label>رقم التواصل</label><input id="es-phone" value="${s.phone||''}"></div>
+  <div class="field"><label>تاريخ الميلاد</label><input id="es-bd" type="date" value="${s.birthDate||''}"></div>
+  <div class="field"><label>مقدار الحفظ</label><input id="es-hifz" value="${s.hifzAmount||''}"></div>
+  <div class="field"><label>المستوى التجويدي</label><input id="es-tajweed" value="${s.tajweedLevel||''}"></div>
+  <div class="field"><label>النقاط</label><input id="es-points" type="number" value="${s.points||0}"></div>
+  <div class="field"><label>ملاحظات</label><textarea id="es-notes">${s.notes||''}</textarea></div>
+  <button class="btn btn-primary" style="margin-top:18px" onclick="window.submitEditStudent('${s.id}','${from}')">حفظ التعديلات</button>
+  <div id="es-alert"></div>`;
+}
+async function submitEditStudent(sid, from){
+  const data = {
+    name: document.getElementById('es-name').value.trim(),
+    branchId: document.getElementById('es-branch').value,
+    age: Number(document.getElementById('es-age').value)||null,
+    phone: document.getElementById('es-phone').value,
+    birthDate: document.getElementById('es-bd').value,
+    hifzAmount: document.getElementById('es-hifz').value,
+    tajweedLevel: document.getElementById('es-tajweed').value,
+    points: Number(document.getElementById('es-points').value)||0,
+    notes: document.getElementById('es-notes').value,
+  };
+  await updateDoc(doc(db,'students',sid), data);
+  await loadStudentsForRole();
+  document.getElementById('es-alert').innerHTML = `<div class="alert success">${icon('check',16)} تم حفظ التعديلات</div>`;
+  setTimeout(()=>goto('studentProfile',{id:sid, tab:'data', from}), 700);
+}
+
 function plansHome(){
   const keys = Object.keys(PLAN_KEYS);
   return subheader('الخطط','adminHome') + `
   <div class="khana-grid">
-    ${keys.map(k=>`<div class="khana" onclick="${state.editMode?'':`window.goto('planDetail',{key:'${k}'})`}"><div class="khana-icon">${icon(PLAN_KEYS[k].icon,21)}</div><div class="khana-label">${editable('plan_'+k+'_title','عنوان '+C('plan_'+k+'_title'))}</div><div class="khana-sub">${PLAN_KEYS[k].levels.length? PLAN_KEYS[k].levels.length+' مستويات':'لم تُحدَّد بعد'}</div></div>`).join('')}
+    ${keys.map(k=>`<div class="khana" onclick="${state.editMode?'':`window.goto('planDetail',{key:'${k}'})`}"><div class="khana-icon">${icon(PLAN_KEYS[k].icon,21)}</div><div class="khana-label">${editable('plan_'+k+'_title','عنوان '+C('plan_'+k+'_title'))}</div><div class="khana-sub">${(parseInt(C('plan_'+k+'_levelCount'))||0)>0 ? (parseInt(C('plan_'+k+'_levelCount')))+' مستويات' : 'لم تُحدَّد بعد'}</div></div>`).join('')}
   </div>`;
 }
 function planDetail(){
   const key = state.params.key;
   const def = PLAN_KEYS[key];
   const title = C('plan_'+key+'_title');
-  if(!def.levels.length) return subheader(title,'plansHome') + `<div class="empty"><div class="e-icon">${icon(def.icon,30)}</div>لم تتم إضافة محتوى ${title} بعد</div>`;
-  return subheader(title,'plansHome') + def.levels.map((lv,i)=>`
-    <div class="level-card"><div class="level-head"><div class="level-name">${editable('plan_'+key+'_'+lv+'_name','اسم المستوى '+(i+1))}</div><span class="badge gold">مستوى ${i+1}</span></div>
-      <div class="level-text">${editable('plan_'+key+'_'+lv+'_text','نص المستوى '+(i+1))}</div></div>`).join('');
+  const count = parseInt(C('plan_'+key+'_levelCount'))||0;
+  let html = subheader(title,'plansHome');
+  if(!count){
+    html += `<div class="empty"><div class="e-icon">${icon(def.icon,30)}</div>لم تتم إضافة محتوى ${title} بعد</div>`;
+  } else {
+    for(let i=1;i<=count;i++){
+      html += `<div class="level-card"><div class="level-head"><div class="level-name">${editable('plan_'+key+'_l'+i+'_name','اسم المستوى '+i)}</div><span class="badge gold">مستوى ${i}</span></div>
+        <div class="level-text">${editable('plan_'+key+'_l'+i+'_text','نص المستوى '+i)}</div></div>`;
+    }
+  }
+  if(state.role==='admin' && state.editMode){
+    html += `<button class="btn btn-outline" style="margin-top:16px" onclick="window.addPlanLevel('${key}')">${icon('plus',16)} إضافة مستوى جديد</button>`;
+  }
+  return html;
+}
+async function addPlanLevel(key){
+  const count = (parseInt(C('plan_'+key+'_levelCount'))||0) + 1;
+  await setDoc(doc(db,'siteContent','plan_'+key+'_levelCount'), {text:String(count)}, {merge:true});
+  cache.content['plan_'+key+'_levelCount'] = String(count);
+  goto('planDetail',{key});
 }
 
 function adminBranches(){
@@ -600,7 +654,9 @@ async function quickAddBranch(){
 function branchDetail(){
   const b = getBranch(state.params.id);
   const students = cache.students.filter(s=>s.branchId===state.params.id);
-  return subheader('شعبة '+b.name, state.role==='admin'?'adminBranches':'supervisorHome') + `
+  const editable = canEditBranch(b.id);
+  return subheader('شعبة '+b.name, state.role==='admin'?'adminBranches':'supervisorHome') +
+  (!editable && state.role==='supervisor' ? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:14px">${icon('eye',14)} عرض فقط — لا تملك صلاحية تعديل هذه الشعبة</div>` : '') + `
   <div class="stat-card" style="margin-top:16px; text-align:center"><div class="stat-num">${students.length}</div><div class="stat-label">عدد الطلاب</div></div>
   <div class="section-title"><span class="bar"></span>طلاب الشعبة</div>
   <div class="list">${branchStudentRows(students)}</div>`;
@@ -614,9 +670,10 @@ function branchStudentRows(list){
     </div>`).join('');
 }
 
-async function studentProfileView(canEdit){
+async function studentProfileView(mode){
   const s = findStudent(state.params.id || state.studentId);
   if(!s) return `<div class="empty">تعذّر إيجاد بيانات الطالب</div>`;
+  const canEdit = mode==='manage' && canEditBranch(s.branchId);
   const tab = state.params.tab || 'data';
   const from = state.params.from || 'adminDirectory';
   const backTarget = state.role==='admin'? from : (state.role==='student'?'studentHome':'supervisorHome');
@@ -636,9 +693,13 @@ async function studentProfileView(canEdit){
       <div class="row"><span class="row-sub">مقدار الحفظ</span><span class="row-title">${s.hifzAmount||'—'}</span></div>
       <div class="row"><span class="row-sub">المستوى التجويدي</span><span class="row-title">${s.tajweedLevel||'—'}</span></div>
       <div class="row"><span class="row-sub">النقاط</span><span class="row-title">${s.points||0}</span></div>
-    </div>${s.notes? `<div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} ${s.notes}</div>`:''}`;
+    </div>${s.notes? `<div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} ${s.notes}</div>`:''}
+    ${canEdit && canDo('editStudent')? `<button class="btn btn-outline" style="margin-top:14px" onclick="window.goto('editStudentForm',{id:'${s.id}',from:'${from}'})">${icon('pencil',15)} تعديل بيانات الطالب</button>`:''}`;
   } else {
     const det = await ensureStudentDetail(s.id);
+    const canHifz = canEdit && canDo('hifz');
+    const canAtt = canEdit && canDo('attendance');
+    const canTaj = canEdit && canDo('tajweed');
     if(tab==='hifz'){
       const cyc = studentCycle(det.hifzLog);
       const latest = cyc.evals.length? cyc.evals[cyc.evals.length-1] : null;
@@ -657,19 +718,21 @@ async function studentProfileView(canEdit){
       <div class="section-title"><span class="bar"></span>ورد المراجعة</div>
       <table><thead><tr><th>التاريخ</th><th>من</th><th>إلى</th><th>أخطاء</th><th>التقدير</th><th>المشرف</th></tr></thead>
       <tbody>${det.reviewLog.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${r.from}</td><td>${r.to}</td><td>${r.errors}</td><td>${r.grade}</td><td>${r.recordedBy||'—'}</td></tr>`).join('')||`<tr><td colspan="6">لا يوجد سجل</td></tr>`}</tbody></table>
-      ${canEdit? `<button class="btn btn-primary" style="margin-top:16px" onclick="window.goto('wirdForm',{id:'${s.id}',from:'${from}'})">${icon('plus',16)} تسجيل ورد جديد</button>`:''}`;
+      ${canHifz? `<button class="btn btn-primary" style="margin-top:16px" onclick="window.goto('wirdForm',{id:'${s.id}',from:'${from}'})">${icon('plus',16)} تسجيل ورد جديد</button>` : (canEdit? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:12px">لا تملك صلاحية تسجيل الورد</div>`:'')}`;
     }
     if(tab==='attendance'){
       body += `<div class="section-title" style="margin-top:16px"><span class="bar"></span>سجل المواعيد (سبتي)</div>
-      <table><thead><tr><th>التاريخ</th><th>الحالة</th></tr></thead>
-      <tbody>${det.attendance.map(r=>`<tr><td>${r.date}</td><td><span class="badge ${r.status==='حضور'?'green':r.status==='تأخر'?'gold':'red'}">${r.status}</span></td></tr>`).join('')||`<tr><td colspan="2">لا يوجد سجل</td></tr>`}</tbody></table>
-      ${canEdit? `<div class="seg" style="margin-top:14px"><button onclick="window.recordAttendance('${s.id}','حضور','${from}')">حضور</button><button onclick="window.recordAttendance('${s.id}','تأخر','${from}')">تأخر</button><button onclick="window.recordAttendance('${s.id}','غياب','${from}')">غياب</button></div>`:''}`;
+      <table><thead><tr><th>التاريخ</th><th>الحالة</th>${canAtt?'<th></th>':''}</tr></thead>
+      <tbody>${det.attendance.map(r=>`<tr><td onclick="${canAtt?`document.getElementById('att-date').value='${r.date}'`:''}" style="${canAtt?'cursor:pointer':''}">${r.date}</td><td><span class="badge ${r.status==='حضور'?'green':r.status==='تأخر'?'gold':'red'}">${r.status}</span></td>${canAtt?`<td><span onclick="window.deleteAttRecord('${s.id}','attendance','${r.date}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canAtt?3:2}">لا يوجد سجل</td></tr>`}</tbody></table>
+      ${canAtt? `<div class="field"><label>التاريخ (اضغط على أي سجل بالجدول لتعديله، أو غيّره يدويًا)</label><input type="date" id="att-date" value="${todayStr()}"></div>
+      <div class="seg" style="margin-top:8px"><button onclick="window.recordAttendance('${s.id}','حضور','${from}')">حضور</button><button onclick="window.recordAttendance('${s.id}','تأخر','${from}')">تأخر</button><button onclick="window.recordAttendance('${s.id}','غياب','${from}')">غياب</button></div>` : (canEdit? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:12px">لا تملك صلاحية تسجيل المواعيد</div>`:'')}`;
     }
     if(tab==='tajweed'){
       body += `<div class="section-title" style="margin-top:16px"><span class="bar"></span>سجل حضور التجويد</div>
-      <table><thead><tr><th>التاريخ</th><th>الحالة</th></tr></thead>
-      <tbody>${det.tajweedAtt.map(r=>`<tr><td>${r.date}</td><td><span class="badge ${r.status==='حضور'?'green':'red'}">${r.status}</span></td></tr>`).join('')||`<tr><td colspan="2">لا يوجد سجل</td></tr>`}</tbody></table>
-      ${canEdit? `<div class="seg" style="margin-top:14px"><button onclick="window.recordTajweed('${s.id}','حضور','${from}')">حضور</button><button onclick="window.recordTajweed('${s.id}','غياب','${from}')">غياب</button></div>`:''}`;
+      <table><thead><tr><th>التاريخ</th><th>الحالة</th>${canTaj?'<th></th>':''}</tr></thead>
+      <tbody>${det.tajweedAtt.map(r=>`<tr><td onclick="${canTaj?`document.getElementById('taj-date').value='${r.date}'`:''}" style="${canTaj?'cursor:pointer':''}">${r.date}</td><td><span class="badge ${r.status==='حضور'?'green':'red'}">${r.status}</span></td>${canTaj?`<td><span onclick="window.deleteAttRecord('${s.id}','tajweedAtt','${r.date}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canTaj?3:2}">لا يوجد سجل</td></tr>`}</tbody></table>
+      ${canTaj? `<div class="field"><label>التاريخ (اضغط على أي سجل بالجدول لتعديله، أو غيّره يدويًا)</label><input type="date" id="taj-date" value="${todayStr()}"></div>
+      <div class="seg" style="margin-top:8px"><button onclick="window.recordTajweed('${s.id}','حضور','${from}')">حضور</button><button onclick="window.recordTajweed('${s.id}','غياب','${from}')">غياب</button></div>` : (canEdit? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:12px">لا تملك صلاحية تسجيل حضور التجويد</div>`:'')}`;
     }
     if(tab==='pay'){
       body += `<div class="section-title" style="margin-top:16px"><span class="bar"></span>سجل الدفع الشهري</div>
@@ -714,14 +777,22 @@ async function saveWird(sid, from){
   setTimeout(()=>goto('studentProfile',{id:sid,tab:'hifz',from}), 700);
 }
 async function recordAttendance(sid, status, from){
-  await addDoc(collection(db,'students',sid,'attendance'), {date:todayStr(), status, recordedBy:state.personName, recordedAt:serverTimestamp()});
+  const date = document.getElementById('att-date').value || todayStr();
+  await setDoc(doc(db,'students',sid,'attendance',date), {date, status, recordedBy:state.personName, recordedAt:serverTimestamp()});
   await ensureStudentDetail(sid, true);
   goto('studentProfile',{id:sid, tab:'attendance', from});
 }
 async function recordTajweed(sid, status, from){
-  await addDoc(collection(db,'students',sid,'tajweedAtt'), {date:todayStr(), status, recordedBy:state.personName, recordedAt:serverTimestamp()});
+  const date = document.getElementById('taj-date').value || todayStr();
+  await setDoc(doc(db,'students',sid,'tajweedAtt',date), {date, status, recordedBy:state.personName, recordedAt:serverTimestamp()});
   await ensureStudentDetail(sid, true);
   goto('studentProfile',{id:sid, tab:'tajweed', from});
+}
+async function deleteAttRecord(sid, sub, date, from){
+  if(!confirm('حذف هذا السجل؟')) return;
+  await deleteDoc(doc(db,'students',sid,sub,date));
+  await ensureStudentDetail(sid, true);
+  goto('studentProfile',{id:sid, tab: sub==='attendance'?'attendance':'tajweed', from});
 }
 
 async function achievementsHome(){
@@ -757,21 +828,35 @@ function pointsHome(){
 }
 
 function supervisorHome(){
-  const myBranches = cache.branches.filter(b=>(state.branchIds||[]).includes(b.id));
-  if(!myBranches.length) return `<div class="empty"><div class="e-icon">${icon('building',28)}</div>لا توجد شعبة مُسندة لحسابك بعد<br><span style="font-size:11px">تواصل مع مدير النظام لإسناد شعبة لك</span></div>`;
-  if(myBranches.length===1){ state.params={id:myBranches[0].id}; return branchDetail(); }
-  return `<div class="section-title" style="margin-top:0"><span class="bar"></span>الشعب المُسندة إليك</div>
-  <div class="list">${myBranches.map(b=>`<div class="row" onclick="window.goto('branchDetail',{id:'${b.id}'})"><div class="row-left"><div class="avatar">${icon('building',16)}</div><div class="row-title">شعبة ${b.name}</div></div><div style="display:flex;align-items:center;gap:8px"><span class="badge gold">${cache.students.filter(s=>s.branchId===b.id).length} طالب</span><div class="chevron">${icon('chevronL',14)}</div></div></div>`).join('')}</div>`;
+  return `<div class="section-title" style="margin-top:0"><span class="bar"></span>كل الشعب</div>
+  <div class="list">${cache.branches.map(b=>{ const ed=canEditBranch(b.id);
+    return `<div class="row" onclick="window.goto('branchDetail',{id:'${b.id}'})"><div class="row-left"><div class="avatar">${icon('building',16)}</div><div class="row-title">شعبة ${b.name}</div></div><div style="display:flex;align-items:center;gap:8px">${ed?'':`<span class="badge gray">${icon('eye',11)}</span>`}<span class="badge gold">${cache.students.filter(s=>s.branchId===b.id).length} طالب</span><div class="chevron">${icon('chevronL',14)}</div></div></div>`;
+  }).join('')}</div>`;
 }
 
+const CAP_LABELS = {hifz:'تسجيل ورد الحفظ', attendance:'تسجيل المواعيد', tajweed:'تسجيل حضور التجويد', editStudent:'تعديل بيانات الطلاب'};
 function supervisorPermissions(){
   const sup = cache.supervisors.find(s=>s.id===state.params.id);
+  const caps = sup.capabilities || {};
   return subheader(sup.name,'accountAdmin') + `
   <div class="section-title" style="margin-top:0"><span class="bar"></span>الشعب المُسندة لهذا المشرف</div>
   <div class="list">${cache.branches.map(b=>{ const checked=(sup.branchIds||[]).includes(b.id);
     return `<div class="row" onclick="window.toggleSupBranch('${sup.id}','${b.id}')"><div class="row-title">شعبة ${b.name}</div><span class="badge ${checked?'green':'gray'}">${checked?'مُسندة':'غير مُسندة'}</span></div>`;
   }).join('')}</div>
-  <div class="alert success" style="margin-top:12px">${icon('check',15)} يتحدّث الإسناد فور الضغط على الشعبة</div>`;
+  <div class="alert success" style="margin-top:12px">${icon('check',15)} يشوف هذا المشرف كل الشعب دائمًا، بس التعديل مقصور على الشعب المُسندة فقط</div>
+  <div class="section-title"><span class="bar"></span>الصلاحيات على الإجراءات (ضمن شعبته)</div>
+  <div class="list">${Object.keys(CAP_LABELS).map(k=>{ const on = caps[k]!==false;
+    return `<div class="row" onclick="window.toggleSupCapability('${sup.id}','${k}')"><div class="row-title">${CAP_LABELS[k]}</div><span class="badge ${on?'green':'gray'}">${on?'مفعّلة':'موقوفة'}</span></div>`;
+  }).join('')}</div>
+  <div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} فتح وإغلاق أي صلاحية وقت ما بدك — تتحدّث فورًا</div>`;
+}
+async function toggleSupCapability(supEmail, capKey){
+  const sup = cache.supervisors.find(s=>s.id===supEmail);
+  const current = (sup.capabilities && sup.capabilities[capKey]) !== false;
+  const newCaps = {...(sup.capabilities||{}), [capKey]: !current};
+  await updateDoc(doc(db,'people',supEmail), {capabilities: newCaps});
+  await loadSupervisors();
+  goto('supervisorPermissions',{id:supEmail});
 }
 async function toggleSupBranch(supEmail, bid){
   const sup = cache.supervisors.find(s=>s.id===supEmail);
@@ -806,6 +891,7 @@ async function submitInvite(){
   if(!email || !name){ alert('عبّي كل الحقول'); return; }
   const data = { email, name, role, branchIds:[], studentId:null, uid:null, createdAt: serverTimestamp() };
   if(role==='student'){ data.studentId = document.getElementById('inv-student').value; }
+  if(role==='supervisor'){ data.capabilities = {hifz:true, attendance:true, tajweed:true, editStudent:true}; }
   try{
     await setDoc(doc(db,'people',email), data);
     if(role==='supervisor') await loadSupervisors();
@@ -840,7 +926,7 @@ async function accountView(){
   return html;
 }
 
-Object.assign(window, {goto, logout, doSignIn, doActivate, setLoginMode, selectSeg, filterDirectory, quickAddBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, toggleSupBranch, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile});
+Object.assign(window, {goto, logout, doSignIn, doActivate, setLoginMode, selectSeg, filterDirectory, quickAddBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent});
 </script>
 </body>
 </html>
