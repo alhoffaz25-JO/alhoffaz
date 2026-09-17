@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>شعبة الحفاظ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=Amiri:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --green:#1B5A40; --green-dark:#0F3A29; --green-tint:#EAF2ED;
+  --gold:#AD8A46; --gold-light:#D8C48F; --beige:#F3EEE0; --bg:#FAF9F4; --card:#FFFFFF;
+  --text:#1C241C; --text-muted:#7A8175; --border:#E7E2D2; --radius:16px;
+  --shadow:0 1px 2px rgba(15,58,41,0.04), 0 10px 24px -10px rgba(15,58,41,0.14);
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{background:var(--bg); color:var(--text); font-family:'Tajawal',sans-serif; -webkit-font-smoothing:antialiased;}
+body{padding-bottom:80px; min-height:100vh;}
+a{color:inherit; text-decoration:none;}
+button{font-family:inherit; cursor:pointer; border:none; background:none;}
+svg{display:block;}
+.topbar{background:linear-gradient(155deg,var(--green) 0%,var(--green-dark) 100%); color:#fff; padding:20px 18px 24px; position:relative; overflow:hidden;}
+.topbar::before{content:""; position:absolute; inset:0; background-image:radial-gradient(circle at 92% -10%, rgba(216,196,143,0.22) 0, transparent 45%), repeating-linear-gradient(135deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 22px);}
+.topbar-row{display:flex; align-items:center; justify-content:space-between; position:relative; z-index:1;}
+.brand{display:flex; align-items:center; gap:11px;}
+.logo-circle{width:42px; height:42px; border-radius:50%; background:var(--gold-light); color:var(--green-dark); display:flex; align-items:center; justify-content:center; border:1.5px solid rgba(255,255,255,0.55); box-shadow:0 2px 8px rgba(0,0,0,0.15);}
+.brand-name{font-family:'Amiri',serif; font-weight:700; font-size:19px;}
+.brand-sub{font-size:10.5px; color:rgba(255,255,255,0.68); margin-top:1px;}
+.topbar-actions{display:flex; gap:9px; align-items:center;}
+.icon-btn{width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,0.12); color:#fff; display:flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,0.1);}
+.greeting{position:relative; z-index:1; margin-top:16px; font-size:13.5px; color:rgba(255,255,255,0.82);}
+.greeting b{font-weight:700; color:#fff;}
+.greeting-rule{width:30px; height:2px; background:var(--gold-light); border-radius:2px; margin-top:9px; position:relative; z-index:1;}
+.page{padding:18px 16px 24px; max-width:520px; margin:0 auto; animation:fade .2s ease;}
+@keyframes fade{from{opacity:0} to{opacity:1}}
+.section-title{font-size:13.5px; font-weight:700; color:var(--text); margin:22px 0 10px; display:flex; align-items:center; gap:8px;}
+.section-title .bar{width:4px; height:14px; background:linear-gradient(180deg,var(--gold-light),var(--gold)); border-radius:2px;}
+.vision-card{background:linear-gradient(160deg,var(--green-dark),var(--green)); color:#fff; border-radius:20px; padding:22px 18px; box-shadow:var(--shadow); position:relative; overflow:hidden;}
+.vision-card::before{content:""; position:absolute; inset:0; background-image:repeating-linear-gradient(45deg, rgba(216,196,143,0.05) 0 2px, transparent 2px 24px);}
+.vision-title{font-family:'Amiri',serif; font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px; position:relative; z-index:1;}
+.vision-title .vi{width:28px; height:28px; border-radius:8px; background:rgba(255,255,255,0.14); display:flex; align-items:center; justify-content:center; color:var(--gold-light);}
+.vision-text{font-size:12.5px; line-height:1.9; color:rgba(255,255,255,0.88); margin-top:8px; position:relative; z-index:1;}
+.vision-divider{height:1px; background:rgba(255,255,255,0.15); margin:14px 0;}
+.stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px;}
+.stat-card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:15px; box-shadow:var(--shadow);}
+.stat-icon{width:32px; height:32px; border-radius:9px; background:var(--green-tint); color:var(--green); display:flex; align-items:center; justify-content:center;}
+.stat-num{font-size:22px; font-weight:900; color:var(--green); margin-top:9px;}
+.stat-label{font-size:11.5px; color:var(--text-muted); margin-top:2px;}
+.khana-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:6px;}
+.khana{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px 12px; text-align:center; box-shadow:var(--shadow); display:flex; flex-direction:column; align-items:center; gap:9px;}
+.khana:active{transform:scale(.96);}
+.khana-icon{width:46px; height:46px; border-radius:13px; background:var(--green-tint); color:var(--green); display:flex; align-items:center; justify-content:center;}
+.khana-label{font-size:13.5px; font-weight:700;}
+.khana-sub{font-size:10.5px; color:var(--text-muted);}
+.list{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow); margin-top:8px;}
+.row{display:flex; align-items:center; justify-content:space-between; padding:13px 14px; border-bottom:1px solid var(--border); gap:10px;}
+.row:last-child{border-bottom:none;}
+.row-left{display:flex; align-items:center; gap:11px; min-width:0;}
+.avatar{width:38px; height:38px; border-radius:50%; background:var(--green-tint); color:var(--green); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13.5px; flex-shrink:0;}
+.row-title{font-size:13.5px; font-weight:700;}
+.row-sub{font-size:11.5px; color:var(--text-muted); margin-top:2px;}
+.chevron{color:var(--text-muted); display:flex;}
+.badge{font-size:10.5px; padding:4px 10px; border-radius:20px; font-weight:700;}
+.badge.green{background:var(--green-tint); color:var(--green);}
+.badge.gold{background:#F3EBD6; color:var(--gold);}
+.badge.gray{background:#EFEFEF; color:#888;}
+.badge.red{background:#FBEAEA; color:#B23A3A;}
+.btn{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; text-align:center; padding:13.5px; border-radius:12px; font-weight:700; font-size:14px;}
+.btn-primary{background:var(--green); color:#fff; box-shadow:0 8px 18px -6px rgba(15,58,41,0.45);}
+.btn-outline{background:transparent; border:1.5px solid var(--green); color:var(--green);}
+.fab{position:fixed; bottom:94px; left:16px; width:52px; height:52px; border-radius:50%; background:linear-gradient(155deg,var(--gold-light),var(--gold)); color:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 20px -4px rgba(173,138,70,0.55); z-index:20;}
+.search-box{display:flex; align-items:center; gap:9px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:11px 13px; margin-top:14px; color:var(--text-muted);}
+.search-box input{border:none; outline:none; background:transparent; font-family:inherit; font-size:13.5px; width:100%; color:var(--text);}
+.field{margin-top:13px;}
+.field label{font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;}
+.field input, .field select, .field textarea{width:100%; padding:11px 12px; border:1px solid var(--border); border-radius:10px; font-family:inherit; font-size:13.5px; background:var(--card); color:var(--text);}
+.field textarea{resize:vertical; min-height:70px;}
+.seg{display:flex; gap:8px; margin-top:6px; flex-wrap:wrap;}
+.seg button{flex:1; min-width:60px; padding:10px; border-radius:10px; border:1.5px solid var(--border); font-size:12.5px; font-weight:700; color:var(--text-muted); background:var(--card);}
+.seg button.active{border-color:var(--green); background:var(--green-tint); color:var(--green);}
+.progress-wrap{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-top:16px; box-shadow:var(--shadow); text-align:center;}
+.ring{width:112px; height:112px; margin:6px auto 0; position:relative;}
+.ring svg{transform:rotate(-90deg);}
+.ring-num{position:relative; margin-top:-90px; display:flex; flex-direction:column; align-items:center; justify-content:center;}
+.ring-num b{font-size:20px; color:var(--green); font-family:'Amiri',serif;}
+.bar-bg{height:8px; background:var(--green-tint); border-radius:20px; overflow:hidden; margin-top:8px;}
+.bar-fill{height:100%; background:linear-gradient(90deg,var(--gold),var(--green)); border-radius:20px;}
+table{width:100%; border-collapse:collapse; font-size:11px; background:var(--card); border-radius:12px; overflow:hidden; margin-top:10px; box-shadow:var(--shadow);}
+thead tr{background:var(--green-dark); color:#fff;}
+th,td{padding:8px 5px; text-align:center;}
+tbody tr:nth-child(even){background:var(--green-tint);}
+tbody tr{border-bottom:1px solid var(--border);}
+.tabs{display:flex; gap:4px; margin-top:16px; border-bottom:1.5px solid var(--border); overflow-x:auto;}
+.tab{padding:10px 6px; font-size:12px; font-weight:700; color:var(--text-muted); flex:1; text-align:center; border-bottom:2.5px solid transparent; white-space:nowrap;}
+.tab.active{color:var(--green); border-color:var(--gold);}
+.subheader{display:flex; align-items:center; gap:11px; padding:15px 16px; background:var(--card); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:15;}
+.back-btn{width:32px; height:32px; border-radius:50%; background:var(--green-tint); color:var(--green); display:flex; align-items:center; justify-content:center;}
+.subheader h1{font-size:15px; font-weight:700;}
+.bottomnav{position:fixed; bottom:0; right:0; left:0; background:var(--card); border-top:1px solid var(--border); display:flex; z-index:30; padding:7px 4px calc(7px + env(safe-area-inset-bottom));}
+.navitem{flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:6px 2px; color:var(--text-muted); font-size:10px; font-weight:700;}
+.navitem.active{color:var(--green);}
+.alert{border-radius:12px; padding:11px 13px; font-size:12.5px; margin-top:12px; display:flex; gap:9px; align-items:center; font-weight:700;}
+.alert.success{background:#E6F2EA; color:#1B5A40;}
+.alert.error{background:#FBEAEA; color:#B23A3A;}
+.login-wrap{min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:36px 24px; text-align:center; position:relative; overflow:hidden; background:radial-gradient(circle at 50% -10%, #24704F 0%, var(--green-dark) 55%, #0A2B1E 100%);}
+.emblem{width:96px; height:96px; border-radius:50%; position:relative; margin:0 auto 18px; z-index:1;}
+.emblem-ring{position:absolute; inset:0; border-radius:50%; border:1px solid rgba(216,196,143,0.5);}
+.emblem-inner{position:absolute; inset:9px; border-radius:50%; background:linear-gradient(155deg,var(--gold-light),var(--gold)); display:flex; align-items:center; justify-content:center; color:#fff; box-shadow:0 10px 26px -6px rgba(0,0,0,0.4);}
+.login-title{color:#fff; font-family:'Amiri',serif; font-weight:700; font-size:27px; position:relative; z-index:1;}
+.login-sub{color:rgba(255,255,255,0.72); font-size:12px; margin-top:6px; position:relative; z-index:1;}
+.login-card{background:var(--card); width:100%; max-width:380px; border-radius:20px; margin-top:32px; padding:24px 20px; box-shadow:0 20px 44px -12px rgba(0,0,0,0.35); text-align:right; position:relative; z-index:1;}
+.mode-switch{display:flex; gap:6px; background:var(--green-tint); border-radius:12px; padding:4px; margin-bottom:16px;}
+.mode-switch button{flex:1; padding:9px; border-radius:9px; font-size:12.5px; font-weight:700; color:var(--text-muted);}
+.mode-switch button.active{background:var(--card); color:var(--green); box-shadow:var(--shadow);}
+.hint{font-size:10.5px; color:rgba(255,255,255,0.55); text-align:center; margin-top:20px; max-width:320px; line-height:1.6; position:relative; z-index:1;}
+.level-card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:15px; margin-top:10px; box-shadow:var(--shadow);}
+.level-head{display:flex; align-items:center; justify-content:space-between;}
+.level-name{font-weight:700; font-size:13.5px;}
+.level-text{font-size:12px; color:var(--text-muted); line-height:1.9; margin-top:8px;}
+.empty{text-align:center; padding:34px 10px; color:var(--text-muted); font-size:13px;}
+.empty .e-icon{display:flex; justify-content:center; margin-bottom:10px; color:var(--text-muted); opacity:.6;}
+.spin{width:26px; height:26px; border:3px solid var(--green-tint); border-top-color:var(--green); border-radius:50%; margin:40px auto; animation:sp 0.8s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app"><div class="spin"></div></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+import {
+  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where,
+  addDoc, serverTimestamp, arrayUnion, arrayRemove
+} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBv-w8ZPNPLdTHcini7fi8klfhM4UmFwpk",
+  authDomain: "alhoffaz-ac5c9.firebaseapp.com",
+  projectId: "alhoffaz-ac5c9",
+  storageBucket: "alhoffaz-ac5c9.firebasestorage.app",
+  messagingSenderId: "872063935706",
+  appId: "1:872063935706:web:49a8bef2a42955c22bf1e3",
+};
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+
+/* ================= Icons ================= */
+const ICONS = {
+  home:'<path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v10.5h13V9"/><path d="M9.5 19.5v-6h5v6"/>',
+  building:'<rect x="4.5" y="3.5" width="15" height="17" rx="1.2"/><path d="M9.5 20.5v-4.2h5v4.2"/><path d="M8 7.5h1.4M14.6 7.5H16M8 11.5h1.4M14.6 11.5H16"/>',
+  cap:'<path d="M12 4 2.5 9 12 14l9.5-5L12 4Z"/><path d="M6.5 11.3V16c0 1.7 2.9 3.2 5.5 3.2s5.5-1.5 5.5-3.2v-4.7"/><path d="M21.5 9v6.2"/>',
+  book:'<path d="M12 7c-2.2-1.7-5.3-2.2-8.5-1.7v13.4c3.2-.5 6.3 0 8.5 1.7 2.2-1.7 5.3-2.2 8.5-1.7V5.3c-3.2-.5-6.3 0-8.5 1.7Z"/><path d="M12 7v13.4"/>',
+  chart:'<path d="M4.5 20V11"/><path d="M12 20V4.5"/><path d="M19.5 20v-8"/>',
+  user:'<circle cx="12" cy="8.3" r="3.6"/><path d="M4.8 20c1.5-4.2 4.1-6 7.2-6s5.7 1.8 7.2 6"/>',
+  bell:'<path d="M6.2 9.3a5.8 5.8 0 0 1 11.6 0c0 4.8 1.9 5.9 1.9 5.9H4.3s1.9-1.1 1.9-5.9Z"/><path d="M9.7 18.7a2.3 2.3 0 0 0 4.6 0"/>',
+  power:'<path d="M12 3.5v8.5"/><path d="M6.7 6.7a7.2 7.2 0 1 0 10.6 0"/>',
+  crown:'<path d="M4.5 17.5h15l-1.6-8.3-4.3 3.3-2.6-5.3-2.6 5.3-4.3-3.3-1.6 8.3Z"/><path d="M4.5 20h15"/>',
+  briefcase:'<rect x="3.2" y="7.2" width="17.6" height="12" rx="1.6"/><path d="M8.3 7.2V5.6a1.6 1.6 0 0 1 1.6-1.6h4.2a1.6 1.6 0 0 1 1.6 1.6v1.6"/><path d="M3.2 12.4h17.6"/>',
+  search:'<circle cx="10.8" cy="10.8" r="6.6"/><path d="M20.5 20.5l-5-5"/>',
+  plus:'<path d="M12 5v14"/><path d="M5 12h14"/>',
+  check:'<circle cx="12" cy="12" r="9.2"/><path d="M8 12.3l2.6 2.6 5.4-5.8"/>',
+  chevronL:'<path d="M14 6.5l-6 5.5 6 5.5"/>',
+  chevronR:'<path d="M10 6.5l6 5.5-6 5.5"/>',
+  idcard:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="11" r="2"/><path d="M6 16c.5-1.5 1.8-2.2 2.5-2.2s2 .7 2.5 2.2"/><path d="M14 10h4M14 13h4"/>',
+  target:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.3"/><circle cx="12" cy="12" r="1"/>',
+  list:'<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.2" cy="6" r="1"/><circle cx="4.2" cy="12" r="1"/><circle cx="4.2" cy="18" r="1"/>',
+  star:'<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.8l-5.2 2.9 1-5.9-4.3-4.1 5.9-.8L12 3.5Z"/>',
+  trend:'<path d="M4 16l5-5 4 4 7-8"/><path d="M15 7h5v5"/>',
+  wallet:'<rect x="3" y="6" width="18" height="13" rx="1.6"/><path d="M3 10h18"/><circle cx="16.5" cy="14" r="1"/>',
+  checksq:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 12.3l2.5 2.5 5-5.6"/>',
+  eye:'<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.7"/>',
+};
+function icon(name, size=20, sw=1.7){ return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||''}</svg>`; }
+
+/* ================= Static content (unchanged) ================= */
+const PLANS = {
+  hifz:{title:'خطة الحفظ', icon:'book', levels:[
+      {name:'المستوى الأول', text:'حفظ جديد لا يتجاوز ربع حزب يوميًا، مع مراجعة يومية للورد السابق مباشرة، ومراجعة أسبوعية جماعية لكل ما تم حفظه خلال الأسبوع أمام المشرف.'},
+      {name:'المستوى الثاني', text:'حفظ جديد نصف حزب يوميًا، مع مراجعة يومية لخمسة أجزاء سابقة بالتناوب، وتسميع فردي أسبوعي لتثبيت الحفظ ومتابعة الأخطاء.'},
+      {name:'المستوى الثالث', text:'حفظ جديد حزب كامل يوميًا للطلاب المتقدمين، مع مراجعة يومية لعشر أجزاء سابقة بالتناوب، واختبار شامل شهري لقياس الإتقان.'}]},
+  tajweed:{title:'خطة التجويد', icon:'checksq', levels:[
+      {name:'المستوى الأول', text:'أحكام النون الساكنة والتنوين (الإظهار، الإدغام، الإقلاب، الإخفاء) وأحكام الميم الساكنة، مع تطبيق عملي أسبوعي على آيات مختارة.'},
+      {name:'المستوى الثاني', text:'أحكام المدود الطبيعي والفرعي، وصفات الحروف الأساسية، وتصحيح مخارج الحروف من خلال تسميع فردي مباشر مع المشرف.'},
+      {name:'المستوى الثالث', text:'أحكام الوقف والابتداء، وتطبيق التجويد على أجزاء كاملة من القرآن، تمهيدًا لتأهيل الطالب للسند برواية حفص عن عاصم.'}]},
+  review:{title:'خطة المراجعة', icon:'trend', levels:[]},
+  ijaza:{title:'السند والإجازة', icon:'idcard', levels:[]},
+};
+const POINT_RULES = [
+  {label:'المواعيد', items:[['حضور','7'],['تأخير','3'],['غياب','0']]},
+  {label:'الحفظ (الورد)', items:[['بدون أخطاء','6'],['خطأ واحد','4'],['خطآن','2']]},
+  {label:'المراجعة', items:[['بدون أخطاء','3'],['خطأ واحد','2'],['خطآن','1']]},
+  {label:'السرد', items:[['بدون أخطاء','5'],['خطأ واحد','3'],['خطآن','2']]},
+];
+
+/* ================= App state & cache ================= */
+let state = { role:null, personEmail:null, personName:null, view:'login', params:{}, loginMode:'signin' };
+let cache = { branches:[], students:[], supervisors:[], details:{} };
+function gradeToPct(g){ return {'ممتاز':100,'جيد جدًا':85,'جيد':70,'مقبول':55}[g] ?? 70; }
+function studentCycle(hifzLog){
+  const log = [...hifzLog].sort((a,b)=>a.date.localeCompare(b.date));
+  const evals = [];
+  for(let i=0; i+4<=log.length; i+=4){
+    const group = log.slice(i,i+4);
+    const avg = Math.round(group.reduce((sum,e)=>sum+gradeToPct(e.grade),0)/4);
+    evals.push({date:group[3].date, pct:avg});
+  }
+  return { evals, inProgress: log.length % 4 };
+}
+function monthlyFromEvals(evals){ const m = todayStr().slice(0,7); const inMonth = evals.filter(e=>e.date.startsWith(m)); if(!inMonth.length) return null; return Math.round(inMonth.reduce((a,e)=>a+e.pct,0)/inMonth.length); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function initials(name){ return (name||'؟').trim().split(' ')[0][0]; }
+function getBranch(id){ return cache.branches.find(b=>b.id===id) || {name:'—'}; }
+function findStudent(id){ return cache.students.find(s=>s.id===id); }
+function mapAuthError(e){
+  const map = {'auth/wrong-password':'كلمة المرور غير صحيحة','auth/user-not-found':'لا يوجد حساب بهذا البريد','auth/invalid-email':'صيغة البريد غير صحيحة','auth/email-already-in-use':'هذا البريد مُفعّل مسبقًا، سجّل الدخول مباشرة','auth/weak-password':'كلمة المرور ضعيفة جدًا','auth/invalid-credential':'البريد أو كلمة المرور غير صحيحة','auth/too-many-requests':'محاولات كثيرة، حاول لاحقًا'};
+  return map[e.code] || e.message;
+}
+
+/* ================= Data loading ================= */
+async function loadBranches(){ const snap = await getDocs(collection(db,'branches')); cache.branches = snap.docs.map(d=>({id:d.id,...d.data()})); }
+async function loadStudentsForRole(){
+  if(state.role==='admin'){
+    const snap = await getDocs(collection(db,'students')); cache.students = snap.docs.map(d=>({id:d.id,...d.data()}));
+  } else if(state.role==='supervisor'){
+    const bids = state.branchIds && state.branchIds.length ? state.branchIds : ['__none__'];
+    const snap = await getDocs(query(collection(db,'students'), where('branchId','in', bids.slice(0,30))));
+    cache.students = snap.docs.map(d=>({id:d.id,...d.data()}));
+  } else { cache.students = []; }
+}
+async function loadSupervisors(){ const snap = await getDocs(query(collection(db,'people'), where('role','==','supervisor'))); cache.supervisors = snap.docs.map(d=>({id:d.id,...d.data()})); }
+async function ensureStudentDetail(sid, force){
+  if(cache.details[sid] && !force) return cache.details[sid];
+  const subs = ['hifzLog','reviewLog','attendance','tajweedAtt','payments'];
+  const out = {};
+  for(const sub of subs){
+    const snap = await getDocs(collection(db,'students',sid,sub));
+    out[sub] = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+  }
+  cache.details[sid] = out;
+  return out;
+}
+
+/* ================= Auth ================= */
+onAuthStateChanged(auth, async (user)=>{
+  if(user){
+    const email = user.email.toLowerCase();
+    const pdoc = await getDoc(doc(db,'people',email));
+    if(!pdoc.exists()){
+      state = {role:null, personEmail:null, personName:null, view:'login', params:{}, loginMode:'signin'};
+      renderLoginError('لا يوجد حساب مُعرَّف لهذا البريد داخل النظام. تواصل مع مدير النظام.');
+      await signOut(auth);
+      return;
+    }
+    const p = pdoc.data();
+    state.role = p.role; state.personEmail = email; state.personName = p.name || email;
+    state.branchIds = p.branchIds || []; state.studentId = p.studentId || null;
+    await loadBranches();
+    if(state.role==='student'){ cache.students = [ (await getDoc(doc(db,'students',state.studentId))).exists() ? {id:state.studentId, ...(await getDoc(doc(db,'students',state.studentId))).data()} : null ].filter(Boolean); }
+    else { await loadStudentsForRole(); }
+    goto(state.role==='admin'?'adminHome': state.role==='supervisor'?'supervisorHome':'studentHome');
+  } else {
+    state = {role:null, personEmail:null, personName:null, view:'login', params:{}, loginMode:'signin'};
+    render();
+  }
+});
+
+async function doSignIn(){
+  const email = document.getElementById('li-email').value.trim().toLowerCase();
+  const pw = document.getElementById('li-pass').value;
+  const btn = document.getElementById('li-btn'); btn.disabled=true;
+  try{ await signInWithEmailAndPassword(auth, email, pw); }
+  catch(e){ renderLoginError(mapAuthError(e)); btn.disabled=false; }
+}
+async function doActivate(){
+  const email = document.getElementById('ac-email').value.trim().toLowerCase();
+  const name = document.getElementById('ac-name').value.trim();
+  const pw = document.getElementById('ac-pass').value;
+  const pw2 = document.getElementById('ac-pass2').value;
+  if(!email || !name){ renderLoginError('عبّي كل الحقول'); return; }
+  if(pw.length<6){ renderLoginError('كلمة المرور 6 أحرف على الأقل'); return; }
+  if(pw!==pw2){ renderLoginError('كلمتا المرور غير متطابقتين'); return; }
+  const btn = document.getElementById('ac-btn'); btn.disabled=true;
+  try{
+    const pref = doc(db,'people',email);
+    const pdoc = await getDoc(pref);
+    if(!pdoc.exists()){ renderLoginError('هذا البريد غير مُضاف من قِبل مدير النظام بعد'); btn.disabled=false; return; }
+    if(pdoc.data().uid){ renderLoginError('هذا الحساب مُفعّل مسبقًا، سجّل الدخول مباشرة'); btn.disabled=false; return; }
+    const cred = await createUserWithEmailAndPassword(auth, email, pw);
+    await updateDoc(pref, { uid: cred.user.uid, name });
+  }catch(e){ renderLoginError(mapAuthError(e)); btn.disabled=false; }
+}
+function logout(){ signOut(auth); }
+function setLoginMode(m){ state.loginMode=m; render(); }
+function renderLoginError(msg){
+  const el = document.getElementById('login-alert');
+  if(el) el.innerHTML = `<div class="alert error">${icon('check',15)} ${msg}</div>`;
+  else { const app=document.getElementById('app'); if(state.view!=='login'){ app.innerHTML = renderLogin(); } setTimeout(()=>renderLoginError(msg),0); }
+}
+
+/* ================= Renderers ================= */
+async function render(){
+  const app = document.getElementById('app');
+  if(state.view==='login'){ app.innerHTML = renderLogin(); return; }
+  app.innerHTML = renderTopbar() + `<div class="page"><div class="spin"></div></div>` + renderBottomNav();
+  const html = await renderView();
+  app.innerHTML = renderTopbar() + `<div class="page">${html}</div>` + renderBottomNav();
+}
+function goto(view, params={}){ state.view=view; state.params=params; render(); window.scrollTo(0,0); }
+
+function renderLogin(){
+  const signinMode = state.loginMode!=='activate';
+  return `
+  <div class="login-wrap">
+    <div class="emblem"><div class="emblem-ring"></div><div class="emblem-inner">${icon('book',34,1.4)}</div></div>
+    <div class="login-title">شعبة الحفاظ</div>
+    <div class="login-sub">نظام إدارة ومتابعة حلقات تحفيظ القرآن الكريم</div>
+    <div class="login-card">
+      <div class="mode-switch">
+        <button class="${signinMode?'active':''}" onclick="window.setLoginMode('signin')">تسجيل الدخول</button>
+        <button class="${!signinMode?'active':''}" onclick="window.setLoginMode('activate')">تفعيل حساب لأول مرة</button>
+      </div>
+      ${signinMode ? `
+        <div class="field"><label>البريد الإلكتروني</label><input id="li-email" type="email" placeholder="example@gmail.com"></div>
+        <div class="field"><label>كلمة المرور</label><input id="li-pass" type="password" placeholder="••••••••"></div>
+        <button id="li-btn" class="btn btn-primary" style="margin-top:18px" onclick="window.doSignIn()">تسجيل الدخول</button>
+      ` : `
+        <div class="field"><label>البريد الإلكتروني (اللي أضافه مدير النظام)</label><input id="ac-email" type="email"></div>
+        <div class="field"><label>الاسم الكامل</label><input id="ac-name" type="text"></div>
+        <div class="field"><label>كلمة مرور جديدة</label><input id="ac-pass" type="password"></div>
+        <div class="field"><label>تأكيد كلمة المرور</label><input id="ac-pass2" type="password"></div>
+        <button id="ac-btn" class="btn btn-primary" style="margin-top:18px" onclick="window.doActivate()">تفعيل الحساب</button>
+      `}
+      <div id="login-alert"></div>
+    </div>
+    <div class="hint">لتفعيل حساب، لازم يكون بريدك مُضافًا مسبقًا من قِبل مدير النظام</div>
+  </div>`;
+}
+function roleLabel(){ return state.personName; }
+function renderTopbar(){
+  let sub = state.role==='admin'?'لوحة المدير': state.role==='supervisor'?'لوحة المشرف':'لوحتي';
+  return `
+  <div class="topbar">
+    <div class="topbar-row">
+      <div class="brand"><div class="logo-circle">${icon('book',19,1.6)}</div>
+        <div><div class="brand-name">شعبة الحفاظ</div><div class="brand-sub">${sub}</div></div></div>
+      <div class="topbar-actions">
+        <div class="icon-btn" onclick="alert('لا توجد إشعارات جديدة')">${icon('bell',16)}</div>
+        <div class="icon-btn" onclick="window.logout()">${icon('power',16)}</div>
+      </div>
+    </div>
+    <div class="greeting">السلام عليكم، <b>${roleLabel()}</b></div>
+    <div class="greeting-rule"></div>
+  </div>`;
+}
+function subheader(title, back){ return `<div class="subheader"><div class="back-btn" onclick="window.goto('${back}')">${icon('chevronR',16)}</div><h1>${title}</h1></div>`; }
+function renderBottomNav(){
+  let items=[];
+  if(state.role==='admin') items=[['adminHome','home','الرئيسية'],['adminBranches','building','الشعب'],['adminDirectory','idcard','الطلاب'],['adminPoints','star','النقاط'],['accountAdmin','user','حسابي']];
+  if(state.role==='supervisor') items=[['supervisorHome','home','شعبتي'],['accountSup','user','حسابي']];
+  if(state.role==='student') items=[['studentHome','home','ملفي'],['accountStd','user','حسابي']];
+  const activeRoot = {branchDetail:'adminBranches'}[state.view] || state.view;
+  return `<div class="bottomnav">${items.map(([v,ic,label])=>`
+    <div class="navitem ${activeRoot===v?'active':''}" onclick="window.goto('${v}')"><div>${icon(ic,20,1.6)}</div><div>${label}</div></div>`).join('')}</div>`;
+}
+
+/* ---------- Router ---------- */
+async function renderView(){
+  switch(state.view){
+    case 'adminHome': return adminHome();
+    case 'adminBranches': return adminBranches();
+    case 'branchDetail': return branchDetail();
+    case 'adminDirectory': return directory();
+    case 'addStudentForm': return addStudentForm();
+    case 'plansHome': return plansHome();
+    case 'planDetail': return planDetail();
+    case 'achievementsHome': return await achievementsHome();
+    case 'adminPoints': return pointsHome();
+    case 'studentProfile': return await studentProfileView(true);
+    case 'wirdForm': return wirdForm();
+    case 'accountAdmin': return await accountView();
+    case 'inviteForm': return inviteForm();
+    case 'supervisorPermissions': return supervisorPermissions();
+    case 'supervisorHome': return supervisorHome();
+    case 'accountSup': return await accountView();
+    case 'studentHome': return await studentProfileView(false);
+    case 'accountStd': return await accountView();
+    default: return `<div class="empty">الصفحة غير موجودة</div>`;
+  }
+}
+
+function adminHome(){
+  return `
+  <div class="vision-card">
+    <div class="vision-title"><span class="vi">${icon('eye',15)}</span>الرؤية</div>
+    <div class="vision-text">أن نكون منارة رائدة في تحفيظ كتاب الله عز وجل، ونُخرّج جيلًا حافظًا متقنًا لكتابه، متمثلًا لأخلاقه في حياته اليومية.</div>
+    <div class="vision-divider"></div>
+    <div class="vision-title"><span class="vi">${icon('target',15)}</span>الأهداف</div>
+    <div class="vision-text">تحفيظ القرآن الكريم كاملًا بإتقان · تعليم أحكام التجويد تطبيقيًا · غرس حب القرآن وتعليم أخلاقه · متابعة مستمرة ودقيقة لتقدم كل طالب</div>
+  </div>
+  <div class="section-title"><span class="bar"></span>الأقسام الرئيسية</div>
+  <div class="khana-grid">
+    <div class="khana" onclick="window.goto('adminDirectory')"><div class="khana-icon">${icon('idcard',21)}</div><div class="khana-label">الملف التعريفي</div><div class="khana-sub">كل الطلاب وبياناتهم</div></div>
+    <div class="khana" onclick="window.goto('plansHome')"><div class="khana-icon">${icon('list',21)}</div><div class="khana-label">الخطط</div><div class="khana-sub">الحفظ والتجويد والمراجعة</div></div>
+    <div class="khana" onclick="window.goto('adminBranches')"><div class="khana-icon">${icon('building',21)}</div><div class="khana-label">الشعب</div><div class="khana-sub">${cache.branches.length} شعب</div></div>
+    <div class="khana" onclick="window.goto('achievementsHome')"><div class="khana-icon">${icon('trend',21)}</div><div class="khana-label">الإنجازات</div><div class="khana-sub">تقارير أسبوعية وشهرية</div></div>
+    <div class="khana" onclick="window.goto('adminPoints')" style="grid-column:1/3"><div class="khana-icon">${icon('star',21)}</div><div class="khana-label">النقاط</div><div class="khana-sub">نظام التحفيز والمنافسة</div></div>
+  </div>
+  <div class="section-title"><span class="bar"></span>نظرة سريعة</div>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-icon">${icon('user',17)}</div><div class="stat-num">${cache.students.length}</div><div class="stat-label">إجمالي الطلاب</div></div>
+    <div class="stat-card"><div class="stat-icon">${icon('building',17)}</div><div class="stat-num">${cache.branches.length}</div><div class="stat-label">الشعب</div></div>
+  </div>`;
+}
+
+function directory(){
+  return subheader('الملف التعريفي','adminHome') + `
+  <div class="search-box">${icon('search',15)}<input placeholder="ابحث باسم الطالب..." oninput="window.filterDirectory(this.value)"></div>
+  <div class="section-title" style="margin-top:14px"><span class="bar"></span>جميع الطلاب (${cache.students.length})</div>
+  <div class="list" id="dir-list">${directoryRows(cache.students)}</div>`
+  + `<div class="fab" onclick="window.goto('addStudentForm')">${icon('plus',22)}</div>`;
+}
+function directoryRows(list){
+  if(!list.length) return `<div class="empty"><div class="e-icon">${icon('search',26)}</div>لا توجد نتائج</div>`;
+  return list.map(s=>`
+    <div class="row" onclick="window.goto('studentProfile',{id:'${s.id}',from:'adminDirectory'})">
+      <div class="row-left"><div class="avatar">${initials(s.name)}</div><div class="row-title">${s.name}</div></div>
+      <div class="chevron">${icon('chevronL',14)}</div>
+    </div>`).join('');
+}
+function filterDirectory(q){ document.getElementById('dir-list').innerHTML = directoryRows(cache.students.filter(s=>s.name.includes(q))); }
+
+function addStudentForm(){
+  const opts = cache.branches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
+  return subheader('إضافة طالب جديد','adminDirectory') + `
+  <div class="field"><label>الاسم</label><input id="as-name"></div>
+  <div class="field"><label>الشعبة</label><select id="as-branch">${opts}</select></div>
+  <div class="field"><label>العمر</label><input id="as-age" type="number"></div>
+  <div class="field"><label>رقم التواصل</label><input id="as-phone"></div>
+  <div class="field"><label>تاريخ الميلاد</label><input id="as-bd" type="date"></div>
+  <div class="field"><label>مقدار الحفظ</label><input id="as-hifz" placeholder="مثال: 5 أجزاء"></div>
+  <div class="field"><label>المستوى التجويدي</label><input id="as-tajweed" placeholder="مثال: المستوى الأول"></div>
+  <div class="field"><label>ملاحظات</label><textarea id="as-notes"></textarea></div>
+  <button class="btn btn-primary" style="margin-top:18px" onclick="window.submitAddStudent()">إضافة الطالب</button>
+  <div id="as-alert"></div>`;
+}
+async function submitAddStudent(){
+  const name = document.getElementById('as-name').value.trim();
+  if(!name){ alert('اكتب اسم الطالب'); return; }
+  const data = {
+    name, branchId: document.getElementById('as-branch').value,
+    age: Number(document.getElementById('as-age').value)||null,
+    phone: document.getElementById('as-phone').value,
+    birthDate: document.getElementById('as-bd').value,
+    hifzAmount: document.getElementById('as-hifz').value,
+    tajweedLevel: document.getElementById('as-tajweed').value,
+    notes: document.getElementById('as-notes').value,
+    points:0, createdAt: serverTimestamp()
+  };
+  await addDoc(collection(db,'students'), data);
+  await loadStudentsForRole();
+  document.getElementById('as-alert').innerHTML = `<div class="alert success">${icon('check',16)} تمت إضافة الطالب</div>`;
+  setTimeout(()=>goto('adminDirectory'), 700);
+}
+
+function plansHome(){
+  const keys = Object.keys(PLANS);
+  return subheader('الخطط','adminHome') + `
+  <div class="khana-grid">
+    ${keys.map(k=>`<div class="khana" onclick="window.goto('planDetail',{key:'${k}'})"><div class="khana-icon">${icon(PLANS[k].icon,21)}</div><div class="khana-label">${PLANS[k].title}</div><div class="khana-sub">${PLANS[k].levels.length? PLANS[k].levels.length+' مستويات':'لم تُحدَّد بعد'}</div></div>`).join('')}
+  </div>`;
+}
+function planDetail(){
+  const p = PLANS[state.params.key];
+  if(!p.levels.length) return subheader(p.title,'plansHome') + `<div class="empty"><div class="e-icon">${icon(p.icon,30)}</div>لم تتم إضافة محتوى ${p.title} بعد</div>`;
+  return subheader(p.title,'plansHome') + p.levels.map((l,i)=>`<div class="level-card"><div class="level-head"><div class="level-name">${l.name}</div><span class="badge gold">مستوى ${i+1}</span></div><div class="level-text">${l.text}</div></div>`).join('');
+}
+
+function adminBranches(){
+  return subheader('الشعب','adminHome') + `
+  <div class="section-title" style="margin-top:0"><span class="bar"></span>جميع الشعب (${cache.branches.length})</div>
+  <div class="list">
+    ${cache.branches.map(b=>`
+      <div class="row" onclick="window.goto('branchDetail',{id:'${b.id}'})">
+        <div class="row-left"><div class="avatar">${icon('building',16)}</div><div class="row-title">شعبة ${b.name}</div></div>
+        <div style="display:flex; align-items:center; gap:8px"><span class="badge gold">${cache.students.filter(s=>s.branchId===b.id).length} طالب</span><div class="chevron">${icon('chevronL',14)}</div></div>
+      </div>`).join('')}
+  </div>` + `<div class="fab" onclick="window.quickAddBranch()">${icon('plus',22)}</div>`;
+}
+async function quickAddBranch(){
+  const name = prompt('اسم الشعبة الجديدة:');
+  if(!name) return;
+  await addDoc(collection(db,'branches'), {name});
+  await loadBranches();
+  goto('adminBranches');
+}
+function branchDetail(){
+  const b = getBranch(state.params.id);
+  const students = cache.students.filter(s=>s.branchId===state.params.id);
+  return subheader('شعبة '+b.name, state.role==='admin'?'adminBranches':'supervisorHome') + `
+  <div class="stat-card" style="margin-top:16px; text-align:center"><div class="stat-num">${students.length}</div><div class="stat-label">عدد الطلاب</div></div>
+  <div class="section-title"><span class="bar"></span>طلاب الشعبة</div>
+  <div class="list">${branchStudentRows(students)}</div>`;
+}
+function branchStudentRows(list){
+  if(!list.length) return `<div class="empty"><div class="e-icon">${icon('cap',26)}</div>لا يوجد طلاب في هذه الشعبة بعد</div>`;
+  return list.map(s=>`
+    <div class="row" onclick="window.goto('studentProfile',{id:'${s.id}',from:'adminBranches'})">
+      <div class="row-left"><div class="avatar">${initials(s.name)}</div><div><div class="row-title">${s.name}</div><div class="row-sub">${s.hifzAmount||'—'} · ${s.tajweedLevel||'—'}</div></div></div>
+      <div class="chevron">${icon('chevronL',14)}</div>
+    </div>`).join('');
+}
+
+async function studentProfileView(canEdit){
+  const s = findStudent(state.params.id || state.studentId);
+  if(!s) return `<div class="empty">تعذّر إيجاد بيانات الطالب</div>`;
+  const tab = state.params.tab || 'data';
+  const from = state.params.from || 'adminDirectory';
+  const backTarget = state.role==='admin'? from : (state.role==='student'?'studentHome':'supervisorHome');
+  const tabs = [['data','البيانات'],['hifz','الحفظ'],['attendance','المواعيد'],['tajweed','التجويد'],['pay','الدفع']];
+  let body = `<div style="display:flex; flex-direction:column; align-items:center; margin-top:6px">
+    <div class="avatar" style="width:64px;height:64px;font-size:20px">${initials(s.name)}</div>
+    <div style="font-weight:700; margin-top:9px">${s.name}</div>
+    <div class="row-sub">شعبة ${getBranch(s.branchId).name}</div>
+  </div>
+  <div class="tabs">${tabs.map(([k,l])=>`<div class="tab ${tab===k?'active':''}" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'${k}',from:'${from}'})">${l}</div>`).join('')}</div>`;
+
+  if(tab==='data'){
+    body += `<div class="list" style="margin-top:16px">
+      <div class="row"><span class="row-sub">العمر</span><span class="row-title">${s.age||'—'} سنة</span></div>
+      <div class="row"><span class="row-sub">رقم التواصل</span><span class="row-title">${s.phone||'—'}</span></div>
+      <div class="row"><span class="row-sub">تاريخ الميلاد</span><span class="row-title">${s.birthDate||'—'}</span></div>
+      <div class="row"><span class="row-sub">مقدار الحفظ</span><span class="row-title">${s.hifzAmount||'—'}</span></div>
+      <div class="row"><span class="row-sub">المستوى التجويدي</span><span class="row-title">${s.tajweedLevel||'—'}</span></div>
+      <div class="row"><span class="row-sub">النقاط</span><span class="row-title">${s.points||0}</span></div>
+    </div>${s.notes? `<div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} ${s.notes}</div>`:''}`;
+  } else {
+    const det = await ensureStudentDetail(s.id);
+    if(tab==='hifz'){
+      const cyc = studentCycle(det.hifzLog);
+      const latest = cyc.evals.length? cyc.evals[cyc.evals.length-1] : null;
+      const monthly = monthlyFromEvals(cyc.evals);
+      body += `<div class="progress-wrap">
+        ${latest? `<div class="ring">${ringSvg(latest.pct)}</div><div class="row-sub" style="margin-top:-4px">آخر تقييم أسبوعي</div>` : `<div class="row-sub">لم تكتمل أول دورة تسميع بعد (٤ جلسات)</div>`}
+        <div class="bar-bg" style="margin-top:14px"><div class="bar-fill" style="width:${cyc.inProgress/4*100}%"></div></div>
+        <div class="row-sub" style="margin-top:6px">${cyc.inProgress} من 4 جلسات ضمن الدورة الحالية</div>
+        <div class="vision-divider" style="background:var(--border); margin:14px 0"></div>
+        <div class="row-title" style="font-size:13px">التقييم الشهري</div>
+        <div class="row-sub">${monthly!==null? monthly+'%':'لا يوجد تقييم مكتمل هذا الشهر بعد'}</div>
+      </div>
+      <div class="section-title"><span class="bar"></span>ورد الحفظ</div>
+      <table><thead><tr><th>التاريخ</th><th>من</th><th>إلى</th><th>أخطاء</th><th>التقدير</th><th>المشرف</th></tr></thead>
+      <tbody>${det.hifzLog.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${r.from}</td><td>${r.to}</td><td>${r.errors}</td><td>${r.grade}</td><td>${r.recordedBy||'—'}</td></tr>`).join('')||`<tr><td colspan="6">لا يوجد سجل</td></tr>`}</tbody></table>
+      <div class="section-title"><span class="bar"></span>ورد المراجعة</div>
+      <table><thead><tr><th>التاريخ</th><th>من</th><th>إلى</th><th>أخطاء</th><th>التقدير</th><th>المشرف</th></tr></thead>
+      <tbody>${det.reviewLog.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${r.from}</td><td>${r.to}</td><td>${r.errors}</td><td>${r.grade}</td><td>${r.recordedBy||'—'}</td></tr>`).join('')||`<tr><td colspan="6">لا يوجد سجل</td></tr>`}</tbody></table>
+      ${canEdit? `<button class="btn btn-primary" style="margin-top:16px" onclick="window.goto('wirdForm',{id:'${s.id}',from:'${from}'})">${icon('plus',16)} تسجيل ورد جديد</button>`:''}`;
+    }
+    if(tab==='attendance'){
+      body += `<div class="section-title" style="margin-top:16px"><span class="bar"></span>سجل المواعيد (سبتي)</div>
+      <table><thead><tr><th>التاريخ</th><th>الحالة</th></tr></thead>
+      <tbody>${det.attendance.map(r=>`<tr><td>${r.date}</td><td><span class="badge ${r.status==='حضور'?'green':r.status==='تأخر'?'gold':'red'}">${r.status}</span></td></tr>`).join('')||`<tr><td colspan="2">لا يوجد سجل</td></tr>`}</tbody></table>
+      ${canEdit? `<div class="seg" style="margin-top:14px"><button onclick="window.recordAttendance('${s.id}','حضور','${from}')">حضور</button><button onclick="window.recordAttendance('${s.id}','تأخر','${from}')">تأخر</button><button onclick="window.recordAttendance('${s.id}','غياب','${from}')">غياب</button></div>`:''}`;
+    }
+    if(tab==='tajweed'){
+      body += `<div class="section-title" style="margin-top:16px"><span class="bar"></span>سجل حضور التجويد</div>
+      <table><thead><tr><th>التاريخ</th><th>الحالة</th></tr></thead>
+      <tbody>${det.tajweedAtt.map(r=>`<tr><td>${r.date}</td><td><span class="badge ${r.status==='حضور'?'green':'red'}">${r.status}</span></td></tr>`).join('')||`<tr><td colspan="2">لا يوجد سجل</td></tr>`}</tbody></table>
+      ${canEdit? `<div class="seg" style="margin-top:14px"><button onclick="window.recordTajweed('${s.id}','حضور','${from}')">حضور</button><button onclick="window.recordTajweed('${s.id}','غياب','${from}')">غياب</button></div>`:''}`;
+    }
+    if(tab==='pay'){
+      body += `<div class="section-title" style="margin-top:16px"><span class="bar"></span>سجل الدفع الشهري</div>
+      <div class="list">${det.payments.map(p=>`<div class="row"><span class="row-title">${p.month}</span><span class="badge ${p.status==='مدفوع'?'green':'red'}">${p.status}</span></div>`).join('')||`<div class="empty">لا يوجد سجل دفع بعد</div>`}</div>`;
+    }
+  }
+  return subheader(s.name, backTarget) + body;
+}
+function ringSvg(pct){
+  const r=42, c=2*Math.PI*r, off=c-(c*pct/100);
+  return `<svg width="112" height="112" viewBox="0 0 112 112"><circle cx="56" cy="56" r="${r}" stroke="var(--green-tint)" stroke-width="9" fill="none"/><circle cx="56" cy="56" r="${r}" stroke="var(--gold)" stroke-width="9" fill="none" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}"/></svg><div class="ring-num"><b>${pct}%</b></div>`;
+}
+
+function wirdForm(){
+  const s = findStudent(state.params.id);
+  const from = state.params.from || 'adminDirectory';
+  return `<div class="subheader"><div class="back-btn" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'hifz',from:'${from}'})">${icon('chevronR',16)}</div><h1>تسجيل ورد جديد</h1></div>` + `
+  <div class="list" style="padding:14px 14px 2px; margin-top:0"><div class="row-title">${s.name}</div><div class="row-sub">شعبة ${getBranch(s.branchId).name}</div></div>
+  <div class="field"><label>التاريخ</label><input type="date" id="wf-date" value="${todayStr()}"></div>
+  <div class="field"><label>السورة</label><input type="text" id="wf-surah" placeholder="مثال: البقرة"></div>
+  <div style="display:flex; gap:10px">
+    <div class="field" style="flex:1"><label>من الآية</label><input type="number" id="wf-from" placeholder="1"></div>
+    <div class="field" style="flex:1"><label>إلى الآية</label><input type="number" id="wf-to" placeholder="20"></div>
+  </div>
+  <div class="field"><label>عدد الأخطاء</label><div class="seg" id="wf-err"><button class="active" onclick="window.selectSeg('wf-err',this)">0</button><button onclick="window.selectSeg('wf-err',this)">1</button><button onclick="window.selectSeg('wf-err',this)">2</button><button onclick="window.selectSeg('wf-err',this)">3+</button></div></div>
+  <div class="field"><label>التقدير</label><div class="seg" id="wf-grade"><button class="active" onclick="window.selectSeg('wf-grade',this)">ممتاز</button><button onclick="window.selectSeg('wf-grade',this)">جيد جدًا</button><button onclick="window.selectSeg('wf-grade',this)">جيد</button><button onclick="window.selectSeg('wf-grade',this)">مقبول</button></div></div>
+  <button class="btn btn-primary" style="margin-top:18px" onclick="window.saveWird('${s.id}','${from}')">حفظ الورد</button>
+  <div id="wf-alert"></div>`;
+}
+function selectSeg(groupId, btn){ document.querySelectorAll('#'+groupId+' button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
+async function saveWird(sid, from){
+  const date = document.getElementById('wf-date').value || todayStr();
+  const surah = document.getElementById('wf-surah').value || '—';
+  const f = document.getElementById('wf-from').value || '1';
+  const t = document.getElementById('wf-to').value || '1';
+  const errors = document.querySelector('#wf-err .active').textContent;
+  const grade = document.querySelector('#wf-grade .active').textContent;
+  const recordedBy = state.personName;
+  await addDoc(collection(db,'students',sid,'hifzLog'), {date, from:surah+' '+f, to:surah+' '+t, errors, grade, recordedBy, recordedAt:serverTimestamp()});
+  await ensureStudentDetail(sid, true);
+  document.getElementById('wf-alert').innerHTML = `<div class="alert success">${icon('check',16)} تم تسجيل الورد باسم ${recordedBy}</div>`;
+  setTimeout(()=>goto('studentProfile',{id:sid,tab:'hifz',from}), 700);
+}
+async function recordAttendance(sid, status, from){
+  await addDoc(collection(db,'students',sid,'attendance'), {date:todayStr(), status, recordedBy:state.personName, recordedAt:serverTimestamp()});
+  await ensureStudentDetail(sid, true);
+  goto('studentProfile',{id:sid, tab:'attendance', from});
+}
+async function recordTajweed(sid, status, from){
+  await addDoc(collection(db,'students',sid,'tajweedAtt'), {date:todayStr(), status, recordedBy:state.personName, recordedAt:serverTimestamp()});
+  await ensureStudentDetail(sid, true);
+  goto('studentProfile',{id:sid, tab:'tajweed', from});
+}
+
+async function achievementsHome(){
+  let html = subheader('الإنجازات','adminHome');
+  for(const b of cache.branches){
+    const st = cache.students.filter(s=>s.branchId===b.id);
+    const rows = [];
+    const latestVals = [];
+    for(const s of st){
+      const det = await ensureStudentDetail(s.id);
+      const cyc = studentCycle(det.hifzLog);
+      const latest = cyc.evals.length? cyc.evals[cyc.evals.length-1].pct : null;
+      if(latest!==null) latestVals.push(latest);
+      rows.push(`<div class="row" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'hifz',from:'achievementsHome'})"><div class="row-title">${s.name}</div><span class="badge ${latest!==null?'green':'gray'}">${latest!==null? latest+'%':cyc.inProgress+'/4'}</span></div>`);
+    }
+    const wAvg = latestVals.length? Math.round(latestVals.reduce((a,v)=>a+v,0)/latestVals.length) : null;
+    html += `<div class="section-title"><span class="bar"></span>شعبة ${b.name}</div>
+      <div class="stat-card" style="margin-bottom:6px"><div class="stat-num">${wAvg!==null?wAvg+'%':'—'}</div><div class="stat-label">معدل آخر تقييم أسبوعي للشعبة</div></div>
+      <div class="list">${rows.join('') || `<div class="empty">لا يوجد طلاب</div>`}</div>`;
+  }
+  return html;
+}
+
+function pointsHome(){
+  const ranked = [...cache.students].sort((a,b)=>(b.points||0)-(a.points||0));
+  return subheader('النقاط','adminHome') + `
+  <div class="section-title" style="margin-top:0"><span class="bar"></span>آلية احتساب النقاط</div>
+  <div class="list">${POINT_RULES.map(r=>`<div class="row"><div class="row-title">${r.label}</div><div class="row-sub" style="text-align:left">${r.items.map(i=>i[0]+' '+i[1]).join(' · ')}</div></div>`).join('')}
+    <div class="row"><div class="row-title">أفضل طالب بالأسبوع</div><span class="badge gold">13+ نقطة إضافية</span></div></div>
+  <div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('star',15)} نظام النقاط للتحفيز والمنافسة، منفصل عن تقييم الورد التلقائي بالإنجازات</div>
+  <div class="section-title"><span class="bar"></span>الترتيب العام</div>
+  <div class="list">${ranked.map((s,i)=>`<div class="row" onclick="window.goto('studentProfile',{id:'${s.id}',from:'adminPoints'})"><div class="row-left"><div class="avatar" style="${i===0?'background:var(--gold-light);color:#fff':''}">${i+1}</div><div><div class="row-title">${s.name}</div><div class="row-sub">شعبة ${getBranch(s.branchId).name}</div></div></div><span class="badge gold">${s.points||0} نقطة</span></div>`).join('')||`<div class="empty">لا يوجد طلاب بعد</div>`}</div>`;
+}
+
+function supervisorHome(){
+  const myBranches = cache.branches.filter(b=>(state.branchIds||[]).includes(b.id));
+  if(!myBranches.length) return `<div class="empty"><div class="e-icon">${icon('building',28)}</div>لا توجد شعبة مُسندة لحسابك بعد<br><span style="font-size:11px">تواصل مع مدير النظام لإسناد شعبة لك</span></div>`;
+  if(myBranches.length===1){ state.params={id:myBranches[0].id}; return branchDetail(); }
+  return `<div class="section-title" style="margin-top:0"><span class="bar"></span>الشعب المُسندة إليك</div>
+  <div class="list">${myBranches.map(b=>`<div class="row" onclick="window.goto('branchDetail',{id:'${b.id}'})"><div class="row-left"><div class="avatar">${icon('building',16)}</div><div class="row-title">شعبة ${b.name}</div></div><div style="display:flex;align-items:center;gap:8px"><span class="badge gold">${cache.students.filter(s=>s.branchId===b.id).length} طالب</span><div class="chevron">${icon('chevronL',14)}</div></div></div>`).join('')}</div>`;
+}
+
+function supervisorPermissions(){
+  const sup = cache.supervisors.find(s=>s.id===state.params.id);
+  return subheader(sup.name,'accountAdmin') + `
+  <div class="section-title" style="margin-top:0"><span class="bar"></span>الشعب المُسندة لهذا المشرف</div>
+  <div class="list">${cache.branches.map(b=>{ const checked=(sup.branchIds||[]).includes(b.id);
+    return `<div class="row" onclick="window.toggleSupBranch('${sup.id}','${b.id}')"><div class="row-title">شعبة ${b.name}</div><span class="badge ${checked?'green':'gray'}">${checked?'مُسندة':'غير مُسندة'}</span></div>`;
+  }).join('')}</div>
+  <div class="alert success" style="margin-top:12px">${icon('check',15)} يتحدّث الإسناد فور الضغط على الشعبة</div>`;
+}
+async function toggleSupBranch(supEmail, bid){
+  const sup = cache.supervisors.find(s=>s.id===supEmail);
+  const has = (sup.branchIds||[]).includes(bid);
+  await updateDoc(doc(db,'people',supEmail), { branchIds: has? arrayRemove(bid) : arrayUnion(bid) });
+  await loadSupervisors();
+  goto('supervisorPermissions',{id:supEmail});
+}
+
+function inviteForm(){
+  const studentsOptions = cache.students.map(s=>`<option value="${s.id}">${s.name} — ${getBranch(s.branchId).name}</option>`).join('');
+  return subheader('إضافة حساب جديد','accountAdmin') + `
+  <div class="field"><label>البريد الإلكتروني</label><input id="inv-email" type="email"></div>
+  <div class="field"><label>الاسم</label><input id="inv-name" type="text"></div>
+  <div class="field"><label>الدور</label>
+    <div class="seg" id="inv-role">
+      <button class="active" onclick="window.selectSeg('inv-role',this); window.toggleInviteExtra('admin')">مدير</button>
+      <button onclick="window.selectSeg('inv-role',this); window.toggleInviteExtra('supervisor')">مشرف</button>
+      <button onclick="window.selectSeg('inv-role',this); window.toggleInviteExtra('student')">طالب</button>
+    </div>
+  </div>
+  <div id="inv-student-wrap" style="display:none" class="field"><label>ربط بملف طالب موجود</label><select id="inv-student">${studentsOptions}</select></div>
+  <button class="btn btn-primary" style="margin-top:18px" onclick="window.submitInvite()">إضافة الحساب</button>
+  <div id="inv-alert"></div>`;
+}
+function toggleInviteExtra(role){ const w=document.getElementById('inv-student-wrap'); if(w) w.style.display = role==='student'?'block':'none'; }
+async function submitInvite(){
+  const email = document.getElementById('inv-email').value.trim().toLowerCase();
+  const name = document.getElementById('inv-name').value.trim();
+  const roleTxt = document.querySelector('#inv-role .active').textContent;
+  const role = {'مدير':'admin','مشرف':'supervisor','طالب':'student'}[roleTxt];
+  if(!email || !name){ alert('عبّي كل الحقول'); return; }
+  const data = { email, name, role, branchIds:[], studentId:null, uid:null, createdAt: serverTimestamp() };
+  if(role==='student'){ data.studentId = document.getElementById('inv-student').value; }
+  try{
+    await setDoc(doc(db,'people',email), data);
+    if(role==='supervisor') await loadSupervisors();
+    document.getElementById('inv-alert').innerHTML = `<div class="alert success">${icon('check',16)} تمت إضافة الحساب، بإمكان صاحبه تفعيله الآن من صفحة الدخول</div>`;
+    setTimeout(()=>goto('accountAdmin'), 900);
+  }catch(e){ document.getElementById('inv-alert').innerHTML = `<div class="alert error">حدث خطأ: ${e.message}</div>`; }
+}
+
+async function accountView(){
+  let roleTxt;
+  if(state.role==='admin') roleTxt='مدير النظام';
+  else if(state.role==='supervisor') roleTxt='مشرف'+((state.branchIds||[]).length? ' - شعبة '+state.branchIds.map(id=>getBranch(id).name).join('، ') : ' (بدون شعبة مُسندة)');
+  else roleTxt='طالب - شعبة '+getBranch(findStudent(state.studentId)?.branchId).name;
+  let html = subheader('حسابي', state.role==='admin'?'adminHome':state.role==='supervisor'?'supervisorHome':'studentHome') + `
+  <div style="display:flex; flex-direction:column; align-items:center; margin-top:12px">
+    <div class="avatar" style="width:70px;height:70px;font-size:22px">${initials(state.personName)}</div>
+    <div style="font-weight:700; margin-top:11px; font-size:16px">${state.personName}</div>
+    <div class="row-sub">${roleTxt}</div>
+  </div>
+  <div class="list" style="margin-top:20px">
+    <div class="row"><span class="row-sub">الدور</span><span class="row-title">${roleTxt}</span></div>
+    <div class="row"><span class="row-sub">البريد الإلكتروني</span><span class="row-title">${state.personEmail}</span></div>
+  </div>`;
+  if(state.role==='admin'){
+    await loadSupervisors();
+    html += `<div class="section-title"><span class="bar"></span>حسابات المشرفين والصلاحيات</div>
+    <div class="list">${cache.supervisors.map(sv=>`<div class="row" onclick="window.goto('supervisorPermissions',{id:'${sv.id}'})"><div class="row-left"><div class="avatar">${icon('briefcase',16)}</div><div><div class="row-title">${sv.name}</div><div class="row-sub">${(sv.branchIds||[]).length? sv.branchIds.map(id=>getBranch(id).name).join('، '):'بدون شعبة مُسندة'}</div></div></div><div class="chevron">${icon('chevronL',14)}</div></div>`).join('')||`<div class="empty">لا يوجد مشرفون بعد</div>`}</div>
+    <button class="btn btn-outline" style="margin-top:14px" onclick="window.goto('inviteForm')">${icon('plus',16)} إضافة حساب جديد</button>`;
+  }
+  html += `<button class="btn btn-outline" style="margin-top:22px" onclick="window.logout()">تسجيل الخروج</button>`;
+  return html;
+}
+
+Object.assign(window, {goto, logout, doSignIn, doActivate, setLoginMode, selectSeg, filterDirectory, quickAddBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, toggleSupBranch});
+</script>
+</body>
+</html>
