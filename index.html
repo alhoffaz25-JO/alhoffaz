@@ -130,7 +130,7 @@ tbody tr{border-bottom:1px solid var(--border);}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
 import {
-  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut
+  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, deleteUser
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where,
@@ -246,27 +246,30 @@ async function ensureStudentDetail(sid, force){
 }
 
 /* ================= Auth ================= */
-onAuthStateChanged(auth, async (user)=>{
-  if(user){
-    const email = user.email.toLowerCase();
-    const pdoc = await getDoc(doc(db,'people',email));
-    if(!pdoc.exists()){
-      state = {role:null, personEmail:null, personName:null, view:'login', params:{}, loginMode:'signin'};
-      renderLoginError('لا يوجد حساب مُعرَّف لهذا البريد داخل النظام. تواصل مع مدير النظام.');
-      await signOut(auth);
-      return;
-    }
-    const p = pdoc.data();
-    state.role = p.role; state.personEmail = email; state.personName = p.name || email;
-    state.branchIds = p.branchIds || []; state.studentId = p.studentId || null;
-    await loadBranches();
-    if(state.role==='student'){ cache.students = [ (await getDoc(doc(db,'students',state.studentId))).exists() ? {id:state.studentId, ...(await getDoc(doc(db,'students',state.studentId))).data()} : null ].filter(Boolean); }
-    else { await loadStudentsForRole(); }
-    goto(state.role==='admin'?'adminHome': state.role==='supervisor'?'supervisorHome':'studentHome');
-  } else {
+let activating = false;
+async function bootSession(user){
+  const email = user.email.toLowerCase();
+  const pdoc = await getDoc(doc(db,'people',email));
+  if(!pdoc.exists()){
     state = {role:null, personEmail:null, personName:null, view:'login', params:{}, loginMode:'signin'};
-    render();
+    renderLoginError('لا يوجد حساب مُعرَّف لهذا البريد داخل النظام. تواصل مع مدير النظام.');
+    await signOut(auth);
+    return;
   }
+  const p = pdoc.data();
+  state.role = p.role; state.personEmail = email; state.personName = p.name || email;
+  state.branchIds = p.branchIds || []; state.studentId = p.studentId || null;
+  await loadBranches();
+  if(state.role==='student'){
+    const sdoc = await getDoc(doc(db,'students',state.studentId));
+    cache.students = sdoc.exists() ? [{id:state.studentId, ...sdoc.data()}] : [];
+  } else { await loadStudentsForRole(); }
+  goto(state.role==='admin'?'adminHome': state.role==='supervisor'?'supervisorHome':'studentHome');
+}
+onAuthStateChanged(auth, async (user)=>{
+  if(activating) return;
+  if(user){ await bootSession(user); }
+  else { state = {role:null, personEmail:null, personName:null, view:'login', params:{}, loginMode:'signin'}; render(); }
 });
 
 async function doSignIn(){
@@ -285,14 +288,21 @@ async function doActivate(){
   if(pw.length<6){ renderLoginError('كلمة المرور 6 أحرف على الأقل'); return; }
   if(pw!==pw2){ renderLoginError('كلمتا المرور غير متطابقتين'); return; }
   const btn = document.getElementById('ac-btn'); btn.disabled=true;
+  activating = true;
   try{
+    const cred = await createUserWithEmailAndPassword(auth, email, pw);
     const pref = doc(db,'people',email);
     const pdoc = await getDoc(pref);
-    if(!pdoc.exists()){ renderLoginError('هذا البريد غير مُضاف من قِبل مدير النظام بعد'); btn.disabled=false; return; }
-    if(pdoc.data().uid){ renderLoginError('هذا الحساب مُفعّل مسبقًا، سجّل الدخول مباشرة'); btn.disabled=false; return; }
-    const cred = await createUserWithEmailAndPassword(auth, email, pw);
+    if(!pdoc.exists() || pdoc.data().uid){
+      const msg = !pdoc.exists() ? 'هذا البريد غير مُضاف من قِبل مدير النظام بعد' : 'هذا الحساب مُفعّل مسبقًا، سجّل الدخول مباشرة';
+      try{ await deleteUser(cred.user); }catch(_){ await signOut(auth); }
+      activating = false;
+      renderLoginError(msg); btn.disabled=false; return;
+    }
     await updateDoc(pref, { uid: cred.user.uid, name });
-  }catch(e){ renderLoginError(mapAuthError(e)); btn.disabled=false; }
+    activating = false;
+    await bootSession(cred.user);
+  }catch(e){ activating = false; renderLoginError(mapAuthError(e)); btn.disabled=false; }
 }
 function logout(){ signOut(auth); }
 function setLoginMode(m){ state.loginMode=m; render(); }
