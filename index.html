@@ -141,7 +141,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where,
-  addDoc, serverTimestamp, arrayUnion, arrayRemove
+  addDoc, serverTimestamp, arrayUnion, arrayRemove, increment, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -238,9 +238,36 @@ function studentCycle(hifzLog){
 }
 function monthlyFromEvals(evals){ const m = todayStr().slice(0,7); const inMonth = evals.filter(e=>e.date.startsWith(m)); if(!inMonth.length) return null; return Math.round(inMonth.reduce((a,e)=>a+e.pct,0)/inMonth.length); }
 function todayStr(){ return new Date().toISOString().slice(0,10); }
+function weekStartStr(){ const d=new Date(); const day=d.getDay(); const diff=(day-6+7)%7; d.setDate(d.getDate()-diff); return d.toISOString().slice(0,10); }
+const ATT_POINTS = {'حضور':7,'تأخر':3,'غياب':0};
+const TYPE_POINTS = { hifz:{0:6,1:4,2:2}, review:{0:3,1:2,2:1}, recitation:{0:5,1:3,2:2} };
+function tierPts(table, errStr){ const n=parseInt(errStr); const t = isNaN(n)?2:Math.min(n,2); return table[t]||0; }
+function pointsFromRecords(det){
+  const ws = weekStartStr(); const ms = todayStr().slice(0,7);
+  let weekly=0, monthly=0;
+  const items = [
+    ...(det.attendance||[]).map(r=>({date:r.date, pts: ATT_POINTS[r.status]||0})),
+    ...(det.hifzLog||[]).map(r=>({date:r.date, pts: tierPts(TYPE_POINTS.hifz, r.errors)})),
+    ...(det.reviewLog||[]).map(r=>({date:r.date, pts: tierPts(TYPE_POINTS.review, r.errors)})),
+    ...(det.recitationLog||[]).map(r=>({date:r.date, pts: tierPts(TYPE_POINTS.recitation, r.errors)})),
+  ];
+  items.forEach(it=>{ if(it.date>=ws) weekly+=it.pts; if(it.date && it.date.startsWith(ms)) monthly+=it.pts; });
+  return {weekly, monthly};
+}
 function initials(name){ return (name||'؟').trim().split(' ')[0][0]; }
 function getBranch(id){ return cache.branches.find(b=>b.id===id) || {name:'—'}; }
 function findStudent(id){ return cache.students.find(s=>s.id===id); }
+let heartbeatInterval = null;
+let presenceInterval = null;
+async function sendHeartbeat(){
+  if(!state.personEmail) return;
+  try{ await updateDoc(doc(db,'people',state.personEmail), {lastActive: serverTimestamp()}); }catch(e){}
+}
+function isOnline(person){
+  if(!person || !person.lastActive) return false;
+  const t = person.lastActive.toMillis ? person.lastActive.toMillis() : (person.lastActive.seconds? person.lastActive.seconds*1000 : 0);
+  return (Date.now() - t) < 45000;
+}
 function mapAuthError(e){
   const map = {'auth/wrong-password':'كلمة المرور غير صحيحة','auth/user-not-found':'لا يوجد حساب بهذا البريد','auth/invalid-email':'صيغة البريد غير صحيحة','auth/email-already-in-use':'هذا البريد مُفعّل مسبقًا، سجّل الدخول مباشرة','auth/weak-password':'كلمة المرور ضعيفة جدًا','auth/invalid-credential':'البريد أو كلمة المرور غير صحيحة','auth/too-many-requests':'محاولات كثيرة، حاول لاحقًا'};
   return map[e.code] || e.message;
@@ -260,7 +287,7 @@ async function loadSupervisors(){ const snap = await getDocs(query(collection(db
 async function loadContent(){ const snap = await getDocs(collection(db,'siteContent')); cache.content = {}; snap.docs.forEach(d=>{ cache.content[d.id] = d.data().text; }); }
 async function ensureStudentDetail(sid, force){
   if(cache.details[sid] && !force) return cache.details[sid];
-  const subs = ['hifzLog','reviewLog','attendance','tajweedAtt','payments'];
+  const subs = ['hifzLog','reviewLog','recitationLog','attendance','tajweedAtt','payments'];
   const out = {};
   for(const sub of subs){
     const snap = await getDocs(collection(db,'students',sid,sub));
@@ -290,6 +317,8 @@ async function bootSession(user){
     const sdoc = await getDoc(doc(db,'students',state.studentId));
     cache.students = sdoc.exists() ? [{id:state.studentId, ...sdoc.data()}] : [];
   } else { await loadStudentsForRole(); }
+  sendHeartbeat();
+  if(!heartbeatInterval) heartbeatInterval = setInterval(sendHeartbeat, 25000);
   goto(state.role==='admin'?'adminHome': state.role==='supervisor'?'supervisorHome':'studentHome');
 }
 onAuthStateChanged(auth, async (user)=>{
@@ -330,7 +359,7 @@ async function doActivate(){
     await bootSession(cred.user);
   }catch(e){ activating = false; renderLoginError(mapAuthError(e)); btn.disabled=false; }
 }
-function logout(){ signOut(auth); }
+function logout(){ if(heartbeatInterval){clearInterval(heartbeatInterval); heartbeatInterval=null;} signOut(auth); }
 function setLoginMode(m){ state.loginMode=m; render(); }
 function renderLoginError(msg){
   const el = document.getElementById('login-alert');
@@ -398,11 +427,15 @@ function avatarBlock(size, photo, name, editableAvatar){
 
 /* ================= Renderers ================= */
 async function render(){
+  if(presenceInterval){ clearInterval(presenceInterval); presenceInterval=null; }
   const app = document.getElementById('app');
   if(state.view==='login'){ app.innerHTML = renderLogin(); return; }
   app.innerHTML = renderTopbar() + `<div class="page"><div class="spin"></div></div>` + renderBottomNav();
   const html = await renderView();
   app.innerHTML = renderTopbar() + `<div class="${state.editMode?'edit-mode':''}"><div class="page">${html}</div></div>` + renderBottomNav();
+  if(state.view==='accountAdmin' && state.role==='admin'){
+    presenceInterval = setInterval(async()=>{ await loadSupervisors(); render(); }, 12000);
+  }
 }
 function goto(view, params={}){ state.view=view; state.params=params; render(); window.scrollTo(0,0); }
 
@@ -580,7 +613,19 @@ function editStudentForm(){
   <div class="field"><label>النقاط</label><input id="es-points" type="number" value="${s.points||0}"></div>
   <div class="field"><label>ملاحظات</label><textarea id="es-notes">${s.notes||''}</textarea></div>
   <button class="btn btn-primary" style="margin-top:18px" onclick="window.submitEditStudent('${s.id}','${from}')">حفظ التعديلات</button>
+  <button class="btn btn-outline" style="margin-top:10px; border-color:#B23A3A; color:#B23A3A" onclick="window.deleteStudentFully('${s.id}','${from}')">${icon('trash',15)} حذف الطالب نهائيًا</button>
   <div id="es-alert"></div>`;
+}
+async function deleteStudentFully(sid, from){
+  if(!confirm('حذف هذا الطالب وكل سجلاته (الحفظ، المراجعة، المواعيد، الدفع) نهائيًا؟ لا يمكن التراجع.')) return;
+  const subs = ['hifzLog','reviewLog','recitationLog','attendance','tajweedAtt','payments'];
+  for(const sub of subs){
+    const snap = await getDocs(collection(db,'students',sid,sub));
+    for(const d of snap.docs){ await deleteDoc(d.ref); }
+  }
+  await deleteDoc(doc(db,'students',sid));
+  await loadStudentsForRole();
+  goto('adminDirectory');
 }
 async function submitEditStudent(sid, from){
   const data = {
@@ -638,11 +683,23 @@ function adminBranches(){
   <div class="section-title" style="margin-top:0"><span class="bar"></span>جميع الشعب (${cache.branches.length})</div>
   <div class="list">
     ${cache.branches.map(b=>`
-      <div class="row" onclick="window.goto('branchDetail',{id:'${b.id}'})">
-        <div class="row-left"><div class="avatar">${icon('building',16)}</div><div class="row-title">شعبة ${b.name}</div></div>
-        <div style="display:flex; align-items:center; gap:8px"><span class="badge gold">${cache.students.filter(s=>s.branchId===b.id).length} طالب</span><div class="chevron">${icon('chevronL',14)}</div></div>
+      <div class="row">
+        <div class="row-left" style="cursor:pointer" onclick="window.goto('branchDetail',{id:'${b.id}'})"><div class="avatar">${icon('building',16)}</div><div class="row-title">شعبة ${b.name}</div></div>
+        <div style="display:flex; align-items:center; gap:10px">
+          <span class="badge gold">${cache.students.filter(s=>s.branchId===b.id).length} طالب</span>
+          <span onclick="window.deleteBranch('${b.id}')" style="color:#B23A3A;cursor:pointer">${icon('trash',15)}</span>
+          <div class="chevron" onclick="window.goto('branchDetail',{id:'${b.id}'})" style="cursor:pointer">${icon('chevronL',14)}</div>
+        </div>
       </div>`).join('')}
   </div>` + `<div class="fab" onclick="window.quickAddBranch()">${icon('plus',22)}</div>`;
+}
+async function deleteBranch(bid){
+  const count = cache.students.filter(s=>s.branchId===bid).length;
+  if(count>0){ alert('لا يمكن حذف هذه الشعبة لوجود '+count+' طالب مسجّل فيها. انقلهم أو احذفهم أولًا.'); return; }
+  if(!confirm('حذف هذه الشعبة نهائيًا؟')) return;
+  await deleteDoc(doc(db,'branches',bid));
+  await loadBranches();
+  goto('adminBranches');
 }
 async function quickAddBranch(){
   const name = prompt('اسم الشعبة الجديدة:');
@@ -704,6 +761,10 @@ async function studentProfileView(mode){
       const cyc = studentCycle(det.hifzLog);
       const latest = cyc.evals.length? cyc.evals[cyc.evals.length-1] : null;
       const monthly = monthlyFromEvals(cyc.evals);
+      const pts = pointsFromRecords(det);
+      const wirdTable = (log,label)=>`<div class="section-title"><span class="bar"></span>${label}</div>
+      <table><thead><tr><th>التاريخ</th><th>من</th><th>إلى</th><th>أخطاء</th><th>التقدير</th><th>المشرف</th></tr></thead>
+      <tbody>${log.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${r.from}</td><td>${r.to}</td><td>${r.errors}</td><td>${r.grade}</td><td>${r.recordedBy||'—'}</td></tr>`).join('')||`<tr><td colspan="6">لا يوجد سجل</td></tr>`}</tbody></table>`;
       body += `<div class="progress-wrap">
         ${latest? `<div class="ring">${ringSvg(latest.pct)}</div><div class="row-sub" style="margin-top:-4px">آخر تقييم أسبوعي</div>` : `<div class="row-sub">لم تكتمل أول دورة تسميع بعد (٤ جلسات)</div>`}
         <div class="bar-bg" style="margin-top:14px"><div class="bar-fill" style="width:${cyc.inProgress/4*100}%"></div></div>
@@ -712,12 +773,13 @@ async function studentProfileView(mode){
         <div class="row-title" style="font-size:13px">التقييم الشهري</div>
         <div class="row-sub">${monthly!==null? monthly+'%':'لا يوجد تقييم مكتمل هذا الشهر بعد'}</div>
       </div>
-      <div class="section-title"><span class="bar"></span>ورد الحفظ</div>
-      <table><thead><tr><th>التاريخ</th><th>من</th><th>إلى</th><th>أخطاء</th><th>التقدير</th><th>المشرف</th></tr></thead>
-      <tbody>${det.hifzLog.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${r.from}</td><td>${r.to}</td><td>${r.errors}</td><td>${r.grade}</td><td>${r.recordedBy||'—'}</td></tr>`).join('')||`<tr><td colspan="6">لا يوجد سجل</td></tr>`}</tbody></table>
-      <div class="section-title"><span class="bar"></span>ورد المراجعة</div>
-      <table><thead><tr><th>التاريخ</th><th>من</th><th>إلى</th><th>أخطاء</th><th>التقدير</th><th>المشرف</th></tr></thead>
-      <tbody>${det.reviewLog.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${r.from}</td><td>${r.to}</td><td>${r.errors}</td><td>${r.grade}</td><td>${r.recordedBy||'—'}</td></tr>`).join('')||`<tr><td colspan="6">لا يوجد سجل</td></tr>`}</tbody></table>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-num">${pts.weekly}</div><div class="stat-label">نقاط هذا الأسبوع</div></div>
+        <div class="stat-card"><div class="stat-num">${pts.monthly}</div><div class="stat-label">نقاط هذا الشهر</div></div>
+      </div>
+      ${wirdTable(det.hifzLog,'ورد الحفظ')}
+      ${wirdTable(det.reviewLog,'ورد المراجعة')}
+      ${wirdTable(det.recitationLog||[],'ورد السرد')}
       ${canHifz? `<button class="btn btn-primary" style="margin-top:16px" onclick="window.goto('wirdForm',{id:'${s.id}',from:'${from}'})">${icon('plus',16)} تسجيل ورد جديد</button>` : (canEdit? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:12px">لا تملك صلاحية تسجيل الورد</div>`:'')}`;
     }
     if(tab==='attendance'){
@@ -736,7 +798,11 @@ async function studentProfileView(mode){
     }
     if(tab==='pay'){
       body += `<div class="section-title" style="margin-top:16px"><span class="bar"></span>سجل الدفع الشهري</div>
-      <div class="list">${det.payments.map(p=>`<div class="row"><span class="row-title">${p.month}</span><span class="badge ${p.status==='مدفوع'?'green':'red'}">${p.status}</span></div>`).join('')||`<div class="empty">لا يوجد سجل دفع بعد</div>`}</div>`;
+      <div class="list">${det.payments.map(p=>`<div class="row"><span class="row-title">${p.month}</span><div style="display:flex;align-items:center;gap:8px">${p.amount?`<span class="row-sub">${p.amount}</span>`:''}<span class="badge ${p.status==='مدفوع'?'green':'red'}">${p.status}</span></div></div>`).join('')||`<div class="empty">لا يوجد سجل دفع بعد</div>`}</div>
+      ${canEdit? `<div class="field"><label>الشهر</label><input type="text" id="pay-month" placeholder="مثال: تشرين الأول 2026"></div>
+      <div class="field"><label>المبلغ</label><input type="number" id="pay-amount" placeholder="0"></div>
+      <div class="seg" id="pay-status"><button class="active" onclick="window.selectSeg('pay-status',this)">مدفوع</button><button onclick="window.selectSeg('pay-status',this)">غير مدفوع</button></div>
+      <button class="btn btn-primary" style="margin-top:12px" onclick="window.savePayment('${s.id}','${from}')">حفظ الدفعة</button>`:''}`;
     }
   }
   return subheader(s.name, backTarget) + body;
@@ -751,6 +817,7 @@ function wirdForm(){
   const from = state.params.from || 'adminDirectory';
   return `<div class="subheader"><div class="back-btn" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'hifz',from:'${from}'})">${icon('chevronR',16)}</div><h1>تسجيل ورد جديد</h1></div>` + `
   <div class="list" style="padding:14px 14px 2px; margin-top:0"><div class="row-title">${s.name}</div><div class="row-sub">شعبة ${getBranch(s.branchId).name}</div></div>
+  <div class="field"><label>نوع الإضافة</label><div class="seg" id="wf-type"><button class="active" onclick="window.selectSeg('wf-type',this)">حفظ</button><button onclick="window.selectSeg('wf-type',this)">مراجعة</button><button onclick="window.selectSeg('wf-type',this)">سرد</button></div></div>
   <div class="field"><label>التاريخ</label><input type="date" id="wf-date" value="${todayStr()}"></div>
   <div class="field"><label>السورة</label><input type="text" id="wf-surah" placeholder="مثال: البقرة"></div>
   <div style="display:flex; gap:10px">
@@ -758,27 +825,54 @@ function wirdForm(){
     <div class="field" style="flex:1"><label>إلى الآية</label><input type="number" id="wf-to" placeholder="20"></div>
   </div>
   <div class="field"><label>عدد الأخطاء</label><div class="seg" id="wf-err"><button class="active" onclick="window.selectSeg('wf-err',this)">0</button><button onclick="window.selectSeg('wf-err',this)">1</button><button onclick="window.selectSeg('wf-err',this)">2</button><button onclick="window.selectSeg('wf-err',this)">3+</button></div></div>
-  <div class="field"><label>التقدير</label><div class="seg" id="wf-grade"><button class="active" onclick="window.selectSeg('wf-grade',this)">ممتاز</button><button onclick="window.selectSeg('wf-grade',this)">جيد جدًا</button><button onclick="window.selectSeg('wf-grade',this)">جيد</button><button onclick="window.selectSeg('wf-grade',this)">مقبول</button></div></div>
+  <div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} التقدير (ممتاز / جيد جدًا / جيد) بيتحدد تلقائيًا حسب عدد الأخطاء</div>
   <button class="btn btn-primary" style="margin-top:18px" onclick="window.saveWird('${s.id}','${from}')">حفظ الورد</button>
   <div id="wf-alert"></div>`;
 }
 function selectSeg(groupId, btn){ document.querySelectorAll('#'+groupId+' button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
+function gradeFromErrors(errStr){
+  const n = parseInt(errStr);
+  if(n===0) return 'ممتاز';
+  if(n===1) return 'جيد جدًا';
+  return 'جيد';
+}
 async function saveWird(sid, from){
   const date = document.getElementById('wf-date').value || todayStr();
   const surah = document.getElementById('wf-surah').value || '—';
   const f = document.getElementById('wf-from').value || '1';
   const t = document.getElementById('wf-to').value || '1';
   const errors = document.querySelector('#wf-err .active').textContent;
-  const grade = document.querySelector('#wf-grade .active').textContent;
+  const typeTxt = document.querySelector('#wf-type .active').textContent;
+  const collKey = {'حفظ':'hifzLog','مراجعة':'reviewLog','سرد':'recitationLog'}[typeTxt];
+  const ptsTable = {'حفظ':TYPE_POINTS.hifz,'مراجعة':TYPE_POINTS.review,'سرد':TYPE_POINTS.recitation}[typeTxt];
+  const grade = gradeFromErrors(errors);
   const recordedBy = state.personName;
-  await addDoc(collection(db,'students',sid,'hifzLog'), {date, from:surah+' '+f, to:surah+' '+t, errors, grade, recordedBy, recordedAt:serverTimestamp()});
+  await addDoc(collection(db,'students',sid,collKey), {date, from:surah+' '+f, to:surah+' '+t, errors, grade, recordedBy, recordedAt:serverTimestamp()});
+  const pts = tierPts(ptsTable, errors);
+  if(pts) await updateDoc(doc(db,'students',sid), {points: increment(pts)});
+  await loadStudentsForRole();
   await ensureStudentDetail(sid, true);
-  document.getElementById('wf-alert').innerHTML = `<div class="alert success">${icon('check',16)} تم تسجيل الورد باسم ${recordedBy}</div>`;
+  document.getElementById('wf-alert').innerHTML = `<div class="alert success">${icon('check',16)} تم تسجيل ${typeTxt} باسم ${recordedBy} (+${pts} نقطة)</div>`;
   setTimeout(()=>goto('studentProfile',{id:sid,tab:'hifz',from}), 700);
+}
+async function savePayment(sid, from){
+  const month = document.getElementById('pay-month').value.trim();
+  if(!month){ alert('اكتب اسم الشهر'); return; }
+  const amount = Number(document.getElementById('pay-amount').value)||0;
+  const status = document.querySelector('#pay-status .active').textContent;
+  await setDoc(doc(db,'students',sid,'payments',month), {month, amount, status, recordedBy:state.personName, recordedAt:serverTimestamp()});
+  await ensureStudentDetail(sid, true);
+  goto('studentProfile',{id:sid, tab:'pay', from});
 }
 async function recordAttendance(sid, status, from){
   const date = document.getElementById('att-date').value || todayStr();
-  await setDoc(doc(db,'students',sid,'attendance',date), {date, status, recordedBy:state.personName, recordedAt:serverTimestamp()});
+  const ref = doc(db,'students',sid,'attendance',date);
+  const prev = await getDoc(ref);
+  const oldPts = prev.exists() ? (ATT_POINTS[prev.data().status]||0) : 0;
+  const newPts = ATT_POINTS[status]||0;
+  await setDoc(ref, {date, status, recordedBy:state.personName, recordedAt:serverTimestamp()});
+  if(newPts-oldPts !== 0){ await updateDoc(doc(db,'students',sid), {points: increment(newPts-oldPts)}); }
+  await loadStudentsForRole();
   await ensureStudentDetail(sid, true);
   goto('studentProfile',{id:sid, tab:'attendance', from});
 }
@@ -790,7 +884,16 @@ async function recordTajweed(sid, status, from){
 }
 async function deleteAttRecord(sid, sub, date, from){
   if(!confirm('حذف هذا السجل؟')) return;
-  await deleteDoc(doc(db,'students',sid,sub,date));
+  if(sub==='attendance'){
+    const ref = doc(db,'students',sid,sub,date);
+    const prev = await getDoc(ref);
+    const oldPts = prev.exists() ? (ATT_POINTS[prev.data().status]||0) : 0;
+    await deleteDoc(ref);
+    if(oldPts) await updateDoc(doc(db,'students',sid), {points: increment(-oldPts)});
+    await loadStudentsForRole();
+  } else {
+    await deleteDoc(doc(db,'students',sid,sub,date));
+  }
   await ensureStudentDetail(sid, true);
   goto('studentProfile',{id:sid, tab: sub==='attendance'?'attendance':'tajweed', from});
 }
@@ -848,7 +951,14 @@ function supervisorPermissions(){
   <div class="list">${Object.keys(CAP_LABELS).map(k=>{ const on = caps[k]!==false;
     return `<div class="row" onclick="window.toggleSupCapability('${sup.id}','${k}')"><div class="row-title">${CAP_LABELS[k]}</div><span class="badge ${on?'green':'gray'}">${on?'مفعّلة':'موقوفة'}</span></div>`;
   }).join('')}</div>
-  <div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} فتح وإغلاق أي صلاحية وقت ما بدك — تتحدّث فورًا</div>`;
+  <div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} فتح وإغلاق أي صلاحية وقت ما بدك — تتحدّث فورًا</div>
+  <button class="btn btn-outline" style="margin-top:16px; border-color:#B23A3A; color:#B23A3A" onclick="window.deleteSupervisor('${sup.id}')">${icon('trash',15)} حذف حساب المشرف</button>`;
+}
+async function deleteSupervisor(email){
+  if(!confirm('حذف حساب هذا المشرف؟ لن يقدر يسجّل الدخول بعدها.')) return;
+  await deleteDoc(doc(db,'people',email));
+  await loadSupervisors();
+  goto('accountAdmin');
 }
 async function toggleSupCapability(supEmail, capKey){
   const sup = cache.supervisors.find(s=>s.id===supEmail);
@@ -919,14 +1029,16 @@ async function accountView(){
   if(state.role==='admin'){
     await loadSupervisors();
     html += `<div class="section-title"><span class="bar"></span>حسابات المشرفين والصلاحيات</div>
-    <div class="list">${cache.supervisors.map(sv=>`<div class="row" onclick="window.goto('supervisorPermissions',{id:'${sv.id}'})"><div class="row-left"><div class="avatar">${icon('briefcase',16)}</div><div><div class="row-title">${sv.name}</div><div class="row-sub">${(sv.branchIds||[]).length? sv.branchIds.map(id=>getBranch(id).name).join('، '):'بدون شعبة مُسندة'}</div></div></div><div class="chevron">${icon('chevronL',14)}</div></div>`).join('')||`<div class="empty">لا يوجد مشرفون بعد</div>`}</div>
+    <div class="list">${cache.supervisors.map(sv=>{ const on = isOnline(sv);
+      return `<div class="row" onclick="window.goto('supervisorPermissions',{id:'${sv.id}'})"><div class="row-left"><div class="avatar">${icon('briefcase',16)}</div><div><div class="row-title">${sv.name} <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${on?'#2ECC71':'#D64545'};margin-inline-start:5px;vertical-align:middle;"></span></div><div class="row-sub">${(sv.branchIds||[]).length? sv.branchIds.map(id=>getBranch(id).name).join('، '):'بدون شعبة مُسندة'} · ${on?'متصل الآن':'غير متصل'}</div></div></div><div class="chevron">${icon('chevronL',14)}</div></div>`;
+    }).join('')||`<div class="empty">لا يوجد مشرفون بعد</div>`}</div>
     <button class="btn btn-outline" style="margin-top:14px" onclick="window.goto('inviteForm')">${icon('plus',16)} إضافة حساب جديد</button>`;
   }
   html += `<button class="btn btn-outline" style="margin-top:22px" onclick="window.logout()">تسجيل الخروج</button>`;
   return html;
 }
 
-Object.assign(window, {goto, logout, doSignIn, doActivate, setLoginMode, selectSeg, filterDirectory, quickAddBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent});
+Object.assign(window, {goto, logout, doSignIn, doActivate, setLoginMode, selectSeg, filterDirectory, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment});
 </script>
 </body>
 </html>
