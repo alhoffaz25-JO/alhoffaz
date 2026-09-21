@@ -460,8 +460,7 @@ function renderLogin(){
   const signinMode = state.loginMode!=='activate';
   return `
   <div class="login-wrap">
-    <div class="logo-ring"><img src="${LOGO1_WHITE}" alt="شعبة الحفاظ"></div>
-    <img class="logo-wordmark" src="${LOGO2}" alt="شعبة الحفاظ" style="width:200px; filter:brightness(0) invert(1);">
+    <img class="logo-wordmark" src="${LOGO1_WHITE}" alt="شعبة الحفاظ" style="width:240px; margin:0 auto 18px; display:block; position:relative; z-index:1;">
     <div class="login-card">
       <div class="mode-switch">
         <button class="${signinMode?'active':''}" onclick="window.setLoginMode('signin')">تسجيل الدخول</button>
