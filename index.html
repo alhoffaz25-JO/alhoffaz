@@ -20,7 +20,7 @@ body{padding-bottom:80px; min-height:100vh;}
 a{color:inherit; text-decoration:none;}
 button{font-family:inherit; cursor:pointer; border:none; background:none;}
 svg{display:block;}
-.topbar{background:linear-gradient(155deg,var(--green) 0%,var(--green-dark) 100%); color:#fff; padding:20px 18px 24px; position:relative; overflow:hidden;}
+.topbar{background:linear-gradient(155deg,var(--green) 0%,var(--green-dark) 100%); color:#fff; padding:20px 18px 24px; position:sticky; top:0; z-index:25; overflow:hidden;}
 .topbar::before{content:""; position:absolute; inset:0; background-image:radial-gradient(circle at 92% -10%, rgba(228,198,144,0.22) 0, transparent 45%), repeating-linear-gradient(135deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 22px);}
 .topbar-row{display:flex; align-items:center; justify-content:space-between; position:relative; z-index:1;}
 .brand{display:flex; align-items:center; gap:11px;}
@@ -34,7 +34,7 @@ svg{display:block;}
 .greeting{position:relative; z-index:1; margin-top:16px; font-size:13.5px; color:rgba(255,255,255,0.82);}
 .greeting b{font-weight:700; color:#fff;}
 .greeting-rule{width:30px; height:2px; background:var(--gold-light); border-radius:2px; margin-top:9px; position:relative; z-index:1;}
-.edit-banner{background:var(--gold); color:#fff; text-align:center; font-size:11.5px; font-weight:700; padding:7px; position:sticky; top:0; z-index:16;}
+.edit-banner{background:var(--gold); color:#fff; text-align:center; font-size:11.5px; font-weight:700; padding:7px;}
 .page{padding:18px 16px 24px; max-width:520px; margin:0 auto; animation:fade .2s ease;}
 @keyframes fade{from{opacity:0} to{opacity:1}}
 .section-title{font-size:13.5px; font-weight:700; color:var(--text); margin:22px 0 10px; display:flex; align-items:center; gap:8px;}
@@ -99,7 +99,7 @@ tbody tr{border-bottom:1px solid var(--border);}
 .tabs{display:flex; gap:4px; margin-top:16px; border-bottom:1.5px solid var(--border); overflow-x:auto;}
 .tab{padding:10px 6px; font-size:12px; font-weight:700; color:var(--text-muted); flex:1; text-align:center; border-bottom:2.5px solid transparent; white-space:nowrap;}
 .tab.active{color:var(--green); border-color:var(--gold);}
-.subheader{display:flex; align-items:center; gap:11px; padding:15px 16px; background:var(--card); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:15;}
+.subheader{display:flex; align-items:center; gap:11px; padding:15px 16px; background:var(--card); border-bottom:1px solid var(--border);}
 .back-btn{width:32px; height:32px; border-radius:50%; background:var(--green-tint); color:var(--green); display:flex; align-items:center; justify-content:center;}
 .subheader h1{font-size:15px; font-weight:700;}
 .bottomnav{position:fixed; bottom:0; right:0; left:0; background:var(--card); border-top:1px solid var(--border); display:flex; z-index:30; padding:7px 4px calc(7px + env(safe-area-inset-bottom));}
@@ -284,6 +284,7 @@ async function loadStudentsForRole(){
   } else { cache.students = []; }
 }
 function canEditBranch(branchId){ return state.role==='admin' || (state.role==='supervisor' && (state.branchIds||[]).includes(branchId)); }
+function homeRoute(){ return state.role==='admin'?'adminHome':'supervisorHome'; }
 function canDo(cap){ return state.role==='admin' || (state.capabilities && state.capabilities[cap] !== false); }
 function canEditContentPerm(){ return state.role==='admin' || (state.capabilities && state.capabilities.editContent === true); }
 async function loadSupervisors(){ const snap = await getDocs(query(collection(db,'people'), where('role','==','supervisor'))); cache.supervisors = snap.docs.map(d=>({id:d.id,...d.data()})); }
@@ -493,8 +494,7 @@ function renderTopbar(){
   return `
   <div class="topbar">
     <div class="topbar-row">
-      <div class="brand"><div class="logo-circle"><img src="${LOGO1}"></div>
-        <div><img src="${LOGO2}" alt="شعبة الحفاظ" style="height:20px; display:block; margin-bottom:2px;"><div class="brand-sub">${sub}</div></div></div>
+      <div class="brand"><img src="${LOGO1_WHITE}" alt="شعبة الحفاظ" style="height:38px; display:block;"><div class="brand-sub" style="margin-inline-start:8px;">${sub}</div></div>
       <div class="topbar-actions">
         ${editBtn}
         <div class="icon-btn" onclick="window.goto('notificationsView')">${icon('bell',16)}</div>
@@ -510,7 +510,7 @@ function subheader(title, back){ return `<div class="subheader"><div class="back
 function renderBottomNav(){
   let items=[];
   if(state.role==='admin') items=[['adminHome','home','الرئيسية'],['adminBranches','building','الشعب'],['adminDirectory','idcard','الطلاب'],['adminPoints','star','النقاط'],['accountAdmin','user','حسابي']];
-  if(state.role==='supervisor') items=[['supervisorHome','home','الشعب'],['accountSup','user','حسابي']];
+  if(state.role==='supervisor') items=[['supervisorHome','home','الرئيسية'],['accountSup','user','حسابي']];
   if(state.role==='student') items=[['studentHome','home','ملفي'],['accountStd','user','حسابي']];
   const activeRoot = {branchDetail:'adminBranches'}[state.view] || state.view;
   return `<div class="bottomnav">${items.map(([v,ic,label])=>`
@@ -546,7 +546,7 @@ async function renderView(){
   }
 }
 
-async function adminHome(){
+async function homeContent(){
   let hifzCount=0, reviewCount=0;
   for(const s of cache.students){
     const det = await ensureStudentDetail(s.id);
@@ -577,13 +577,14 @@ async function adminHome(){
     <div class="stat-card"><div class="stat-icon">${icon('trend',17)}</div><div class="stat-num">${reviewCount}</div><div class="stat-label">جلسات المراجعة المسجّلة</div></div>
   </div>`;
 }
+async function adminHome(){ return homeContent(); }
 
 function directory(){
-  return subheader('الملف التعريفي','adminHome') + `
+  return subheader('الملف التعريفي',homeRoute()) + `
   <div class="search-box">${icon('search',15)}<input placeholder="ابحث باسم الطالب..." oninput="window.filterDirectory(this.value)"></div>
   <div class="section-title" style="margin-top:14px"><span class="bar"></span>جميع الطلاب (${cache.students.length})</div>
   <div class="list" id="dir-list">${directoryRows(cache.students)}</div>`
-  + `<div class="fab" onclick="window.goto('addStudentForm')">${icon('plus',22)}</div>`;
+  + ((state.role==='admin' || canDo('addStudent')) ? `<div class="fab" onclick="window.goto('addStudentForm')">${icon('plus',22)}</div>` : '');
 }
 function directoryRows(list){
   if(!list.length) return `<div class="empty"><div class="e-icon">${icon('search',26)}</div>لا توجد نتائج</div>`;
@@ -596,8 +597,9 @@ function directoryRows(list){
 function filterDirectory(q){ document.getElementById('dir-list').innerHTML = directoryRows(cache.students.filter(s=>s.name.includes(q))); }
 
 function addStudentForm(){
-  const opts = cache.branches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
-  return subheader('إضافة طالب جديد','adminDirectory') + `
+  const availableBranches = state.role==='admin' ? cache.branches : cache.branches.filter(b=>canEditBranch(b.id));
+  const opts = availableBranches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
+  return subheader('إضافة طالب جديد',homeRoute()) + `
   <div class="field"><label>الاسم</label><input id="as-name"></div>
   <div class="field"><label>الشعبة</label><select id="as-branch">${opts}</select></div>
   <div class="field"><label>العمر</label><input id="as-age" type="number"></div>
@@ -705,7 +707,7 @@ async function submitPointsAdjust(sid, from){
 
 function plansHome(){
   const keys = Object.keys(PLAN_KEYS);
-  return subheader('الخطط','adminHome') + `
+  return subheader('الخطط',homeRoute()) + `
   <div class="khana-grid">
     ${keys.map(k=>`<div class="khana" onclick="${state.editMode?'':`window.goto('planDetail',{key:'${k}'})`}"><div class="khana-icon">${icon(PLAN_KEYS[k].icon,21)}</div><div class="khana-label">${editable('plan_'+k+'_title','عنوان '+C('plan_'+k+'_title'))}</div><div class="khana-sub">${(parseInt(C('plan_'+k+'_levelCount'))||0)>0 ? (parseInt(C('plan_'+k+'_levelCount')))+' مستويات' : 'لم تُحدَّد بعد'}</div></div>`).join('')}
   </div>`;
@@ -739,7 +741,7 @@ async function addPlanLevel(key){
 }
 
 function adminBranches(){
-  return subheader('الشعب','adminHome') + `
+  return subheader('الشعب',homeRoute()) + `
   <div class="section-title" style="margin-top:0"><span class="bar"></span>جميع الشعب (${cache.branches.length})</div>
   <div class="list">
     ${cache.branches.map(b=>`
@@ -747,11 +749,11 @@ function adminBranches(){
         <div class="row-left" style="cursor:pointer" onclick="window.goto('branchDetail',{id:'${b.id}'})"><div class="avatar">${icon('building',16)}</div><div class="row-title">شعبة ${b.name}</div></div>
         <div style="display:flex; align-items:center; gap:10px">
           <span class="badge gold">${cache.students.filter(s=>s.branchId===b.id).length} طالب</span>
-          <span onclick="window.deleteBranch('${b.id}')" style="color:#B23A3A;cursor:pointer">${icon('trash',15)}</span>
+          ${state.role==='admin'? `<span onclick="window.deleteBranch('${b.id}')" style="color:#B23A3A;cursor:pointer">${icon('trash',15)}</span>`:''}
           <div class="chevron" onclick="window.goto('branchDetail',{id:'${b.id}'})" style="cursor:pointer">${icon('chevronL',14)}</div>
         </div>
       </div>`).join('')}
-  </div>` + `<div class="fab" onclick="window.quickAddBranch()">${icon('plus',22)}</div>`;
+  </div>` + (state.role==='admin'? `<div class="fab" onclick="window.quickAddBranch()">${icon('plus',22)}</div>` : '');
 }
 async function deleteBranch(bid){
   const count = cache.students.filter(s=>s.branchId===bid).length;
@@ -770,7 +772,7 @@ function branchDetail(){
   const b = getBranch(state.params.id);
   const students = cache.students.filter(s=>s.branchId===state.params.id);
   const editable = canEditBranch(b.id);
-  return subheader('شعبة '+b.name, state.role==='admin'?'adminBranches':'supervisorHome') +
+  return subheader('شعبة '+b.name, 'adminBranches') +
   (!editable && state.role==='supervisor' ? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:14px">${icon('eye',14)} عرض فقط — لا تملك صلاحية تعديل هذه الشعبة</div>` : '') + `
   <div class="stat-card" style="margin-top:16px; text-align:center"><div class="stat-num">${students.length}</div><div class="stat-label">عدد الطلاب</div></div>
   <div class="search-box">${icon('search',15)}<input placeholder="ابحث عن طالب بهذه الشعبة..." oninput="window.filterBranchStudents(this.value,'${b.id}')"></div>
@@ -993,7 +995,7 @@ async function notificationsView(){
   <div class="list">${noPayRecord.length? noPayRecord.map(s=>`<div class="row" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'pay',from:'notificationsView'})"><div class="row-title">${s.name}</div><span class="badge gray">لا يوجد سجل</span></div>`).join('') : `<div class="empty">لا يوجد</div>`}</div>`;
 }
 async function achievementsHome(){
-  let html = subheader('الإنجازات','adminHome');
+  let html = subheader('الإنجازات',homeRoute());
   for(const b of cache.branches){
     const st = cache.students.filter(s=>s.branchId===b.id);
     const rows = [];
@@ -1015,7 +1017,7 @@ async function achievementsHome(){
 
 function pointsHome(){
   const ranked = [...cache.students].sort((a,b)=>(b.points||0)-(a.points||0));
-  return subheader('النقاط','adminHome') + `
+  return subheader('النقاط',homeRoute()) + `
   <div class="section-title" style="margin-top:0"><span class="bar"></span>آلية احتساب النقاط</div>
   <div class="list">${POINT_RULES.map(r=>`<div class="row"><div class="row-title">${r.label}</div><div class="row-sub" style="text-align:left">${r.items.map(i=>i[0]+' '+i[1]).join(' · ')}</div></div>`).join('')}
     <div class="row"><div class="row-title">أفضل طالب بالأسبوع</div><span class="badge gold">13+ نقطة إضافية</span></div></div>
@@ -1024,15 +1026,10 @@ function pointsHome(){
   <div class="list">${ranked.map((s,i)=>`<div class="row" onclick="window.goto('studentProfile',{id:'${s.id}',from:'adminPoints'})"><div class="row-left"><div class="avatar" style="${i===0?'background:var(--gold-light);color:#fff':''}">${i+1}</div><div><div class="row-title">${s.name}</div><div class="row-sub">شعبة ${getBranch(s.branchId).name}</div></div></div><span class="badge gold">${s.points||0} نقطة</span></div>`).join('')||`<div class="empty">لا يوجد طلاب بعد</div>`}</div>`;
 }
 
-function supervisorHome(){
-  return `<div class="section-title" style="margin-top:0"><span class="bar"></span>كل الشعب</div>
-  <div class="list">${cache.branches.map(b=>{ const ed=canEditBranch(b.id);
-    return `<div class="row" onclick="window.goto('branchDetail',{id:'${b.id}'})"><div class="row-left"><div class="avatar">${icon('building',16)}</div><div class="row-title">شعبة ${b.name}</div></div><div style="display:flex;align-items:center;gap:8px">${ed?'':`<span class="badge gray">${icon('eye',11)}</span>`}<span class="badge gold">${cache.students.filter(s=>s.branchId===b.id).length} طالب</span><div class="chevron">${icon('chevronL',14)}</div></div></div>`;
-  }).join('')}</div>`;
-}
+async function supervisorHome(){ return homeContent(); }
 
-const CAP_LABELS = {hifz:'تسجيل ورد الحفظ', attendance:'تسجيل المواعيد', tajweed:'تسجيل حضور التجويد', editStudent:'تعديل بيانات الطلاب'};
-const CAP_DEFAULT_ON = {hifz:true, attendance:true, tajweed:true, editStudent:true, editContent:false};
+const CAP_LABELS = {hifz:'تسجيل ورد الحفظ', attendance:'تسجيل المواعيد', tajweed:'تسجيل حضور التجويد', editStudent:'تعديل بيانات الطلاب', addStudent:'إضافة طلاب جدد'};
+const CAP_DEFAULT_ON = {hifz:true, attendance:true, tajweed:true, editStudent:true, addStudent:true, editContent:false};
 function supervisorPermissions(){
   const sup = cache.supervisors.find(s=>s.id===state.params.id);
   const caps = sup.capabilities || {};
@@ -1105,7 +1102,7 @@ async function submitInvite(){
   if(!email || !name){ alert('عبّي كل الحقول'); return; }
   const data = { email, name, role, branchIds:[], studentId:null, uid:null, createdAt: serverTimestamp() };
   if(role==='student'){ data.studentId = document.getElementById('inv-student').value; }
-  if(role==='supervisor'){ data.capabilities = {hifz:true, attendance:true, tajweed:true, editStudent:true}; }
+  if(role==='supervisor'){ data.capabilities = {hifz:true, attendance:true, tajweed:true, editStudent:true, addStudent:true}; }
   try{
     await setDoc(doc(db,'people',email), data);
     if(role==='supervisor') await loadSupervisors();
