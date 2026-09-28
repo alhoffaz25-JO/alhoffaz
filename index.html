@@ -20,8 +20,8 @@ body{padding-bottom:80px; min-height:100vh;}
 a{color:inherit; text-decoration:none;}
 button{font-family:inherit; cursor:pointer; border:none; background:none;}
 svg{display:block;}
-.topbar{background:linear-gradient(155deg,var(--green) 0%,var(--green-dark) 100%); color:#fff; padding:20px 18px 24px; position:sticky; top:0; z-index:25; overflow:hidden;}
-.topbar::before{content:""; position:absolute; inset:0; background-image:radial-gradient(circle at 92% -10%, rgba(228,198,144,0.22) 0, transparent 45%), repeating-linear-gradient(135deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 22px);}
+.topbar{background:linear-gradient(155deg,var(--green) 0%,var(--green-dark) 100%); color:#fff; padding:20px 18px 24px; position:sticky; top:0; z-index:25; overflow:hidden; box-shadow:0 8px 22px -8px rgba(6,83,46,0.45), 0 2px 6px -2px rgba(6,83,46,0.25);}
+.topbar::before{content:""; position:absolute; inset:0; background-image:radial-gradient(circle at 92% -10%, rgba(228,198,144,0.22) 0, transparent 45%);}
 .topbar-row{display:flex; align-items:center; justify-content:space-between; position:relative; z-index:1;}
 .brand{display:flex; align-items:center; gap:11px;}
 .logo-circle{width:42px; height:42px; border-radius:50%; background:var(--gold-light); color:var(--green-dark); display:flex; align-items:center; justify-content:center; border:1.5px solid rgba(255,255,255,0.55); box-shadow:0 2px 8px rgba(0,0,0,0.15); overflow:hidden;}
@@ -40,7 +40,6 @@ svg{display:block;}
 .section-title{font-size:13.5px; font-weight:700; color:var(--text); margin:22px 0 10px; display:flex; align-items:center; gap:8px;}
 .section-title .bar{width:4px; height:14px; background:linear-gradient(180deg,var(--gold-light),var(--gold)); border-radius:2px;}
 .vision-card{background:linear-gradient(160deg,var(--green-dark),var(--green)); color:#fff; border-radius:20px; padding:22px 18px; box-shadow:var(--shadow); position:relative; overflow:hidden;}
-.vision-card::before{content:""; position:absolute; inset:0; background-image:repeating-linear-gradient(45deg, rgba(228,198,144,0.05) 0 2px, transparent 2px 24px);}
 .vision-title{font-family:'Amiri',serif; font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px; position:relative; z-index:1;}
 .vision-title .vi{width:28px; height:28px; border-radius:8px; background:rgba(255,255,255,0.14); display:flex; align-items:center; justify-content:center; color:var(--gold-light);}
 .vision-text{font-size:12.5px; line-height:1.9; color:rgba(255,255,255,0.88); margin-top:8px; position:relative; z-index:1;}
@@ -144,6 +143,7 @@ import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where,
   addDoc, serverTimestamp, arrayUnion, arrayRemove, increment, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { findPage as findMushafPage } from "https://cdn.jsdelivr.net/npm/quran-meta@7/hafs/+esm";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBv-w8ZPNPLdTHcini7fi8klfhM4UmFwpk",
@@ -332,11 +332,47 @@ function pickSurah(prefix, name, ayat){
   const note = document.getElementById(prefix+'-ayat-note');
   if(note) note.textContent = 'عدد آيات '+name+': '+ayat;
   if(prefix==='wf-surah'){
-    const fromEl = document.getElementById('wf-from'), toEl = document.getElementById('wf-to');
-    if(fromEl && toEl){ fromEl.min=1; fromEl.max=ayat; fromEl.placeholder='1 إلى '+ayat; toEl.min=1; toEl.max=ayat; toEl.placeholder='1 إلى '+ayat; }
+    ['wf-from','wf-to'].forEach(id=>{ const el=document.getElementById(id); if(el){ el.value=''; el.placeholder='اختر من 1 إلى '+ayat; } });
   }
 }
+function normDigits(s){ return String(s||'').replace(/[٠-٩]/g, d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)); }
+function ayahPicker(id, label){
+  return `<div class="field" style="flex:1; position:relative">
+    <label>${label}</label>
+    <input type="text" inputmode="numeric" id="${id}" placeholder="اختر السورة أولاً" autocomplete="off"
+      oninput="window.filterAyah('${id}')" onfocus="window.filterAyah('${id}')"
+      onblur="setTimeout(()=>{const l=document.getElementById('${id}-list'); if(l) l.style.display='none';},150)">
+    <div id="${id}-list" style="display:none; position:absolute; top:100%; right:0; left:0; background:var(--card); border:1px solid var(--border); border-radius:10px; max-height:220px; overflow-y:auto; z-index:30; box-shadow:var(--shadow); margin-top:4px;"></div>
+  </div>`;
+}
+function filterAyah(id){
+  const el = document.getElementById(id);
+  const list = document.getElementById(id+'-list');
+  const sName = (document.getElementById('wf-surah-input')||{value:''}).value.trim();
+  const sObj = SURAHS.find(x=>x.name===sName);
+  if(!sObj){ list.innerHTML = `<div style="padding:9px 12px; font-size:12px; color:var(--text-muted)">اختر السورة أولاً</div>`; list.style.display='block'; return; }
+  const q = normDigits(el.value.trim());
+  const nums = [];
+  for(let i=1;i<=sObj.ayat;i++){ if(!q || String(i).startsWith(q)) nums.push(i); }
+  list.innerHTML = nums.map(n=>`<div onmousedown="window.pickAyah('${id}',${n})" style="padding:9px 12px; font-size:13px; cursor:pointer; border-bottom:1px solid var(--border);">${n}</div>`).join('') || `<div style="padding:9px 12px; font-size:12px; color:var(--text-muted)">لا نتائج — آيات ${sObj.name} من 1 إلى ${sObj.ayat}</div>`;
+  list.style.display='block';
+}
+function pickAyah(id, n){
+  document.getElementById(id).value = n;
+  const l = document.getElementById(id+'-list'); if(l) l.style.display='none';
+}
 function estimatePages(fromN, toN){ return Math.max(1, Math.round((toN-fromN+1)/15)); }
+function computeExactPages(surahName, fromN, toN){
+  const idx = SURAHS.findIndex(s=>s.name===surahName);
+  if(idx<0) return null;
+  const surahNum = idx+1;
+  try{
+    const p1 = findMushafPage(surahNum, Math.min(fromN,toN));
+    const p2 = findMushafPage(surahNum, Math.max(fromN,toN));
+    if(!p1 || !p2) return null;
+    return Math.abs(p2-p1)+1;
+  }catch(e){ return null; }
+}
 async function toggleTajweedLevel(sid, key, from){
   const s = findStudent(sid);
   if(!s) return;
@@ -929,9 +965,9 @@ async function studentProfileView(mode){
       const latest = cyc.evals.length? cyc.evals[cyc.evals.length-1] : null;
       const monthly = monthlyFromEvals(cyc.evals);
       const pts = pointsFromRecords(det);
-      const wirdTable = (log,label)=>`<div class="section-title"><span class="bar"></span>${label}</div>
-      <table><thead><tr><th>التاريخ</th><th>من</th><th>إلى</th><th>صفحات~</th><th>أخطاء</th><th>التقدير</th><th>المشرف</th></tr></thead>
-      <tbody>${log.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${r.from}</td><td>${r.to}</td><td>${r.pagesEst||'—'}</td><td>${r.errors}</td><td>${r.grade}</td><td>${r.recordedBy||'—'}</td></tr>`).join('')||`<tr><td colspan="7">لا يوجد سجل</td></tr>`}</tbody></table>`;
+      const wirdTable = (log,label,collKey)=>`<div class="section-title"><span class="bar"></span>${label}</div>
+      <table><thead><tr><th>التاريخ</th><th>من</th><th>إلى</th><th>الصفحات</th><th>أخطاء</th><th>التقدير</th><th>المشرف</th>${canHifz?'<th></th>':''}</tr></thead>
+      <tbody>${log.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${r.from}</td><td>${r.to}</td><td>${r.pagesEst!=null? r.pagesEst+(r.pagesExact===false?'~':'') : '—'}</td><td>${r.errors}</td><td>${r.grade}</td><td>${r.recordedBy||'—'}</td>${canHifz?`<td><span onclick="window.deleteWird('${s.id}','${collKey}','${r.id}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canHifz?8:7}">لا يوجد سجل</td></tr>`}</tbody></table>`;
       body += `<div class="progress-wrap">
         ${latest? `<div class="ring">${ringSvg(latest.pct)}</div><div class="row-sub" style="margin-top:-4px">آخر تقييم أسبوعي</div>` : `<div class="row-sub">لم تكتمل أول دورة تسميع بعد (٤ جلسات)</div>`}
         <div class="bar-bg" style="margin-top:14px"><div class="bar-fill" style="width:${cyc.inProgress/4*100}%"></div></div>
@@ -944,9 +980,9 @@ async function studentProfileView(mode){
         <div class="stat-card"><div class="stat-num">${pts.weekly}</div><div class="stat-label">نقاط هذا الأسبوع</div></div>
         <div class="stat-card"><div class="stat-num">${pts.monthly}</div><div class="stat-label">نقاط هذا الشهر</div></div>
       </div>
-      ${wirdTable(det.hifzLog,'ورد الحفظ')}
-      ${wirdTable(det.reviewLog,'ورد المراجعة')}
-      ${wirdTable(det.recitationLog||[],'ورد السرد')}
+      ${wirdTable(det.hifzLog,'ورد الحفظ','hifzLog')}
+      ${wirdTable(det.reviewLog,'ورد المراجعة','reviewLog')}
+      ${wirdTable(det.recitationLog||[],'ورد السرد','recitationLog')}
       ${canHifz? `<button class="btn btn-primary" style="margin-top:16px" onclick="window.goto('wirdForm',{id:'${s.id}',from:'${from}'})">${icon('plus',16)} تسجيل ورد جديد</button>` : (canEdit? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:12px">لا تملك صلاحية تسجيل الورد</div>`:'')}`;
     }
     if(tab==='attendance'){
@@ -988,8 +1024,8 @@ function wirdForm(){
   <div class="field"><label>التاريخ</label><input type="date" id="wf-date" value="${todayStr()}"></div>
   ${surahPicker('wf-surah','')}
   <div style="display:flex; gap:10px">
-    <div class="field" style="flex:1"><label>من الآية</label><input type="number" id="wf-from" placeholder="1"></div>
-    <div class="field" style="flex:1"><label>إلى الآية</label><input type="number" id="wf-to" placeholder="20"></div>
+    ${ayahPicker('wf-from','من الآية')}
+    ${ayahPicker('wf-to','إلى الآية')}
   </div>
   <div class="field"><label>عدد الأخطاء</label><div class="seg" id="wf-err"><button class="active" onclick="window.selectSeg('wf-err',this)">0</button><button onclick="window.selectSeg('wf-err',this)">1</button><button onclick="window.selectSeg('wf-err',this)">2</button><button onclick="window.selectSeg('wf-err',this)">3+</button></div></div>
   <div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} التقدير (ممتاز / جيد جدًا / جيد) بيتحدد تلقائيًا حسب عدد الأخطاء</div>
@@ -1005,25 +1041,52 @@ function gradeFromErrors(errStr){
 }
 async function saveWird(sid, from){
   const date = document.getElementById('wf-date').value || todayStr();
-  const surah = document.getElementById('wf-surah-input').value || '—';
-  const f = Number(document.getElementById('wf-from').value) || 1;
-  const t = Number(document.getElementById('wf-to').value) || 1;
+  const showErr = m=>{ document.getElementById('wf-alert').innerHTML = `<div class="alert error">${icon('check',16)} ${m}</div>`; };
+  const surahName = document.getElementById('wf-surah-input').value.trim();
+  const sObj = SURAHS.find(x=>x.name===surahName);
+  if(!sObj){ showErr('اختر اسم السورة من القائمة'); return; }
+  const fRaw = normDigits(document.getElementById('wf-from').value.trim());
+  const tRaw = normDigits(document.getElementById('wf-to').value.trim());
+  if(!/^\d+$/.test(fRaw) || !/^\d+$/.test(tRaw)){ showErr('اكتب رقم آية البداية وآية النهاية'); return; }
+  const f = parseInt(fRaw,10), t = parseInt(tRaw,10);
+  if(f<1 || t<1 || f>sObj.ayat || t>sObj.ayat){ showErr('سورة '+sObj.name+' آياتها من 1 إلى '+sObj.ayat+' فقط'); return; }
+  if(f>t){ showErr('آية البداية لازم تكون أصغر من أو تساوي آية النهاية'); return; }
+  const surah = sObj.name;
   const errors = document.querySelector('#wf-err .active').textContent;
   const typeTxt = document.querySelector('#wf-type .active').textContent;
   const collKey = {'حفظ':'hifzLog','مراجعة':'reviewLog','سرد':'recitationLog'}[typeTxt];
   const ptsTable = {'حفظ':TYPE_POINTS.hifz,'مراجعة':TYPE_POINTS.review,'سرد':TYPE_POINTS.recitation}[typeTxt];
   const grade = gradeFromErrors(errors);
   const recordedBy = state.personName;
-  const pagesEst = estimatePages(f, t);
+  const exactPages = computeExactPages(surah, f, t);
+  const pagesEst = exactPages!==null ? exactPages : estimatePages(f, t);
+  const pagesExact = exactPages!==null;
   try{
-    await addDoc(collection(db,'students',sid,collKey), {date, from:surah+' '+f, to:surah+' '+t, errors, grade, recordedBy, pagesEst, recordedAt:serverTimestamp()});
+    await addDoc(collection(db,'students',sid,collKey), {date, from:surah+' '+f, to:surah+' '+t, errors, grade, recordedBy, pagesEst, pagesExact, recordedAt:serverTimestamp()});
     const pts = tierPts(ptsTable, errors);
     if(pts) await updateDoc(doc(db,'students',sid), {points: increment(pts)});
     await loadStudentsForRole();
     await ensureStudentDetail(sid, true);
-    document.getElementById('wf-alert').innerHTML = `<div class="alert success">${icon('check',16)} تم تسجيل ${typeTxt} باسم ${recordedBy} (+${pts} نقطة، تقريبًا ${pagesEst} صفحة)</div>`;
+    document.getElementById('wf-alert').innerHTML = `<div class="alert success">${icon('check',16)} تم تسجيل ${typeTxt} باسم ${recordedBy} (+${pts} نقطة، ${pagesEst} صفحة${pagesExact?'':' تقريبًا'})</div>`;
     setTimeout(()=>goto('studentProfile',{id:sid,tab:'hifz',from}), 700);
   }catch(e){ document.getElementById('wf-alert').innerHTML = `<div class="alert error">تعذّر الحفظ: ${e.message}</div>`; }
+}
+async function deleteWird(sid, collKey, docId, from){
+  if(!confirm('حذف هذا الورد؟ رح تنخصم نقاطه من رصيد الطالب.')) return;
+  try{
+    const ref = doc(db,'students',sid,collKey,docId);
+    const snap = await getDoc(ref);
+    let pts = 0;
+    if(snap.exists()){
+      const table = {hifzLog:TYPE_POINTS.hifz, reviewLog:TYPE_POINTS.review, recitationLog:TYPE_POINTS.recitation}[collKey];
+      pts = tierPts(table, snap.data().errors);
+    }
+    await deleteDoc(ref);
+    if(pts) await updateDoc(doc(db,'students',sid), {points: increment(-pts)});
+    await loadStudentsForRole();
+    await ensureStudentDetail(sid, true);
+    goto('studentProfile',{id:sid, tab:'hifz', from});
+  }catch(e){ alert('تعذّر حذف الورد: '+e.message); }
 }
 async function savePayment(sid, from){
   const month = document.getElementById('pay-month').value.trim();
@@ -1241,7 +1304,7 @@ async function accountView(){
   return html;
 }
 
-Object.assign(window, {goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, toggleTajweedLevel});
+Object.assign(window, {goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel});
 </script>
 </body>
 </html>
