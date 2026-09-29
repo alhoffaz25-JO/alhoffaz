@@ -69,6 +69,14 @@ svg{display:block;}
 .badge.green{background:var(--green-tint); color:var(--green);}
 .badge.gold{background:#F3EBD6; color:var(--gold);}
 .badge.gray{background:#EFEFEF; color:#888;}
+.cap-group{border-bottom:1px solid var(--border);}
+.cap-group:last-child{border-bottom:none;}
+.cap-group summary{list-style:none; display:flex; align-items:center; gap:11px; padding:13px 14px; cursor:pointer;}
+.cap-group summary::-webkit-details-marker{display:none;}
+.cap-group .cap-chev{transition:transform .2s; flex-shrink:0;}
+.cap-group[open] .cap-chev{transform:rotate(-90deg);}
+.cap-body{background:#FAFCFB; border-top:1px solid var(--border);}
+.cap-note{font-size:11px; line-height:1.7; padding:10px 14px; background:#FBEAEA; color:#B23A3A;}
 .badge.red{background:#FBEAEA; color:#B23A3A;}
 .btn{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; text-align:center; padding:13.5px; border-radius:12px; font-weight:700; font-size:14px;}
 .btn-primary{background:var(--green); color:#fff; box-shadow:0 8px 18px -6px rgba(15,58,41,0.45);}
@@ -1426,25 +1434,47 @@ async function supervisorHome(){ return homeContent(); }
 const CAP_LABELS = {hifz:'تسجيل ورد الحفظ', attendance:'تسجيل المواعيد', tajweed:'تسجيل حضور التجويد', editStudent:'تعديل بيانات الطلاب', addStudent:'إضافة طلاب جدد'};
 const CAP_DEFAULT_ON = {hifz:true, attendance:true, tajweed:true, editStudent:true, addStudent:true, editContent:false, viewSupervisors:false, viewRecordTime:false};
 const EXTRA_CAPS = {editContent:'تعديل محتوى الموقع (الرؤية، الخطط، الخانات)', viewSupervisors:'عرض صفحة تعريف المشرفين', viewRecordTime:'إظهار وقت تسجيل السجلات'};
+let capOpen = {};
+function capGroupToggle(k, open){ capOpen[k] = open; }
+const CAP_GROUPS = [
+  {key:'daily', title:'التسجيل اليومي', sub:'ورد الحفظ، المواعيد، حضور التجويد', icon:'book', caps:['hifz','attendance','tajweed']},
+  {key:'students', title:'إدارة الطلاب', sub:'تعديل البيانات وإضافة طلاب جدد', icon:'cap', caps:['editStudent','addStudent']},
+  {key:'content', title:'المحتوى والعرض', sub:'محتوى الموقع، وقت التسجيل، تعريف المشرفين', icon:'crown', caps:['editContent','viewRecordTime','viewSupervisors'], sensitive:true}
+];
+function capGroupHTML(g, on, total, bodyHtml){
+  return `<details class="cap-group" ${capOpen[g.key]?'open':''} ontoggle="window.capGroupToggle('${g.key}', this.open)">
+    <summary>
+      <span class="stat-icon" style="width:32px; height:32px; flex-shrink:0">${icon(g.icon,16)}</span>
+      <div style="flex:1; min-width:0"><div class="row-title">${g.title}</div><div class="row-sub">${g.sub}</div></div>
+      <span class="badge ${on?'green':'gray'}">${on}/${total}</span>
+      <span class="chevron cap-chev">${icon('chevronL',16)}</span>
+    </summary>
+    <div class="cap-body">${bodyHtml}</div>
+  </details>`;
+}
 function supervisorPermissions(){
   const sup = cache.supervisors.find(s=>s.id===state.params.id);
   const caps = sup.capabilities || {};
-  return subheader(sup.name,'accountAdmin') + `
-  <div class="section-title" style="margin-top:0"><span class="bar"></span>الشعب المُسندة لهذا المشرف</div>
-  <div class="list">${cache.branches.map(b=>{ const checked=(sup.branchIds||[]).includes(b.id);
-    return `<div class="row" onclick="window.toggleSupBranch('${sup.id}','${b.id}')"><div class="row-title">شعبة ${b.name}</div><span class="badge ${checked?'green':'gray'}">${checked?'مُسندة':'غير مُسندة'}</span></div>`;
-  }).join('')}</div>
-  <div class="alert success" style="margin-top:12px">${icon('check',15)} يشوف هذا المشرف كل الشعب دائمًا، بس التعديل مقصور على الشعب المُسندة فقط</div>
-  <div class="section-title"><span class="bar"></span>الصلاحيات على الإجراءات (ضمن شعبته)</div>
-  <div class="list">${Object.keys(CAP_LABELS).map(k=>{ const on = caps[k] !== undefined ? caps[k] : CAP_DEFAULT_ON[k];
-    return `<div class="row" onclick="window.toggleSupCapability('${sup.id}','${k}')"><div class="row-title">${CAP_LABELS[k]}</div><span class="badge ${on?'green':'gray'}">${on?'مفعّلة':'موقوفة'}</span></div>`;
-  }).join('')}</div>
+  const ALL = {...CAP_LABELS, ...EXTRA_CAPS};
+  const isOn = k => caps[k] !== undefined ? caps[k] : CAP_DEFAULT_ON[k];
+  const assigned = (sup.branchIds||[]).filter(id=>cache.branches.some(b=>b.id===id)).length;
+  const branchesGroup = capGroupHTML(
+    {key:'branches', title:'الشعب المُسندة', sub:'التعديل مقصور على الشعب المُسندة فقط', icon:'building'},
+    assigned, cache.branches.length,
+    cache.branches.map(b=>{ const checked=(sup.branchIds||[]).includes(b.id);
+      return `<div class="row" onclick="window.toggleSupBranch('${sup.id}','${b.id}')"><div class="row-title">شعبة ${b.name}</div><span class="badge ${checked?'green':'gray'}">${checked?'مُسندة':'غير مُسندة'}</span></div>`;
+    }).join('') + `<div class="row" style="font-size:11px; color:var(--text-muted)">يشوف هذا المشرف كل الشعب دائمًا، بس التعديل مقصور على الشعب المُسندة فقط</div>`
+  );
+  const groups = CAP_GROUPS.map(g=>{
+    const on = g.caps.filter(isOn).length;
+    const rows = g.caps.map(k=>`<div class="row" onclick="window.toggleSupCapability('${sup.id}','${k}')"><div class="row-title">${ALL[k]}</div><span class="badge ${isOn(k)?'green':'gray'}">${isOn(k)?'مفعّلة':'موقوفة'}</span></div>`).join('');
+    const note = g.sensitive ? `<div class="cap-note">صلاحيات حساسة ومقفولة افتراضيًا: "تعديل محتوى الموقع" بتعطي المشرف زر القلم لتعديل النصوص، و"عرض تعريف المشرفين" بتفتحله بيانات باقي المشرفين.</div>` : '';
+    return capGroupHTML(g, on, g.caps.length, rows + note);
+  }).join('');
+  return subheader(sup.name,'accountAdmin') + supCard(sup,'supervisorPermissions') + `
+  <div class="section-title"><span class="bar"></span>الصلاحيات</div>
+  <div class="list">${branchesGroup}${groups}</div>
   <div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} فتح وإغلاق أي صلاحية وقت ما بدك — تتحدّث فورًا</div>
-  <div class="section-title"><span class="bar"></span>صلاحيات إضافية (حساسة، مقفولة افتراضيًا)</div>
-  <div class="list">${Object.keys(EXTRA_CAPS).map(k=>{ const on = caps[k]===true;
-    return `<div class="row" onclick="window.toggleSupCapability('${sup.id}','${k}')"><div class="row-title">${EXTRA_CAPS[k]}</div><span class="badge ${on?'green':'gray'}">${on?'مفعّلة':'موقوفة'}</span></div>`;
-  }).join('')}</div>
-  <div class="alert" style="background:#FBEAEA;color:#B23A3A;margin-top:8px">${icon('list',15)} هاي صلاحيات حساسة: "تعديل محتوى الموقع" بتعطي المشرف زر القلم لتعديل نصوص الموقع، و"عرض تعريف المشرفين" بتفتحله بيانات باقي المشرفين. فعّلها بس لمن تثق فيه</div>
   <button class="btn btn-outline" style="margin-top:16px; border-color:#B23A3A; color:#B23A3A" onclick="window.deleteSupervisor('${sup.id}')">${icon('trash',15)} حذف حساب المشرف</button>`;
 }
 async function deleteSupervisor(email){
@@ -1507,7 +1537,7 @@ async function submitInvite(){
   }catch(e){ document.getElementById('inv-alert').innerHTML = `<div class="alert error">حدث خطأ: ${e.message}</div>`; }
 }
 
-function supCard(sv){
+function supCard(sv, from){
   const p = sv.profile||{};
   const canEditIt = state.role==='admin' || sv.id===state.personEmail;
   const hafiz = p.hafiz==='نعم' ? ('حافظ للقرآن'+((p.juz!=null && p.juz!=='')? ' ('+p.juz+' جزء)':'')) : (p.hafiz==='لا' ? 'غير حافظ' : '—');
@@ -1518,7 +1548,7 @@ function supCard(sv){
     <div style="display:flex; align-items:center; gap:12px">
       ${avatarBlock(52, sv.photo, sv.name, false)}
       <div style="flex:1"><div class="row-title" style="font-size:14.5px">${sv.name}</div><div class="row-sub">${brs}</div></div>
-      ${canEditIt? `<div class="back-btn" style="cursor:pointer" onclick="window.goto('supervisorProfileForm',{email:'${sv.id}',from:'supervisorsList'})">${icon('pencil',15)}</div>`:''}
+      ${canEditIt? `<div class="back-btn" style="cursor:pointer" onclick="window.goto('supervisorProfileForm',{email:'${sv.id}',from:'${from||'supervisorsList'}'})">${icon('pencil',15)}</div>`:''}
     </div>
     <div class="list" style="margin-top:12px">
       ${line('حفظ القرآن', hafiz)}
@@ -1534,7 +1564,7 @@ async function supervisorsListView(){
   if(!canViewSupervisors()) return `<div class="empty">لا تملك صلاحية عرض هذه الصفحة</div>`;
   await loadSupervisors();
   const list = cache.supervisors;
-  return subheader('تعريف المشرفين ('+list.length+')', homeRoute()) + (list.length? list.map(supCard).join('') : `<div class="empty">لا يوجد مشرفون بعد</div>`);
+  return subheader('تعريف المشرفين ('+list.length+')', homeRoute()) + (list.length? list.map(s=>supCard(s)).join('') : `<div class="empty">لا يوجد مشرفون بعد</div>`);
 }
 async function supervisorProfileFormView(){
   const email = state.params.email;
@@ -1544,7 +1574,7 @@ async function supervisorProfileFormView(){
   const data = snap.exists()? snap.data() : {};
   const p = data.profile || {};
   const seg = (id, opts, cur)=>`<div class="seg" id="${id}">${opts.map(o=>`<button class="${cur===o?'active':''}" onclick="window.selectSeg('${id}',this)">${o}</button>`).join('')}</div>`;
-  return `<div class="subheader"><div class="back-btn" onclick="window.goto('${from}')">${icon('chevronR',16)}</div><h1>البيانات التعريفية: ${data.name||email}</h1></div>
+  return `<div class="subheader"><div class="back-btn" onclick="${from==='supervisorPermissions'? `window.goto('supervisorPermissions',{id:'${email}'})` : `window.goto('${from}')`}">${icon('chevronR',16)}</div><h1>البيانات التعريفية: ${data.name||email}</h1></div>
   <div class="field"><label>هل هو حافظ للقرآن؟</label>${seg('sp-hafiz',['نعم','لا'],p.hafiz)}</div>
   <div class="field"><label>كم جزء يحفظ؟</label><input id="sp-juz" type="text" inputmode="numeric" placeholder="من 0 إلى 30" value="${p.juz!=null?p.juz:''}"></div>
   <div class="field"><label>رقم الهاتف</label><input id="sp-phone" type="tel" placeholder="05xxxxxxxx" value="${p.phone||''}"></div>
@@ -1583,7 +1613,7 @@ async function saveSupProfile(email, from){
     await updateDoc(doc(db,'people',email), {profile});
     if(email===state.personEmail) state.profile = profile;
     g('sp-alert').innerHTML = `<div class="alert success">${icon('check',16)} تم حفظ البيانات</div>`;
-    setTimeout(()=>goto(from), 700);
+    setTimeout(()=>{ if(from==='supervisorPermissions') goto(from,{id:email}); else goto(from); }, 700);
   }catch(e){ showErr('تعذّر الحفظ: '+e.message); }
 }
 async function accountView(){
@@ -1617,7 +1647,7 @@ async function accountView(){
   return html;
 }
 
-Object.assign(window, {goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
+Object.assign(window, {capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
 </script>
 </body>
 </html>
