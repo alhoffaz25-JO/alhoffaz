@@ -76,6 +76,10 @@ svg{display:block;}
 .cap-group .cap-chev{transition:transform .2s; flex-shrink:0;}
 .cap-group[open] .cap-chev{transform:rotate(-90deg);}
 .cap-body{background:#FAFCFB; border-top:1px solid var(--border);}
+html{overflow-x:hidden;}
+.page{overflow-x:clip; min-width:0;}
+.tbl-wrap{overflow-x:auto; border-radius:12px; margin-top:10px; -webkit-overflow-scrolling:touch;}
+.tbl-wrap table{margin-top:0;}
 .cap-note{font-size:11px; line-height:1.7; padding:10px 14px; background:#FBEAEA; color:#B23A3A;}
 .badge.red{background:#FBEAEA; color:#B23A3A;}
 .btn{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; text-align:center; padding:13.5px; border-radius:12px; font-weight:700; font-size:14px;}
@@ -277,15 +281,22 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 function weekStartStr(){ const d=new Date(); const day=d.getDay(); const diff=(day-6+7)%7; d.setDate(d.getDate()-diff); return d.toISOString().slice(0,10); }
 const ATT_POINTS = {'حضور':7,'تأخر':3,'غياب':0};
 const TYPE_POINTS = { hifz:{0:6,1:4,2:2}, review:{0:3,1:2,2:1}, recitation:{0:5,1:3,2:2} };
+function wirdPts(table, errStr, pages){
+  const e = parseInt(errStr)||0, n = Math.max(1, pages||1);
+  let total = 0;
+  for(let i=0;i<n;i++){ const errs = Math.floor(e/n) + (i < e%n ? 1 : 0); total += table[Math.min(errs,2)]||0; }
+  return total;
+}
+function recPts(table, r){ return r.pts!=null ? r.pts : tierPts(table, r.errors); }
 function tierPts(table, errStr){ const n=parseInt(errStr); const t = isNaN(n)?2:Math.min(n,2); return table[t]||0; }
 function pointsFromRecords(det){
   const ws = weekStartStr(); const ms = todayStr().slice(0,7);
   let weekly=0, monthly=0;
   const items = [
     ...(det.attendance||[]).map(r=>({date:r.date, pts: ATT_POINTS[r.status]||0})),
-    ...(det.hifzLog||[]).map(r=>({date:r.date, pts: tierPts(TYPE_POINTS.hifz, r.errors)})),
-    ...(det.reviewLog||[]).map(r=>({date:r.date, pts: tierPts(TYPE_POINTS.review, r.errors)})),
-    ...(det.recitationLog||[]).map(r=>({date:r.date, pts: tierPts(TYPE_POINTS.recitation, r.errors)})),
+    ...(det.hifzLog||[]).map(r=>({date:r.date, pts: recPts(TYPE_POINTS.hifz, r)})),
+    ...(det.reviewLog||[]).map(r=>({date:r.date, pts: recPts(TYPE_POINTS.review, r)})),
+    ...(det.recitationLog||[]).map(r=>({date:r.date, pts: recPts(TYPE_POINTS.recitation, r)})),
   ];
   items.forEach(it=>{ if(it.date>=ws) weekly+=it.pts; if(it.date && it.date.startsWith(ms)) monthly+=it.pts; });
   return {weekly, monthly};
@@ -675,6 +686,7 @@ async function renderView(){
     case 'adminHome': return await adminHome();
     case 'adminBranches': return adminBranches();
     case 'branchDetail': return branchDetail();
+    case 'branchAttendance': return branchAttendanceView();
     case 'adminDirectory': return directory();
     case 'addStudentForm': return addStudentForm();
     case 'plansHome': return plansHome();
@@ -1004,6 +1016,79 @@ async function quickAddBranch(){
   try{ await addDoc(collection(db,'branches'), {name}); await loadBranches(); goto('adminBranches'); }
   catch(e){ alert('تعذّر إضافة الشعبة: '+e.message); }
 }
+function wirdRange(r){
+  const f=String(r.from||''), t=String(r.to||'');
+  const fi=f.lastIndexOf(' '), ti=t.lastIndexOf(' ');
+  if(fi>0 && ti>0 && f.slice(0,fi)===t.slice(0,ti)) return f.slice(0,fi)+' <b>'+f.slice(fi+1)+'</b> ← <b>'+t.slice(ti+1)+'</b>';
+  return f+' ← '+t;
+}
+let batchAtt = {bid:'', kind:'', date:'', sel:{}, prev:{}};
+async function branchAttendanceView(){
+  const b = getBranch(state.params.id);
+  const back = `<div class="subheader"><div class="back-btn" onclick="window.goto('branchDetail',{id:'${b.id}'})">${icon('chevronR',16)}</div><h1>تسجيل الحضور — شعبة ${b.name}</h1></div>`;
+  const kinds = [['attendance','المواعيد',canDo('attendance')],['tajweed','حضور التجويد',canDo('tajweed')]].filter(k=>k[2]);
+  if(!canEditBranch(b.id) || !kinds.length) return back + `<div class="empty">لا تملك صلاحية تسجيل الحضور لهذه الشعبة</div>`;
+  if(state.params.fresh){ batchAtt.bid=''; delete state.params.fresh; }
+  const kind = kinds.some(k=>k[0]===state.params.kind) ? state.params.kind : kinds[0][0];
+  const date = state.params.date || todayStr();
+  const list = cache.students.filter(s=>s.branchId===b.id);
+  if(batchAtt.bid!==b.id || batchAtt.kind!==kind || batchAtt.date!==date){
+    batchAtt = {bid:b.id, kind, date, sel:{}, prev:{}};
+    const coll = kind==='attendance' ? 'attendance' : 'tajweedAtt';
+    const res = await Promise.all(list.map(s=>getDoc(doc(db,'students',s.id,coll,date)).then(d=>[s.id, d.exists()? d.data().status : null]).catch(()=>[s.id,null])));
+    res.forEach(([id,st])=>{ if(st){ batchAtt.prev[id]=st; batchAtt.sel[id]=st; } });
+  }
+  const rows = list.map(st=>{ const cur = batchAtt.sel[st.id];
+    return `<div class="row" style="flex-direction:column; align-items:stretch; gap:8px"><div class="row-title">${st.name}</div>
+    <div class="seg" id="ba-${st.id}" style="margin-top:0">${['حضور','تأخر','غياب'].map(x=>`<button data-st="${x}" class="${cur===x?'active':''}" onclick="window.batchPick('${st.id}','${x}')">${x}</button>`).join('')}</div></div>`; }).join('');
+  return back + `
+  ${kinds.length>1? `<div class="seg" style="margin-top:14px">${kinds.map(k=>`<button class="${k[0]===kind?'active':''}" onclick="window.goto('branchAttendance',{id:'${b.id}',kind:'${k[0]}',date:'${date}'})">${k[1]}</button>`).join('')}</div>` : ''}
+  <div class="field"><label>التاريخ</label><input type="date" value="${date}" onchange="window.goto('branchAttendance',{id:'${b.id}',kind:'${kind}',date:this.value||''})"></div>
+  ${kind==='attendance'? `<div class="row-sub" style="margin-top:8px">النقاط: حضور 7 · تأخر 3 · غياب 0</div>` : ''}
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:14px">
+    <div class="row-sub" id="ba-count">تم تحديد ${list.filter(x=>batchAtt.sel[x.id]).length} من ${list.length}</div>
+    <button class="btn btn-outline" style="width:auto; padding:8px 14px" onclick="window.batchAll()">تحديد الكل حضور</button>
+  </div>
+  <div class="list">${rows || `<div class="empty">لا يوجد طلاب في هذه الشعبة بعد</div>`}</div>
+  <button class="btn btn-primary" id="ba-save" style="margin-top:16px" onclick="window.saveBatchAtt()">حفظ</button>
+  <div id="ba-alert"></div>`;
+}
+function batchCount(){
+  const el = document.getElementById('ba-count'); if(!el) return;
+  const list = cache.students.filter(s=>s.branchId===batchAtt.bid);
+  el.textContent = 'تم تحديد '+list.filter(s=>batchAtt.sel[s.id]).length+' من '+list.length;
+}
+function batchPick(sid, st){
+  batchAtt.sel[sid] = st;
+  document.querySelectorAll('#ba-'+sid+' button').forEach(b=>b.classList.toggle('active', b.dataset.st===st));
+  batchCount();
+}
+function batchAll(){ cache.students.filter(s=>s.branchId===batchAtt.bid).forEach(s=>batchPick(s.id,'حضور')); }
+async function saveBatchAtt(){
+  const {bid, kind, date, sel, prev} = batchAtt;
+  const alertEl = document.getElementById('ba-alert'), btn = document.getElementById('ba-save');
+  const todo = cache.students.filter(s=>s.branchId===bid && sel[s.id] && sel[s.id]!==prev[s.id]);
+  if(!todo.length){ alertEl.innerHTML = `<div class="alert error">${icon('check',16)} ما في تغييرات جديدة للحفظ</div>`; return; }
+  btn.disabled = true; btn.textContent = 'جارٍ الحفظ...';
+  const coll = kind==='attendance' ? 'attendance' : 'tajweedAtt';
+  let failed = 0;
+  await Promise.all(todo.map(async s=>{
+    try{
+      await setDoc(doc(db,'students',s.id,coll,date), {date, status:sel[s.id], recordedBy:state.personName, recordedAt:serverTimestamp()});
+      if(kind==='attendance'){
+        const diff = (ATT_POINTS[sel[s.id]]||0) - (ATT_POINTS[prev[s.id]]||0);
+        if(diff!==0) await updateDoc(doc(db,'students',s.id), {points: increment(diff)});
+      }
+      prev[s.id] = sel[s.id];
+    }catch(e){ failed++; }
+  }));
+  try{ await loadStudentsForRole(); }catch(e){}
+  cache.details = {};
+  btn.disabled = false; btn.textContent = 'حفظ';
+  alertEl.innerHTML = failed
+    ? `<div class="alert error">${icon('check',16)} تعذّر حفظ ${failed} من ${todo.length}، جرّب الحفظ مرة ثانية</div>`
+    : `<div class="alert success">${icon('check',16)} تم حفظ ${todo.length} سجل</div>`;
+}
 function branchDetail(){
   const b = getBranch(state.params.id);
   const students = cache.students.filter(s=>s.branchId===state.params.id);
@@ -1011,6 +1096,7 @@ function branchDetail(){
   return subheader('شعبة '+b.name, 'adminBranches') +
   (!editable && state.role==='supervisor' ? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:14px">${icon('eye',14)} عرض فقط — لا تملك صلاحية تعديل هذه الشعبة</div>` : '') + `
   <div class="stat-card" style="margin-top:16px; text-align:center"><div class="stat-num">${students.length}</div><div class="stat-label">عدد الطلاب</div></div>
+  ${editable && (canDo('attendance')||canDo('tajweed')) ? `<button class="btn btn-primary" style="margin-top:12px" onclick="window.goto('branchAttendance',{id:'${b.id}',fresh:1})">${icon('check',16)} تسجيل الحضور للشعبة</button>` : ''}
   <div class="search-box">${icon('search',15)}<input placeholder="ابحث عن طالب بهذه الشعبة..." oninput="window.filterBranchStudents(this.value,'${b.id}')"></div>
   <div class="section-title"><span class="bar"></span>طلاب الشعبة</div>
   <div class="list" id="branch-student-list">${branchStudentRows(students)}</div>`;
@@ -1075,8 +1161,8 @@ async function studentProfileView(mode){
       const monthly = monthlyFromEvals(cyc.evals);
       const pts = pointsFromRecords(det);
       const wirdTable = (log,label,collKey)=>`<div class="section-title"><span class="bar"></span>${label}</div>
-      <table><thead><tr><th>التاريخ</th><th>من</th><th>إلى</th><th>الصفحات</th><th>أخطاء</th><th>التقدير</th><th>المشرف</th>${canHifz?'<th></th>':''}</tr></thead>
-      <tbody>${log.map(r=>`<tr><td>${r.date.slice(5)}${recTimeLine(r)}</td><td>${r.from}</td><td>${r.to}</td><td>${r.pagesEst!=null? r.pagesEst+(r.pagesExact===false?'~':'') : '—'}</td><td>${r.errors}</td><td>${r.grade}</td><td>${r.recordedBy||'—'}</td>${canHifz?`<td><span onclick="window.deleteWird('${s.id}','${collKey}','${r.id}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canHifz?8:7}">لا يوجد سجل</td></tr>`}</tbody></table>`;
+      <div class="tbl-wrap"><table><thead><tr><th>التاريخ</th><th>الورد</th><th>الصفحات</th><th>أخطاء</th><th>التقدير</th>${canHifz?'<th></th>':''}</tr></thead>
+      <tbody>${log.map(r=>`<tr><td>${r.date.slice(5)}${recTimeLine(r)}<div style="font-size:9.5px; color:var(--text-muted)">${r.recordedBy||'—'}</div></td><td>${wirdRange(r)}</td><td>${r.pagesEst!=null? r.pagesEst+(r.pagesExact===false?'~':'') : '—'}</td><td>${r.errors}</td><td>${r.grade}</td>${canHifz?`<td><span onclick="window.deleteWird('${s.id}','${collKey}','${r.id}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canHifz?8:7}">لا يوجد سجل</td></tr>`}</tbody></table></div>`;
       body += `<div class="progress-wrap">
         ${latest? `<div class="ring">${ringSvg(latest.pct)}</div><div class="row-sub" style="margin-top:-4px">آخر تقييم أسبوعي</div>` : `<div class="row-sub">لم تكتمل أول دورة تسميع بعد (٤ جلسات)</div>`}
         <div class="bar-bg" style="margin-top:14px"><div class="bar-fill" style="width:${cyc.inProgress/4*100}%"></div></div>
@@ -1137,7 +1223,7 @@ function wirdForm(){
     ${ayahPicker('wf-to','إلى الآية')}
   </div>
   <div class="field"><label>عدد الأخطاء</label><div class="seg" id="wf-err"><button class="active" onclick="window.selectSeg('wf-err',this)">0</button><button onclick="window.selectSeg('wf-err',this)">1</button><button onclick="window.selectSeg('wf-err',this)">2</button><button onclick="window.selectSeg('wf-err',this)">3+</button></div></div>
-  <div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} التقدير (ممتاز / جيد جدًا / جيد) بيتحدد تلقائيًا حسب عدد الأخطاء</div>
+  <div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} التقدير (ممتاز / جيد جدًا / جيد) بيتحدد تلقائيًا حسب عدد الأخطاء · والنقاط بتنحسب لكل صفحة حسب توزيع الأخطاء</div>
   <button class="btn btn-primary" style="margin-top:18px" onclick="window.saveWird('${s.id}','${from}')">حفظ الورد</button>
   <div id="wf-alert"></div>`;
 }
@@ -1170,9 +1256,9 @@ async function saveWird(sid, from){
   const exactPages = computeExactPages(surah, f, t);
   const pagesEst = exactPages!==null ? exactPages : estimatePages(f, t);
   const pagesExact = exactPages!==null;
+  const pts = wirdPts(ptsTable, errors, pagesEst);
   try{
-    await addDoc(collection(db,'students',sid,collKey), {date, from:surah+' '+f, to:surah+' '+t, errors, grade, recordedBy, pagesEst, pagesExact, recordedAt:serverTimestamp()});
-    const pts = tierPts(ptsTable, errors);
+    await addDoc(collection(db,'students',sid,collKey), {date, from:surah+' '+f, to:surah+' '+t, errors, grade, recordedBy, pagesEst, pagesExact, pts, recordedAt:serverTimestamp()});
     if(pts) await updateDoc(doc(db,'students',sid), {points: increment(pts)});
     await loadStudentsForRole();
     await ensureStudentDetail(sid, true);
@@ -1188,7 +1274,7 @@ async function deleteWird(sid, collKey, docId, from){
     let pts = 0;
     if(snap.exists()){
       const table = {hifzLog:TYPE_POINTS.hifz, reviewLog:TYPE_POINTS.review, recitationLog:TYPE_POINTS.recitation}[collKey];
-      pts = tierPts(table, snap.data().errors);
+      pts = recPts(table, snap.data());
     }
     await deleteDoc(ref);
     if(pts) await updateDoc(doc(db,'students',sid), {points: increment(-pts)});
@@ -1283,9 +1369,9 @@ function studentStats(s, period){
   else {
     pts = 0;
     det.attendance.forEach(r=>{ if(inPeriod(r.date,period)) pts += ATT_POINTS[r.status]||0; });
-    det.hifzLog.forEach(r=>{ if(inPeriod(r.date,period)) pts += tierPts(TYPE_POINTS.hifz, r.errors); });
-    det.reviewLog.forEach(r=>{ if(inPeriod(r.date,period)) pts += tierPts(TYPE_POINTS.review, r.errors); });
-    (det.recitationLog||[]).forEach(r=>{ if(inPeriod(r.date,period)) pts += tierPts(TYPE_POINTS.recitation, r.errors); });
+    det.hifzLog.forEach(r=>{ if(inPeriod(r.date,period)) pts += recPts(TYPE_POINTS.hifz, r); });
+    det.reviewLog.forEach(r=>{ if(inPeriod(r.date,period)) pts += recPts(TYPE_POINTS.review, r); });
+    (det.recitationLog||[]).forEach(r=>{ if(inPeriod(r.date,period)) pts += recPts(TYPE_POINTS.recitation, r); });
     (det.pointsAdjustments||[]).forEach(a=>{ if(inPeriod(a.date,period)) pts += a.delta||0; });
   }
   let ph=0, pr=0;
@@ -1647,7 +1733,7 @@ async function accountView(){
   return html;
 }
 
-Object.assign(window, {capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
+Object.assign(window, {batchPick, batchAll, saveBatchAtt, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
 </script>
 </body>
 </html>
