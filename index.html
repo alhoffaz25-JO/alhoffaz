@@ -200,6 +200,7 @@ const CONTENT_DEFAULTS = {
   khana_branches_label:'الشعب',
   khana_achievements_label:'الإنجازات', khana_achievements_sub:'تقارير أسبوعية وشهرية',
   khana_points_label:'النقاط', khana_points_sub:'نظام التحفيز والمنافسة',
+  khana_supervisors_label:'المشرفون', khana_supervisors_sub:'تعريف وبيانات المشرفين',
   plan_hifz_title:'خطة الحفظ', plan_hifz_l1_name:'المستوى الأول', plan_hifz_l1_text:'حفظ جديد لا يتجاوز ربع حزب يوميًا، مع مراجعة يومية للورد السابق مباشرة، ومراجعة أسبوعية جماعية لكل ما تم حفظه خلال الأسبوع أمام المشرف.',
   plan_hifz_l2_name:'المستوى الثاني', plan_hifz_l2_text:'حفظ جديد نصف حزب يوميًا، مع مراجعة يومية لخمسة أجزاء سابقة بالتناوب، وتسميع فردي أسبوعي لتثبيت الحفظ ومتابعة الأخطاء.',
   plan_hifz_l3_name:'المستوى الثالث', plan_hifz_l3_text:'حفظ جديد حزب كامل يوميًا للطلاب المتقدمين، مع مراجعة يومية لعشر أجزاء سابقة بالتناوب، واختبار شامل شهري لقياس الإتقان.',
@@ -230,13 +231,13 @@ const SURAHS = [
   ['المسد',5],['الإخلاص',4],['الفلق',5],['الناس',6],
 ].map(([name,ayat])=>({name,ayat}));
 const TAJWEED_LEVELS = [
-  {key:'jam3ia_1', label:'المستوى التمهيدي (جمعية)'},
-  {key:'jam3ia_2', label:'المستوى المتوسط (جمعية)'},
-  {key:'jam3ia_3', label:'المستوى المتقدم (جمعية)'},
-  {key:'awqaf_1', label:'المستوى الأول (أوقاف)'},
-  {key:'awqaf_2', label:'المستوى الثاني (أوقاف)'},
-  {key:'awqaf_3', label:'المستوى الثالث (أوقاف)'},
-  {key:'ijaza', label:'الإجازة'},
+  {key:'jam3ia_1', label:'المستوى التمهيدي (جمعية)', short:'التمهيدي (جمعية)'},
+  {key:'jam3ia_2', label:'المستوى المتوسط (جمعية)', short:'المتوسط (جمعية)'},
+  {key:'jam3ia_3', label:'المستوى المتقدم (جمعية)', short:'المتقدم (جمعية)'},
+  {key:'awqaf_1', label:'المستوى الأول (أوقاف)', short:'الأول (أوقاف)'},
+  {key:'awqaf_2', label:'المستوى الثاني (أوقاف)', short:'الثاني (أوقاف)'},
+  {key:'awqaf_3', label:'المستوى الثالث (أوقاف)', short:'الثالث (أوقاف)'},
+  {key:'ijaza', label:'الإجازة', short:'الإجازة'},
 ];
 const TAJWEED_STATUS = ['لم يبدأ بها','يدرسها حاليًا','اجتازها'];
 const TAJWEED_STATUS_CLASS = ['gray','gold','green'];
@@ -303,10 +304,26 @@ function collectPhoneRows(containerId){
   });
   return out;
 }
-function tajweedProgressLabel(s){
-  const lv = s.tajweedLevels || {};
-  const done = TAJWEED_LEVELS.filter(l=>(lv[l.key]||0)===2).length;
-  return done+'/'+TAJWEED_LEVELS.length+' مستويات مُجازة';
+function tajweedSummary(levels){
+  const lv = levels || {};
+  const done = TAJWEED_LEVELS.filter(l=>(lv[l.key]||0)===2).map(l=>l.short);
+  const cur = TAJWEED_LEVELS.filter(l=>(lv[l.key]||0)===1).map(l=>l.short);
+  const parts = [];
+  if(done.length) parts.push('حاصل على: '+done.join('، '));
+  if(cur.length) parts.push('يدرس: '+cur.join('، '));
+  return parts.length? parts.join(' · ') : 'لم يبدأ التجويد بعد';
+}
+function tajweedProgressLabel(s){ return tajweedSummary(s.tajweedLevels); }
+function canViewSupervisors(){ return state.role==='admin' || (state.role==='supervisor' && state.capabilities && state.capabilities.viewSupervisors===true); }
+function canViewRecordTime(){ return state.role==='admin' || (state.capabilities && state.capabilities.viewRecordTime===true); }
+function tsMillis(ts){ if(!ts) return 0; if(ts.toMillis) return ts.toMillis(); if(ts.seconds) return ts.seconds*1000; return 0; }
+function fmtRecTime(ts){ const ms=tsMillis(ts); if(!ms) return ''; const d=new Date(ms); return d.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); }
+function recTimeLine(r){ if(!canViewRecordTime()) return ''; const t=fmtRecTime(r.recordedAt); return t? `<div style="font-size:9px; color:var(--text-muted); margin-top:2px; white-space:nowrap">سُجّل ${t}</div>` : ''; }
+function recPages(r){
+  if(r.pagesEst!=null && !isNaN(r.pagesEst)) return Number(r.pagesEst);
+  const m1=/^(.*)\s(\d+)$/.exec(r.from||''), m2=/^(.*)\s(\d+)$/.exec(r.to||'');
+  if(m1 && m2 && m1[1]===m2[1]){ const p=computeExactPages(m1[1], +m1[2], +m2[2]); if(p!==null) return p; }
+  return 0;
 }
 function surahPicker(idPrefix, selectedName){
   return `<div class="field" style="position:relative">
@@ -441,7 +458,7 @@ async function bootSession(user){
   }
   const p = pdoc.data();
   state.role = p.role; state.personEmail = email; state.personName = p.name || email; state.personPhoto = p.photo || null;
-  state.branchIds = p.branchIds || []; state.studentId = p.studentId || null; state.capabilities = p.capabilities || {};
+  state.branchIds = p.branchIds || []; state.studentId = p.studentId || null; state.capabilities = p.capabilities || {}; state.profile = p.profile || {};
   await loadBranches();
   await loadContent();
   if(state.role==='student'){
@@ -659,6 +676,11 @@ async function renderView(){
     case 'studentProfile': return await studentProfileView('manage');
     case 'editStudentForm': return editStudentForm();
     case 'adjustPointsForm': return adjustPointsForm();
+    case 'quickStudents': return quickStudentsView();
+    case 'quickBranches': return await quickBranchesView();
+    case 'quickWird': return await quickWirdView();
+    case 'supervisorsList': return await supervisorsListView();
+    case 'supervisorProfileForm': return await supervisorProfileFormView();
     case 'notificationsView': return await notificationsView();
     case 'wirdForm': return wirdForm();
     case 'accountAdmin': return await accountView();
@@ -673,13 +695,26 @@ async function renderView(){
   }
 }
 
+async function loadAllDetails(){ await Promise.all(cache.students.map(s=>ensureStudentDetail(s.id))); }
 async function homeContent(){
-  let hifzCount=0, reviewCount=0;
+  await loadAllDetails();
+  const ws = weekStartStr();
+  let hifzCount=0, reviewCount=0, hifzWeek=0, reviewWeek=0;
   for(const s of cache.students){
-    const det = await ensureStudentDetail(s.id);
-    hifzCount += det.hifzLog.length;
-    reviewCount += det.reviewLog.length;
+    const det = cache.details[s.id];
+    hifzCount += det.hifzLog.length; reviewCount += det.reviewLog.length;
+    hifzWeek += det.hifzLog.filter(r=>r.date>=ws).length;
+    reviewWeek += det.reviewLog.filter(r=>r.date>=ws).length;
   }
+  const khanas = [
+    {go:'adminDirectory', ic:'idcard', label:editable('khana_directory_label','اسم خانة الملف التعريفي'), sub:editable('khana_directory_sub','وصف خانة الملف التعريفي')},
+    {go:'plansHome', ic:'list', label:editable('khana_plans_label','اسم خانة الخطط'), sub:editable('khana_plans_sub','وصف خانة الخطط')},
+    {go:'adminBranches', ic:'building', label:editable('khana_branches_label','اسم خانة الشعب'), sub:`${cache.branches.length} شعب`},
+    {go:'achievementsHome', ic:'trend', label:editable('khana_achievements_label','اسم خانة الإنجازات'), sub:editable('khana_achievements_sub','وصف خانة الإنجازات')},
+    {go:'adminPoints', ic:'star', label:editable('khana_points_label','اسم خانة النقاط'), sub:editable('khana_points_sub','وصف خانة النقاط')},
+  ];
+  if(canViewSupervisors()) khanas.push({go:'supervisorsList', ic:'briefcase', label:editable('khana_supervisors_label','اسم خانة المشرفين'), sub:editable('khana_supervisors_sub','وصف خانة المشرفين')});
+  const chev = `<div style="position:absolute; top:12px; left:12px; color:var(--text-muted)">${icon('chevronL',13)}</div>`;
   return `
   <div class="vision-card">
     <div class="vision-title"><span class="vi">${icon('eye',15)}</span>الرؤية</div>
@@ -690,19 +725,82 @@ async function homeContent(){
   </div>
   <div class="section-title"><span class="bar"></span>الأقسام الرئيسية</div>
   <div class="khana-grid">
-    <div class="khana" onclick="${state.editMode?'':"window.goto('adminDirectory')"}"><div class="khana-icon">${icon('idcard',21)}</div><div class="khana-label">${editable('khana_directory_label','اسم خانة الملف التعريفي')}</div><div class="khana-sub">${editable('khana_directory_sub','وصف خانة الملف التعريفي')}</div></div>
-    <div class="khana" onclick="${state.editMode?'':"window.goto('plansHome')"}"><div class="khana-icon">${icon('list',21)}</div><div class="khana-label">${editable('khana_plans_label','اسم خانة الخطط')}</div><div class="khana-sub">${editable('khana_plans_sub','وصف خانة الخطط')}</div></div>
-    <div class="khana" onclick="${state.editMode?'':"window.goto('adminBranches')"}"><div class="khana-icon">${icon('building',21)}</div><div class="khana-label">${editable('khana_branches_label','اسم خانة الشعب')}</div><div class="khana-sub">${cache.branches.length} شعب</div></div>
-    <div class="khana" onclick="${state.editMode?'':"window.goto('achievementsHome')"}"><div class="khana-icon">${icon('trend',21)}</div><div class="khana-label">${editable('khana_achievements_label','اسم خانة الإنجازات')}</div><div class="khana-sub">${editable('khana_achievements_sub','وصف خانة الإنجازات')}</div></div>
-    <div class="khana" onclick="${state.editMode?'':"window.goto('adminPoints')"}" style="grid-column:1/3"><div class="khana-icon">${icon('star',21)}</div><div class="khana-label">${editable('khana_points_label','اسم خانة النقاط')}</div><div class="khana-sub">${editable('khana_points_sub','وصف خانة النقاط')}</div></div>
+    ${khanas.map((k,i)=>`<div class="khana" onclick="${state.editMode?'':`window.goto('${k.go}')`}" ${(khanas.length%2===1 && i===khanas.length-1)?'style="grid-column:1/3"':''}><div class="khana-icon">${icon(k.ic,21)}</div><div class="khana-label">${k.label}</div><div class="khana-sub">${k.sub}</div></div>`).join('')}
   </div>
   <div class="section-title"><span class="bar"></span>نظرة سريعة</div>
   <div class="stat-grid">
-    <div class="stat-card"><div class="stat-icon">${icon('user',17)}</div><div class="stat-num">${cache.students.length}</div><div class="stat-label">إجمالي الطلاب</div></div>
-    <div class="stat-card"><div class="stat-icon">${icon('building',17)}</div><div class="stat-num">${cache.branches.length}</div><div class="stat-label">الشعب</div></div>
-    <div class="stat-card"><div class="stat-icon">${icon('book',17)}</div><div class="stat-num">${hifzCount}</div><div class="stat-label">جلسات الحفظ المسجّلة</div></div>
-    <div class="stat-card"><div class="stat-icon">${icon('trend',17)}</div><div class="stat-num">${reviewCount}</div><div class="stat-label">جلسات المراجعة المسجّلة</div></div>
+    <div class="stat-card" style="position:relative; cursor:pointer" onclick="window.goto('quickStudents')">${chev}<div class="stat-icon">${icon('user',17)}</div><div class="stat-num">${cache.students.length}</div><div class="stat-label">إجمالي الطلاب</div></div>
+    <div class="stat-card" style="position:relative; cursor:pointer" onclick="window.goto('quickBranches')">${chev}<div class="stat-icon">${icon('building',17)}</div><div class="stat-num">${cache.branches.length}</div><div class="stat-label">الشعب</div></div>
+    <div class="stat-card" style="position:relative; cursor:pointer" onclick="window.goto('quickWird',{type:'hifz',mode:'week'})">${chev}<div class="stat-icon">${icon('book',17)}</div><div class="stat-num">${hifzCount}</div><div class="stat-label">جلسات الحفظ المسجّلة</div><div class="stat-label" style="color:var(--green); font-weight:700">هذا الأسبوع: ${hifzWeek}</div></div>
+    <div class="stat-card" style="position:relative; cursor:pointer" onclick="window.goto('quickWird',{type:'review',mode:'week'})">${chev}<div class="stat-icon">${icon('trend',17)}</div><div class="stat-num">${reviewCount}</div><div class="stat-label">جلسات المراجعة المسجّلة</div><div class="stat-label" style="color:var(--green); font-weight:700">هذا الأسبوع: ${reviewWeek}</div></div>
   </div>`;
+}
+function quickStudentRows(list){
+  if(!list.length) return `<div class="empty"><div class="e-icon">${icon('search',26)}</div>لا توجد نتائج</div>`;
+  return list.map(s=>{
+    const phones = (s.phones&&s.phones.length? s.phones : (s.phone? [{type:'—',number:s.phone}]:[])).map(p=>(p.type!=='—'?'هاتف '+p.type+': ':'')+p.number).join(' · ');
+    return `<div class="row" style="align-items:flex-start; cursor:pointer" onclick="window.goto('studentProfile',{id:'${s.id}',from:'quickStudents'})">
+      <div class="row-left" style="align-items:flex-start">${avatarBlock(38, s.photo, s.name, false)}
+        <div>
+          <div class="row-title">${s.name} <span class="badge gold" style="margin-inline-start:4px">${getBranch(s.branchId).name}</span></div>
+          <div class="row-sub">${s.age?('العمر '+s.age+' · '):''}الحفظ: ${s.hifzAmount||'—'} · النقاط: ${s.points||0}</div>
+          <div class="row-sub">${tajweedSummary(s.tajweedLevels)}</div>
+          ${phones? `<div class="row-sub">${phones}</div>`:''}
+        </div>
+      </div>
+      <div class="chevron">${icon('chevronL',14)}</div>
+    </div>`;
+  }).join('');
+}
+function quickStudentsView(){
+  const sorted = [...cache.students].sort((a,b)=> getBranch(a.branchId).name.localeCompare(getBranch(b.branchId).name,'ar') || a.name.localeCompare(b.name,'ar'));
+  return subheader('إجمالي الطلاب ('+cache.students.length+')', homeRoute()) + `
+  <div class="search-box">${icon('search',15)}<input placeholder="ابحث باسم الطالب..." oninput="window.filterQuickStudents(this.value)"></div>
+  <div class="list" id="qs-list" style="margin-top:14px">${quickStudentRows(sorted)}</div>`;
+}
+function filterQuickStudents(q){
+  const sorted = [...cache.students].filter(s=>s.name.includes(q)).sort((a,b)=> getBranch(a.branchId).name.localeCompare(getBranch(b.branchId).name,'ar') || a.name.localeCompare(b.name,'ar'));
+  document.getElementById('qs-list').innerHTML = quickStudentRows(sorted);
+}
+async function quickBranchesView(){
+  await loadAllDetails();
+  return subheader('الشعب', homeRoute()) + `<div class="list">${cache.branches.map(b=>{
+    const st = cache.students.filter(s=>s.branchId===b.id);
+    let pts=0, ph=0, pr=0;
+    st.forEach(s=>{ pts += s.points||0; const d=cache.details[s.id]; d.hifzLog.forEach(r=>ph+=recPages(r)); d.reviewLog.forEach(r=>pr+=recPages(r)); });
+    return `<div class="row" style="align-items:flex-start; cursor:pointer" onclick="window.goto('branchDetail',{id:'${b.id}'})">
+      <div class="row-left" style="align-items:flex-start"><div class="avatar">${icon('building',16)}</div>
+        <div><div class="row-title">شعبة ${b.name} <span class="badge gold" style="margin-inline-start:4px">${st.length} طالب</span></div>
+          <div class="row-sub">مجموع النقاط: ${pts}</div>
+          <div class="row-sub">صفحات الحفظ: ${ph} · صفحات المراجعة: ${pr}</div></div></div>
+      <div class="chevron">${icon('chevronL',14)}</div></div>`;
+  }).join('')||`<div class="empty">لا توجد شعب</div>`}</div>`;
+}
+async function quickWirdView(){
+  const type = state.params.type||'hifz', mode = state.params.mode||'week';
+  const coll = type==='hifz'?'hifzLog':'reviewLog';
+  const label = type==='hifz'?'الحفظ':'المراجعة';
+  await loadAllDetails();
+  const ws = weekStartStr();
+  const all = [];
+  cache.students.forEach(s=>{ cache.details[s.id][coll].forEach(r=>all.push({...r, s})); });
+  const weekList = all.filter(r=>r.date>=ws);
+  const list = [...(mode==='week'? weekList : all)].sort((a,b)=> b.date.localeCompare(a.date) || tsMillis(b.recordedAt)-tsMillis(a.recordedAt));
+  const pagesSum = list.reduce((a,r)=>a+recPages(r),0);
+  return subheader('أوراد '+label, homeRoute()) + `
+  <div class="seg" style="margin-top:14px">
+    <button class="${mode==='week'?'active':''}" onclick="window.goto('quickWird',{type:'${type}',mode:'week'})">هذا الأسبوع (${weekList.length})</button>
+    <button class="${mode==='all'?'active':''}" onclick="window.goto('quickWird',{type:'${type}',mode:'all'})">الكل (${all.length})</button>
+  </div>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-num">${list.length}</div><div class="stat-label">عدد الأوراد</div></div>
+    <div class="stat-card"><div class="stat-num">${pagesSum}</div><div class="stat-label">مجموع الصفحات</div></div>
+  </div>
+  <div class="list">${list.map(r=>`<div class="row" style="align-items:flex-start; cursor:pointer" onclick="window.goto('studentProfile',{id:'${r.s.id}',tab:'hifz',from:'quickWird'})">
+    <div><div class="row-title">${r.s.name} <span class="badge gold" style="margin-inline-start:4px">${getBranch(r.s.branchId).name}</span></div>
+      <div class="row-sub">من ${r.from} إلى ${r.to}</div>
+      <div class="row-sub">${r.date} · ${recPages(r)} صفحة · ${r.grade} · ${r.recordedBy||'—'}</div>${recTimeLine(r)}</div>
+    <span class="badge ${r.errors==='0'?'green':r.errors==='1'?'gold':'red'}">${r.errors} أخطاء</span></div>`).join('')||`<div class="empty">لا توجد أوراد ${mode==='week'?'هذا الأسبوع':''}</div>`}</div>`;
 }
 async function adminHome(){ return homeContent(); }
 
@@ -938,6 +1036,8 @@ async function studentProfileView(mode){
   <div class="tabs">${tabs.map(([k,l])=>`<div class="tab ${tab===k?'active':''}" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'${k}',from:'${from}'})">${l}</div>`).join('')}</div>`;
 
   if(tab==='data'){
+    const detD = await ensureStudentDetail(s.id);
+    const adjHtml = (detD.pointsAdjustments||[]).length ? `<div class="section-title"><span class="bar"></span>سجل تعديلات النقاط</div><div class="list">${detD.pointsAdjustments.map(a=>`<div class="row"><div><div class="row-title">${a.reason||'—'}</div><div class="row-sub">${a.date||''} · ${a.recordedBy||''}</div>${recTimeLine(a)}</div><span class="badge ${a.delta>0?'green':'red'}">${a.delta>0?'+':''}${a.delta}</span></div>`).join('')}</div>` : '';
     const phonesList = (s.phones && s.phones.length) ? s.phones : (s.phone? [{type:'—',number:s.phone}] : []);
     const tajCanEdit = canEdit && canDo('editStudent');
     body += `<div class="list" style="margin-top:16px">
@@ -947,12 +1047,13 @@ async function studentProfileView(mode){
       <div class="row"><span class="row-sub">مقدار الحفظ</span><span class="row-title">${s.hifzAmount||'—'}</span></div>
       <div class="row"><span class="row-sub">النقاط</span><span class="row-title">${s.points||0}</span></div>
     </div>${s.notes? `<div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} ${s.notes}</div>`:''}
-    <div class="section-title"><span class="bar"></span>مستويات التجويد (${tajweedProgressLabel(s)})</div>
+    <div class="section-title"><span class="bar"></span>مستويات التجويد</div>
     <div class="list">${TAJWEED_LEVELS.map(l=>{
       const st = (s.tajweedLevels && s.tajweedLevels[l.key]) || 0;
       return `<div class="row" ${tajCanEdit?`onclick="window.toggleTajweedLevel('${s.id}','${l.key}','${from}')" style="cursor:pointer"`:''}>
         <div class="row-title">${l.label}</div><span class="badge ${TAJWEED_STATUS_CLASS[st]}">${TAJWEED_STATUS[st]}</span></div>`;
     }).join('')}</div>
+    ${adjHtml}
     ${canEdit && canDo('editStudent')? `<button class="btn btn-outline" style="margin-top:14px" onclick="window.goto('editStudentForm',{id:'${s.id}',from:'${from}'})">${icon('pencil',15)} تعديل بيانات الطالب</button>`:''}
     ${canEdit && canDo('editStudent')? `<button class="btn btn-outline" style="margin-top:10px" onclick="window.goto('adjustPointsForm',{id:'${s.id}',from:'${from}'})">${icon('star',15)} تعديل النقاط يدويًا</button>`:''}`;
   } else {
@@ -967,7 +1068,7 @@ async function studentProfileView(mode){
       const pts = pointsFromRecords(det);
       const wirdTable = (log,label,collKey)=>`<div class="section-title"><span class="bar"></span>${label}</div>
       <table><thead><tr><th>التاريخ</th><th>من</th><th>إلى</th><th>الصفحات</th><th>أخطاء</th><th>التقدير</th><th>المشرف</th>${canHifz?'<th></th>':''}</tr></thead>
-      <tbody>${log.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${r.from}</td><td>${r.to}</td><td>${r.pagesEst!=null? r.pagesEst+(r.pagesExact===false?'~':'') : '—'}</td><td>${r.errors}</td><td>${r.grade}</td><td>${r.recordedBy||'—'}</td>${canHifz?`<td><span onclick="window.deleteWird('${s.id}','${collKey}','${r.id}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canHifz?8:7}">لا يوجد سجل</td></tr>`}</tbody></table>`;
+      <tbody>${log.map(r=>`<tr><td>${r.date.slice(5)}${recTimeLine(r)}</td><td>${r.from}</td><td>${r.to}</td><td>${r.pagesEst!=null? r.pagesEst+(r.pagesExact===false?'~':'') : '—'}</td><td>${r.errors}</td><td>${r.grade}</td><td>${r.recordedBy||'—'}</td>${canHifz?`<td><span onclick="window.deleteWird('${s.id}','${collKey}','${r.id}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canHifz?8:7}">لا يوجد سجل</td></tr>`}</tbody></table>`;
       body += `<div class="progress-wrap">
         ${latest? `<div class="ring">${ringSvg(latest.pct)}</div><div class="row-sub" style="margin-top:-4px">آخر تقييم أسبوعي</div>` : `<div class="row-sub">لم تكتمل أول دورة تسميع بعد (٤ جلسات)</div>`}
         <div class="bar-bg" style="margin-top:14px"><div class="bar-fill" style="width:${cyc.inProgress/4*100}%"></div></div>
@@ -988,20 +1089,20 @@ async function studentProfileView(mode){
     if(tab==='attendance'){
       body += `<div class="section-title" style="margin-top:16px"><span class="bar"></span>سجل المواعيد (سبتي)</div>
       <table><thead><tr><th>التاريخ</th><th>الحالة</th>${canAtt?'<th></th>':''}</tr></thead>
-      <tbody>${det.attendance.map(r=>`<tr><td onclick="${canAtt?`document.getElementById('att-date').value='${r.date}'`:''}" style="${canAtt?'cursor:pointer':''}">${r.date}</td><td><span class="badge ${r.status==='حضور'?'green':r.status==='تأخر'?'gold':'red'}">${r.status}</span></td>${canAtt?`<td><span onclick="window.deleteAttRecord('${s.id}','attendance','${r.date}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canAtt?3:2}">لا يوجد سجل</td></tr>`}</tbody></table>
+      <tbody>${det.attendance.map(r=>`<tr><td onclick="${canAtt?`document.getElementById('att-date').value='${r.date}'`:''}" style="${canAtt?'cursor:pointer':''}">${r.date}${recTimeLine(r)}</td><td><span class="badge ${r.status==='حضور'?'green':r.status==='تأخر'?'gold':'red'}">${r.status}</span></td>${canAtt?`<td><span onclick="window.deleteAttRecord('${s.id}','attendance','${r.date}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canAtt?3:2}">لا يوجد سجل</td></tr>`}</tbody></table>
       ${canAtt? `<div class="field"><label>التاريخ (اضغط على أي سجل بالجدول لتعديله، أو غيّره يدويًا)</label><input type="date" id="att-date" value="${todayStr()}"></div>
       <div class="seg" style="margin-top:8px"><button onclick="window.recordAttendance('${s.id}','حضور','${from}')">حضور</button><button onclick="window.recordAttendance('${s.id}','تأخر','${from}')">تأخر</button><button onclick="window.recordAttendance('${s.id}','غياب','${from}')">غياب</button></div>` : (canEdit? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:12px">لا تملك صلاحية تسجيل المواعيد</div>`:'')}`;
     }
     if(tab==='tajweed'){
       body += `<div class="section-title" style="margin-top:16px"><span class="bar"></span>سجل حضور التجويد</div>
       <table><thead><tr><th>التاريخ</th><th>الحالة</th>${canTaj?'<th></th>':''}</tr></thead>
-      <tbody>${det.tajweedAtt.map(r=>`<tr><td onclick="${canTaj?`document.getElementById('taj-date').value='${r.date}'`:''}" style="${canTaj?'cursor:pointer':''}">${r.date}</td><td><span class="badge ${r.status==='حضور'?'green':'red'}">${r.status}</span></td>${canTaj?`<td><span onclick="window.deleteAttRecord('${s.id}','tajweedAtt','${r.date}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canTaj?3:2}">لا يوجد سجل</td></tr>`}</tbody></table>
+      <tbody>${det.tajweedAtt.map(r=>`<tr><td onclick="${canTaj?`document.getElementById('taj-date').value='${r.date}'`:''}" style="${canTaj?'cursor:pointer':''}">${r.date}${recTimeLine(r)}</td><td><span class="badge ${r.status==='حضور'?'green':'red'}">${r.status}</span></td>${canTaj?`<td><span onclick="window.deleteAttRecord('${s.id}','tajweedAtt','${r.date}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canTaj?3:2}">لا يوجد سجل</td></tr>`}</tbody></table>
       ${canTaj? `<div class="field"><label>التاريخ (اضغط على أي سجل بالجدول لتعديله، أو غيّره يدويًا)</label><input type="date" id="taj-date" value="${todayStr()}"></div>
       <div class="seg" style="margin-top:8px"><button onclick="window.recordTajweed('${s.id}','حضور','${from}')">حضور</button><button onclick="window.recordTajweed('${s.id}','غياب','${from}')">غياب</button></div>` : (canEdit? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:12px">لا تملك صلاحية تسجيل حضور التجويد</div>`:'')}`;
     }
     if(tab==='pay'){
       body += `<div class="section-title" style="margin-top:16px"><span class="bar"></span>سجل الدفع الشهري</div>
-      <div class="list">${det.payments.map(p=>`<div class="row"><span class="row-title">${p.month}</span><div style="display:flex;align-items:center;gap:8px">${p.amount?`<span class="row-sub">${p.amount}</span>`:''}<span class="badge ${p.status==='مدفوع'?'green':'red'}">${p.status}</span></div></div>`).join('')||`<div class="empty">لا يوجد سجل دفع بعد</div>`}</div>
+      <div class="list">${det.payments.map(p=>`<div class="row"><div><span class="row-title">${p.month}</span>${recTimeLine(p)}</div><div style="display:flex;align-items:center;gap:8px">${p.amount?`<span class="row-sub">${p.amount}</span>`:''}<span class="badge ${p.status==='مدفوع'?'green':'red'}">${p.status}</span></div></div>`).join('')||`<div class="empty">لا يوجد سجل دفع بعد</div>`}</div>
       ${canEdit? `<div class="field"><label>الشهر</label><input type="text" id="pay-month" placeholder="مثال: تشرين الأول 2026"></div>
       <div class="field"><label>المبلغ</label><input type="number" id="pay-amount" placeholder="0"></div>
       <div class="seg" id="pay-status"><button class="active" onclick="window.selectSeg('pay-status',this)">مدفوع</button><button onclick="window.selectSeg('pay-status',this)">غير مدفوع</button></div>
@@ -1159,27 +1260,156 @@ async function notificationsView(){
   <div class="section-title"><span class="bar"></span>طلاب بدون أي سجل دفع (${noPayRecord.length})</div>
   <div class="list">${noPayRecord.length? noPayRecord.map(s=>`<div class="row" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'pay',from:'notificationsView'})"><div class="row-title">${s.name}</div><span class="badge gray">لا يوجد سجل</span></div>`).join('') : `<div class="empty">لا يوجد</div>`}</div>`;
 }
+const BRANCH_COLORS = ['#098046','#D6A755','#2A9D8F','#E76F51','#6C5CE7','#3D8BFD','#C2185B','#8D6E63'];
+function colorOfBranch(id){ const i = cache.branches.findIndex(b=>b.id===id); return BRANCH_COLORS[(i<0?0:i)%BRANCH_COLORS.length]; }
+function inPeriod(date, period){
+  if(period==='all') return true;
+  if(!date) return false;
+  if(period==='week') return date>=weekStartStr();
+  return date.startsWith(todayStr().slice(0,7));
+}
+function studentStats(s, period){
+  const det = cache.details[s.id];
+  let pts;
+  if(period==='all'){ pts = s.points||0; }
+  else {
+    pts = 0;
+    det.attendance.forEach(r=>{ if(inPeriod(r.date,period)) pts += ATT_POINTS[r.status]||0; });
+    det.hifzLog.forEach(r=>{ if(inPeriod(r.date,period)) pts += tierPts(TYPE_POINTS.hifz, r.errors); });
+    det.reviewLog.forEach(r=>{ if(inPeriod(r.date,period)) pts += tierPts(TYPE_POINTS.review, r.errors); });
+    (det.recitationLog||[]).forEach(r=>{ if(inPeriod(r.date,period)) pts += tierPts(TYPE_POINTS.recitation, r.errors); });
+    (det.pointsAdjustments||[]).forEach(a=>{ if(inPeriod(a.date,period)) pts += a.delta||0; });
+  }
+  let ph=0, pr=0;
+  det.hifzLog.forEach(r=>{ if(inPeriod(r.date,period)) ph += recPages(r); });
+  det.reviewLog.forEach(r=>{ if(inPeriod(r.date,period)) pr += recPages(r); });
+  const cyc = studentCycle(det.hifzLog);
+  const wEval = cyc.evals.length? cyc.evals[cyc.evals.length-1].pct : null;
+  const mEval = monthlyFromEvals(cyc.evals);
+  return {s, pts, ph, pr, pages:ph+pr, wEval, mEval};
+}
+function avgOf(arr){ return arr.length? Math.round(arr.reduce((a,v)=>a+v,0)/arr.length) : null; }
+function miniRing(pct, color, size, sub){
+  const r = size/2-6, cc = 2*Math.PI*r, p = pct===null? 0 : Math.min(100,Math.max(0,pct));
+  return `<div style="position:relative; width:${size}px; height:${size}px; flex-shrink:0">
+    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="transform:rotate(-90deg)"><circle cx="${size/2}" cy="${size/2}" r="${r}" stroke="var(--green-tint)" stroke-width="6" fill="none"/><circle cx="${size/2}" cy="${size/2}" r="${r}" stroke="${color}" stroke-width="6" fill="none" stroke-linecap="round" stroke-dasharray="${cc}" stroke-dashoffset="${cc*(1-p/100)}"/></svg>
+    <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:900; font-size:${size>70?16:12}px; color:${color}; line-height:1.1">${pct===null?'—':Math.round(pct)+'%'}${sub?`<span style="font-size:8.5px; color:var(--text-muted); font-weight:700">${sub}</span>`:''}</div></div>`;
+}
+function heroCard(title, leader, total, valueOf, unit){
+  const val = leader? valueOf(leader):0;
+  const share = total>0 ? (val/total*100) : 0;
+  return `<div style="flex:1; background:linear-gradient(160deg,var(--green-dark),var(--green)); color:#fff; border-radius:18px; padding:14px 10px; text-align:center; box-shadow:var(--shadow)">
+    <div style="font-size:11px; opacity:.85; font-weight:700">${title}</div>
+    <div style="display:flex; justify-content:center; margin:8px 0 6px"><div style="position:relative; width:86px; height:86px">
+      <svg width="86" height="86" viewBox="0 0 86 86" style="transform:rotate(-90deg)"><circle cx="43" cy="43" r="36" stroke="rgba(255,255,255,0.18)" stroke-width="7" fill="none"/><circle cx="43" cy="43" r="36" stroke="var(--gold-light)" stroke-width="7" fill="none" stroke-linecap="round" stroke-dasharray="${2*Math.PI*36}" stroke-dashoffset="${2*Math.PI*36*(1-share/100)}"/></svg>
+      <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center"><b style="font-size:17px">${Math.round(share)}%</b><span style="font-size:8.5px; opacity:.8">من الإجمالي</span></div></div></div>
+    <div style="font-weight:900; font-size:14px">${leader && val>0 ? 'شعبة '+leader.b.name : '—'}</div>
+    <div style="font-size:11px; opacity:.9; margin-top:2px">${leader && val>0 ? val+' '+unit : 'لا يوجد نشاط بعد'}</div>
+  </div>`;
+}
 async function achievementsHome(){
-  let html = subheader('الإنجازات',homeRoute());
+  const tab = state.params.tab||'branches', period = state.params.period||'week', metric = state.params.metric||'points';
+  await loadAllDetails();
+  const stats = cache.students.map(s=>studentStats(s,period));
+  const go = (o)=>`window.goto('achievementsHome',${JSON.stringify({tab,period,metric,...o}).replace(/"/g,"'")})`;
+  let html = subheader('الإنجازات',homeRoute()) + `
+  <div class="tabs" style="margin-top:12px">
+    <div class="tab ${tab==='branches'?'active':''}" onclick="${go({tab:'branches'})}">الشعب</div>
+    <div class="tab ${tab==='students'?'active':''}" onclick="${go({tab:'students'})}">الطلاب</div>
+  </div>
+  <div class="seg" style="margin-top:14px">
+    <button class="${period==='week'?'active':''}" onclick="${go({period:'week'})}">هذا الأسبوع</button>
+    <button class="${period==='month'?'active':''}" onclick="${go({period:'month'})}">هذا الشهر</button>
+    <button class="${period==='all'?'active':''}" onclick="${go({period:'all'})}">الكل</button>
+  </div>`;
+  if(!cache.branches.length) return html + `<div class="empty">لا توجد شعب بعد</div>`;
+
+  if(tab==='branches'){
+    const bstats = cache.branches.map(b=>{
+      const st = stats.filter(x=>x.s.branchId===b.id);
+      return {b, n:st.length, pts:st.reduce((a,x)=>a+x.pts,0), ph:st.reduce((a,x)=>a+x.ph,0), pr:st.reduce((a,x)=>a+x.pr,0), pages:st.reduce((a,x)=>a+x.pages,0),
+        wEval:avgOf(st.filter(x=>x.wEval!==null).map(x=>x.wEval)), mEval:avgOf(st.filter(x=>x.mEval!==null).map(x=>x.mEval)), color:colorOfBranch(b.id)};
+    });
+    const byPts = [...bstats].sort((a,b)=>b.pts-a.pts);
+    const byPages = [...bstats].sort((a,b)=>b.pages-a.pages);
+    const totalPts = bstats.reduce((a,x)=>a+x.pts,0), totalPages = bstats.reduce((a,x)=>a+x.pages,0);
+    const maxPts = Math.max(1, byPts[0].pts), maxPages = Math.max(1, byPages[0].pages);
+    // hero
+    html += `<div style="display:flex; gap:10px; margin-top:16px">
+      ${heroCard('متصدّرة النقاط', byPts[0], totalPts, x=>x.pts, 'نقطة')}
+      ${heroCard('متصدّرة الصفحات', byPages[0], totalPages, x=>x.pages, 'صفحة')}
+    </div>`;
+    // ladder
+    html += `<div class="section-title"><span class="bar"></span>سلم النقاط</div>` + byPts.map((x,i)=>{
+      const prev = i>0? byPts[i-1] : null;
+      const gap = prev? prev.pts-x.pts : 0;
+      const note = i===0 ? `<span style="color:${x.color}; font-weight:700; display:inline-flex; align-items:center; gap:4px">${icon('star',12)} المتصدّرة</span>`
+        : (gap===0 ? `متعادلة مع شعبة ${prev.b.name}` : `باقي ${gap} نقطة وتتخطى شعبة ${prev.b.name}`);
+      return `<div style="display:flex; gap:10px; margin-top:10px; margin-inline-start:${Math.min(i,5)*8}px">
+        <div style="display:flex; flex-direction:column; align-items:center">
+          <div style="width:34px; height:34px; border-radius:50%; background:${x.color}; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:900; flex-shrink:0">${i+1}</div>
+          ${i<byPts.length-1? `<div style="flex:1; width:3px; background:var(--green-tint); margin-top:3px; border-radius:3px"></div>`:''}
+        </div>
+        <div style="flex:1; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:11px 12px; box-shadow:var(--shadow)">
+          <div style="display:flex; justify-content:space-between; align-items:center"><b style="font-size:13.5px">شعبة ${x.b.name}</b><span style="color:${x.color}; font-weight:900">${x.pts} نقطة</span></div>
+          <div style="height:8px; border-radius:8px; background:var(--green-tint); overflow:hidden; margin-top:8px"><div style="height:100%; width:${x.pts/maxPts*100}%; background:linear-gradient(90deg,${x.color},${x.color}aa); border-radius:8px"></div></div>
+          <div style="font-size:11px; color:var(--text-muted); margin-top:6px">${note}</div>
+        </div></div>`;
+    }).join('');
+    // rings for pages
+    const nR = byPages.length, step = Math.min(14, 74/Math.max(1,nR)), sw = Math.max(4, Math.min(10, step-3));
+    const ringSvgs = byPages.map((x,i)=>{ const r = 90 - i*step, cc = 2*Math.PI*r, frac = x.pages/maxPages;
+      return `<circle cx="100" cy="100" r="${r}" stroke="var(--green-tint)" stroke-width="${sw}" fill="none"/><circle cx="100" cy="100" r="${r}" stroke="${x.color}" stroke-width="${sw}" fill="none" stroke-linecap="round" stroke-dasharray="${cc}" stroke-dashoffset="${cc*(1-frac)}" transform="rotate(-90 100 100)"/>`; }).join('');
+    html += `<div class="section-title"><span class="bar"></span>حلقات الصفحات (حفظ + مراجعة)</div>
+      <div class="progress-wrap" style="margin-top:8px">
+        <svg width="220" height="220" viewBox="0 0 200 200" style="margin:0 auto">${ringSvgs}<text x="100" y="98" text-anchor="middle" font-size="24" font-weight="900" fill="var(--green)" style="font-family:Tajawal">${totalPages}</text><text x="100" y="116" text-anchor="middle" font-size="10" fill="var(--text-muted)" style="font-family:Tajawal">صفحة إجمالي</text></svg>
+        <div style="margin-top:12px; text-align:right">${byPages.map(x=>`<div style="display:flex; align-items:center; gap:8px; padding:7px 0; border-top:1px solid var(--border)"><span style="width:12px; height:12px; border-radius:50%; background:${x.color}; flex-shrink:0"></span><b style="font-size:13px">شعبة ${x.b.name}</b><span style="margin-inline-start:auto; font-size:11.5px; color:var(--text-muted)">حفظ ${x.ph} · مراجعة ${x.pr}</span><b style="color:${x.color}">${x.pages}</b></div>`).join('')}</div>
+      </div>`;
+    // evaluation cards
+    html += `<div class="section-title"><span class="bar"></span>تقييم الشعب (أسبوعي وشهري)</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">${bstats.map(x=>`<div class="stat-card" style="border-top:4px solid ${x.color}; padding:12px">
+        <div style="font-weight:900; font-size:13px">شعبة ${x.b.name}</div><div class="stat-label">${x.n} طالب</div>
+        <div style="display:flex; justify-content:space-around; margin-top:10px">${miniRing(x.wEval,x.color,62,'أسبوعي')}${miniRing(x.mEval,x.color,62,'شهري')}</div></div>`).join('')}</div>
+      <div class="row-sub" style="margin-top:8px">التقييم الأسبوعي والشهري مبني على دورات التسميع (كل ٤ جلسات حفظ) ولا يتأثر بزر الفترة أعلاه.</div>`;
+    return html;
+  }
+
+  // students tab
+  html += `<div class="seg" style="margin-top:10px">
+    <button class="${metric==='points'?'active':''}" onclick="${go({metric:'points'})}">ترتيب بالنقاط</button>
+    <button class="${metric==='pages'?'active':''}" onclick="${go({metric:'pages'})}">ترتيب بالصفحات</button>
+  </div>`;
   for(const b of cache.branches){
-    const st = cache.students.filter(s=>s.branchId===b.id);
-    const rows = [];
-    const latestVals = [];
-    for(const s of st){
-      const det = await ensureStudentDetail(s.id);
-      const cyc = studentCycle(det.hifzLog);
-      const latest = cyc.evals.length? cyc.evals[cyc.evals.length-1].pct : null;
-      if(latest!==null) latestVals.push(latest);
-      rows.push(`<div class="row" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'hifz',from:'achievementsHome'})"><div class="row-title">${s.name}</div><span class="badge ${latest!==null?'green':'gray'}">${latest!==null? latest+'%':cyc.inProgress+'/4'}</span></div>`);
-    }
-    const wAvg = latestVals.length? Math.round(latestVals.reduce((a,v)=>a+v,0)/latestVals.length) : null;
-    html += `<div class="section-title"><span class="bar"></span>شعبة ${b.name}</div>
-      <div class="stat-card" style="margin-bottom:6px"><div class="stat-num">${wAvg!==null?wAvg+'%':'—'}</div><div class="stat-label">معدل آخر تقييم أسبوعي للشعبة</div></div>
-      <div class="list">${rows.join('') || `<div class="empty">لا يوجد طلاب</div>`}</div>`;
+    const color = colorOfBranch(b.id);
+    const list = stats.filter(x=>x.s.branchId===b.id).sort((a,c2)=> (metric==='points'? c2.pts-a.pts : c2.pages-a.pages) || a.s.name.localeCompare(c2.s.name,'ar'));
+    const valOf = x=> metric==='points'? x.pts : x.pages;
+    const maxV = Math.max(1, list.length? valOf(list[0]) : 1);
+    html += `<div style="margin-top:20px; background:linear-gradient(135deg,${color},${color}bb); color:#fff; border-radius:16px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between">
+      <div style="font-weight:900; font-size:15px">شعبة ${b.name}</div><div style="font-size:11.5px; opacity:.95">${list.length} طالب · ${metric==='points'?'مضمار النقاط':'مضمار الصفحات'}</div></div>`;
+    if(!list.length){ html += `<div class="empty">لا يوجد طلاب بهذه الشعبة</div>`; continue; }
+    html += list.map((x,i)=>{
+      const pct = valOf(x)/maxV*100;
+      return `<div style="margin-top:10px; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:10px 12px; box-shadow:var(--shadow); cursor:pointer" onclick="window.goto('studentProfile',{id:'${x.s.id}',tab:'hifz',from:'achievementsHome'})">
+        <div style="display:flex; align-items:center; gap:8px">
+          <div style="width:26px; height:26px; border-radius:50%; background:${color}; color:#fff; font-weight:900; font-size:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0">${i+1}</div>
+          <div class="row-title">${x.s.name}</div>
+          <div style="margin-inline-start:auto; font-weight:900; color:${color}">${valOf(x)} ${metric==='points'?'نقطة':'صفحة'}</div>
+        </div>
+        <div style="position:relative; height:24px; margin:8px 12px 0">
+          <div style="position:absolute; top:10px; right:0; left:0; height:4px; border-radius:4px; background:var(--green-tint)"></div>
+          <div style="position:absolute; top:10px; right:0; height:4px; border-radius:4px; width:${pct}%; background:${color}"></div>
+          <div style="position:absolute; top:0; right:${pct}%; transform:translateX(50%); width:24px; height:24px; border-radius:50%; background:${color}; color:#fff; font-size:10px; font-weight:900; display:flex; align-items:center; justify-content:center; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.25)">${initials(x.s.name)}</div>
+          <div style="position:absolute; top:4px; left:-12px; color:var(--gold)">${icon('star',15)}</div>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px">
+          <span class="badge gold">نقاط ${x.pts}</span><span class="badge green">حفظ ${x.ph} ص</span><span class="badge green">مراجعة ${x.pr} ص</span>
+          <span class="badge gray">أسبوعي ${x.wEval!==null? x.wEval+'%':'—'}</span><span class="badge gray">شهري ${x.mEval!==null? x.mEval+'%':'—'}</span>
+        </div>
+      </div>`;
+    }).join('');
   }
   return html;
 }
-
 function pointsHome(){
   const ranked = [...cache.students].sort((a,b)=>(b.points||0)-(a.points||0));
   return subheader('النقاط',homeRoute()) + `
@@ -1194,7 +1424,8 @@ function pointsHome(){
 async function supervisorHome(){ return homeContent(); }
 
 const CAP_LABELS = {hifz:'تسجيل ورد الحفظ', attendance:'تسجيل المواعيد', tajweed:'تسجيل حضور التجويد', editStudent:'تعديل بيانات الطلاب', addStudent:'إضافة طلاب جدد'};
-const CAP_DEFAULT_ON = {hifz:true, attendance:true, tajweed:true, editStudent:true, addStudent:true, editContent:false};
+const CAP_DEFAULT_ON = {hifz:true, attendance:true, tajweed:true, editStudent:true, addStudent:true, editContent:false, viewSupervisors:false, viewRecordTime:false};
+const EXTRA_CAPS = {editContent:'تعديل محتوى الموقع (الرؤية، الخطط، الخانات)', viewSupervisors:'عرض صفحة تعريف المشرفين', viewRecordTime:'إظهار وقت تسجيل السجلات'};
 function supervisorPermissions(){
   const sup = cache.supervisors.find(s=>s.id===state.params.id);
   const caps = sup.capabilities || {};
@@ -1209,11 +1440,11 @@ function supervisorPermissions(){
     return `<div class="row" onclick="window.toggleSupCapability('${sup.id}','${k}')"><div class="row-title">${CAP_LABELS[k]}</div><span class="badge ${on?'green':'gray'}">${on?'مفعّلة':'موقوفة'}</span></div>`;
   }).join('')}</div>
   <div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} فتح وإغلاق أي صلاحية وقت ما بدك — تتحدّث فورًا</div>
-  <div class="section-title"><span class="bar"></span>صلاحية إضافية (حساسة)</div>
-  <div class="list">${(()=>{ const on = caps.editContent===true;
-    return `<div class="row" onclick="window.toggleSupCapability('${sup.id}','editContent')"><div class="row-title">تعديل محتوى الموقع (الرؤية، الخطط، الخانات)</div><span class="badge ${on?'green':'gray'}">${on?'مفعّلة':'موقوفة'}</span></div>`;
-  })()}</div>
-  <div class="alert" style="background:#FBEAEA;color:#B23A3A;margin-top:8px">${icon('list',15)} هاي صلاحية قوية — بتعطي المشرف نفس زر ✏️ الموجود عند المدير لتعديل نصوص الموقع بالكامل. فعّلها بس لمن تثق فيه تمامًا</div>
+  <div class="section-title"><span class="bar"></span>صلاحيات إضافية (حساسة، مقفولة افتراضيًا)</div>
+  <div class="list">${Object.keys(EXTRA_CAPS).map(k=>{ const on = caps[k]===true;
+    return `<div class="row" onclick="window.toggleSupCapability('${sup.id}','${k}')"><div class="row-title">${EXTRA_CAPS[k]}</div><span class="badge ${on?'green':'gray'}">${on?'مفعّلة':'موقوفة'}</span></div>`;
+  }).join('')}</div>
+  <div class="alert" style="background:#FBEAEA;color:#B23A3A;margin-top:8px">${icon('list',15)} هاي صلاحيات حساسة: "تعديل محتوى الموقع" بتعطي المشرف زر القلم لتعديل نصوص الموقع، و"عرض تعريف المشرفين" بتفتحله بيانات باقي المشرفين. فعّلها بس لمن تثق فيه</div>
   <button class="btn btn-outline" style="margin-top:16px; border-color:#B23A3A; color:#B23A3A" onclick="window.deleteSupervisor('${sup.id}')">${icon('trash',15)} حذف حساب المشرف</button>`;
 }
 async function deleteSupervisor(email){
@@ -1276,6 +1507,85 @@ async function submitInvite(){
   }catch(e){ document.getElementById('inv-alert').innerHTML = `<div class="alert error">حدث خطأ: ${e.message}</div>`; }
 }
 
+function supCard(sv){
+  const p = sv.profile||{};
+  const canEditIt = state.role==='admin' || sv.id===state.personEmail;
+  const hafiz = p.hafiz==='نعم' ? ('حافظ للقرآن'+((p.juz!=null && p.juz!=='')? ' ('+p.juz+' جزء)':'')) : (p.hafiz==='لا' ? 'غير حافظ' : '—');
+  const work = p.occupation ? (p.occupation+(p.place? ' في '+p.place : '')) : '—';
+  const brs = (sv.branchIds||[]).map(id=>'شعبة '+getBranch(id).name).join('، ') || 'بدون شعبة مُسندة';
+  const line = (k,v)=>`<div class="row"><span class="row-sub" style="white-space:nowrap">${k}</span><span class="row-title" style="text-align:left">${v||'—'}</span></div>`;
+  return `<div class="level-card">
+    <div style="display:flex; align-items:center; gap:12px">
+      ${avatarBlock(52, sv.photo, sv.name, false)}
+      <div style="flex:1"><div class="row-title" style="font-size:14.5px">${sv.name}</div><div class="row-sub">${brs}</div></div>
+      ${canEditIt? `<div class="back-btn" style="cursor:pointer" onclick="window.goto('supervisorProfileForm',{email:'${sv.id}',from:'supervisorsList'})">${icon('pencil',15)}</div>`:''}
+    </div>
+    <div class="list" style="margin-top:12px">
+      ${line('حفظ القرآن', hafiz)}
+      ${line('رقم الهاتف', p.phone)}
+      ${line('الدراسة / العمل', work)}
+      ${line('التخصص', p.major)}
+      ${line('تاريخ الميلاد', p.birthDate)}
+      ${line('مستوى التجويد', tajweedSummary(p.tajweedLevels))}
+    </div>
+  </div>`;
+}
+async function supervisorsListView(){
+  if(!canViewSupervisors()) return `<div class="empty">لا تملك صلاحية عرض هذه الصفحة</div>`;
+  await loadSupervisors();
+  const list = cache.supervisors;
+  return subheader('تعريف المشرفين ('+list.length+')', homeRoute()) + (list.length? list.map(supCard).join('') : `<div class="empty">لا يوجد مشرفون بعد</div>`);
+}
+async function supervisorProfileFormView(){
+  const email = state.params.email;
+  const from = state.params.from || 'accountSup';
+  if(!(state.role==='admin' || email===state.personEmail)) return `<div class="empty">لا تملك صلاحية تعديل هذه البيانات</div>`;
+  const snap = await getDoc(doc(db,'people',email));
+  const data = snap.exists()? snap.data() : {};
+  const p = data.profile || {};
+  const seg = (id, opts, cur)=>`<div class="seg" id="${id}">${opts.map(o=>`<button class="${cur===o?'active':''}" onclick="window.selectSeg('${id}',this)">${o}</button>`).join('')}</div>`;
+  return `<div class="subheader"><div class="back-btn" onclick="window.goto('${from}')">${icon('chevronR',16)}</div><h1>البيانات التعريفية: ${data.name||email}</h1></div>
+  <div class="field"><label>هل هو حافظ للقرآن؟</label>${seg('sp-hafiz',['نعم','لا'],p.hafiz)}</div>
+  <div class="field"><label>كم جزء يحفظ؟</label><input id="sp-juz" type="text" inputmode="numeric" placeholder="من 0 إلى 30" value="${p.juz!=null?p.juz:''}"></div>
+  <div class="field"><label>رقم الهاتف</label><input id="sp-phone" type="tel" placeholder="05xxxxxxxx" value="${p.phone||''}"></div>
+  <div class="field"><label>الحالة</label>${seg('sp-occ',['يدرس','يعمل'],p.occupation)}</div>
+  <div class="field"><label>مكان الدراسة أو العمل</label><input id="sp-place" type="text" value="${p.place||''}"></div>
+  <div class="field"><label>التخصص</label><input id="sp-major" type="text" value="${p.major||''}"></div>
+  <div class="field"><label>تاريخ الميلاد</label><input id="sp-bd" type="date" value="${p.birthDate||''}"></div>
+  <div class="section-title"><span class="bar"></span>مستوى التجويد (اضغط على المستوى لتغيير حالته)</div>
+  <div class="list">${TAJWEED_LEVELS.map(l=>{ const st=(p.tajweedLevels&&p.tajweedLevels[l.key])||0;
+    return `<div class="row" id="spt-${l.key}" data-st="${st}" style="cursor:pointer" onclick="window.toggleSupTajweed('${email}','${l.key}')"><div class="row-title">${l.label}</div><span class="badge ${TAJWEED_STATUS_CLASS[st]}">${TAJWEED_STATUS[st]}</span></div>`;
+  }).join('')}</div>
+  <button class="btn btn-primary" style="margin-top:18px" onclick="window.saveSupProfile('${email}','${from}')">حفظ البيانات</button>
+  <div id="sp-alert"></div>`;
+}
+async function toggleSupTajweed(email, key){
+  const row = document.getElementById('spt-'+key); if(!row) return;
+  const cur = Number(row.dataset.st)||0, next = (cur+1)%3;
+  const setUI = v=>{ row.dataset.st=v; const b=row.querySelector('.badge'); b.textContent=TAJWEED_STATUS[v]; b.className='badge '+TAJWEED_STATUS_CLASS[v]; };
+  setUI(next);
+  try{
+    await updateDoc(doc(db,'people',email), {['profile.tajweedLevels.'+key]: next});
+    if(email===state.personEmail){ state.profile = state.profile||{}; state.profile.tajweedLevels = {...(state.profile.tajweedLevels||{}), [key]:next}; }
+  }catch(e){ setUI(cur); alert('تعذّر تحديث المستوى: '+e.message); }
+}
+async function saveSupProfile(email, from){
+  const g = id=>document.getElementById(id);
+  const act = id=>((document.querySelector('#'+id+' .active')||{}).textContent)||'';
+  const showErr = m=>{ g('sp-alert').innerHTML = `<div class="alert error">${m}</div>`; };
+  const juzRaw = normDigits(g('sp-juz').value.trim());
+  let juz = null;
+  if(juzRaw!==''){ juz = Number(juzRaw); if(isNaN(juz) || juz<0 || juz>30){ showErr('عدد الأجزاء لازم يكون من 0 إلى 30'); return; } }
+  try{
+    const snap = await getDoc(doc(db,'people',email));
+    const cur = (snap.exists() && snap.data().profile) || {};
+    const profile = {...cur, hafiz:act('sp-hafiz'), juz, phone:g('sp-phone').value.trim(), occupation:act('sp-occ'), place:g('sp-place').value.trim(), major:g('sp-major').value.trim(), birthDate:g('sp-bd').value};
+    await updateDoc(doc(db,'people',email), {profile});
+    if(email===state.personEmail) state.profile = profile;
+    g('sp-alert').innerHTML = `<div class="alert success">${icon('check',16)} تم حفظ البيانات</div>`;
+    setTimeout(()=>goto(from), 700);
+  }catch(e){ showErr('تعذّر الحفظ: '+e.message); }
+}
 async function accountView(){
   let roleTxt;
   if(state.role==='admin') roleTxt='مدير النظام';
@@ -1300,11 +1610,14 @@ async function accountView(){
     }).join('')||`<div class="empty">لا يوجد مشرفون بعد</div>`}</div>
     <button class="btn btn-outline" style="margin-top:14px" onclick="window.goto('inviteForm')">${icon('plus',16)} إضافة حساب جديد</button>`;
   }
+  if(state.role==='supervisor'){
+    html += `<button class="btn btn-outline" style="margin-top:14px" onclick="window.goto('supervisorProfileForm',{email:'${state.personEmail}',from:'accountSup'})">${icon('idcard',16)} بياناتي التعريفية</button>`;
+  }
   html += `<button class="btn btn-outline" style="margin-top:22px" onclick="window.logout()">تسجيل الخروج</button>`;
   return html;
 }
 
-Object.assign(window, {goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel});
+Object.assign(window, {goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
 </script>
 </body>
 </html>
