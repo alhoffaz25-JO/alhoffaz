@@ -604,6 +604,26 @@ function avatarBlock(size, photo, name, editableAvatar){
   return `<div class="avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.3)}px;">${inner}${badge}</div>`;
 }
 
+function entityAvatar(size, photo, name, kind, id, canEdit){
+  const inner = photo ? `<img src="${photo}">` : (kind==='branch' ? icon('building',Math.round(size*0.4)) : initials(name));
+  const badge = canEdit ? `<div class="avatar-edit-badge" onclick="window.pickEntityPhoto('${kind}','${id}')">${icon('cam',11,2)}</div>` : '';
+  return `<div class="avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.3)}px;">${inner}${badge}</div>`;
+}
+function pickEntityPhoto(kind, id){
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*';
+  inp.onchange = () => { if(inp.files[0]) saveEntityPhoto(kind, id, inp.files[0]); };
+  inp.click();
+}
+function removeEntityPhoto(kind, id){ if(confirm('إزالة الصورة؟')) saveEntityPhoto(kind, id, null); }
+async function saveEntityPhoto(kind, id, file){
+  try{
+    const photo = file ? await resizeImageToDataURL(file, 260) : null;
+    await updateDoc(doc(db, kind==='student' ? 'students' : 'branches', id), {photo});
+    if(kind==='student') await loadStudentsForRole(); else await loadBranches();
+    render();
+  }catch(err){ alert('تعذّر حفظ الصورة: '+err.message); }
+}
+
 /* ================= Renderers ================= */
 async function render(){
   if(presenceInterval){ clearInterval(presenceInterval); presenceInterval=null; }
@@ -789,7 +809,7 @@ async function quickBranchesView(){
     let pts=0, ph=0, pr=0;
     st.forEach(s=>{ pts += s.points||0; const d=cache.details[s.id]; d.hifzLog.forEach(r=>ph+=recPages(r)); d.reviewLog.forEach(r=>pr+=recPages(r)); });
     return `<div class="row" style="align-items:flex-start; cursor:pointer" onclick="window.goto('branchDetail',{id:'${b.id}'})">
-      <div class="row-left" style="align-items:flex-start"><div class="avatar">${icon('building',16)}</div>
+      <div class="row-left" style="align-items:flex-start">${entityAvatar(38, b.photo, b.name, 'branch', b.id, false)}
         <div><div class="row-title">شعبة ${b.name} <span class="badge gold" style="margin-inline-start:4px">${st.length} طالب</span></div>
           <div class="row-sub">مجموع النقاط: ${pts}</div>
           <div class="row-sub">صفحات الحفظ: ${ph} · صفحات المراجعة: ${pr}</div></div></div>
@@ -1095,6 +1115,7 @@ function branchDetail(){
   const editable = canEditBranch(b.id);
   return subheader('شعبة '+b.name, 'adminBranches') +
   (!editable && state.role==='supervisor' ? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:14px">${icon('eye',14)} عرض فقط — لا تملك صلاحية تعديل هذه الشعبة</div>` : '') + `
+  <div style="display:flex; flex-direction:column; align-items:center; margin-top:14px">${entityAvatar(72, b.photo, b.name, 'branch', b.id, state.role==='admin')}${b.photo && state.role==='admin' ? `<div class="row-sub" style="cursor:pointer; margin-top:6px; color:#B23A3A" onclick="window.removeEntityPhoto('branch','${b.id}')">إزالة الصورة</div>` : ''}</div>
   <div class="stat-card" style="margin-top:16px; text-align:center"><div class="stat-num">${students.length}</div><div class="stat-label">عدد الطلاب</div></div>
   ${editable && (canDo('attendance')||canDo('tajweed')) ? `<button class="btn btn-primary" style="margin-top:12px" onclick="window.goto('branchAttendance',{id:'${b.id}',fresh:1})">${icon('check',16)} تسجيل الحضور للشعبة</button>` : ''}
   <div class="search-box">${icon('search',15)}<input placeholder="ابحث عن طالب بهذه الشعبة..." oninput="window.filterBranchStudents(this.value,'${b.id}')"></div>
@@ -1123,7 +1144,8 @@ async function studentProfileView(mode){
   const backTarget = state.role==='admin'? from : (state.role==='student'?'studentHome':'supervisorHome');
   const tabs = [['data','البيانات'],['hifz','الحفظ'],['attendance','المواعيد'],['tajweed','التجويد'],['pay','الدفع']];
   let body = `<div style="display:flex; flex-direction:column; align-items:center; margin-top:6px">
-    ${avatarBlock(64, s.photo, s.name, false)}
+    ${entityAvatar(64, s.photo, s.name, 'student', s.id, canEditBranch(s.branchId) && canDo('editStudent'))}
+    ${s.photo && canEditBranch(s.branchId) && canDo('editStudent') ? `<div class="row-sub" style="cursor:pointer; margin-top:6px; color:#B23A3A" onclick="window.removeEntityPhoto('student','${s.id}')">إزالة الصورة</div>` : ''}
     <div style="font-weight:700; margin-top:9px">${s.name}</div>
     <div class="row-sub">شعبة ${getBranch(s.branchId).name}</div>
   </div>
@@ -1733,7 +1755,7 @@ async function accountView(){
   return html;
 }
 
-Object.assign(window, {batchPick, batchAll, saveBatchAtt, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
+Object.assign(window, {pickEntityPhoto, removeEntityPhoto, batchPick, batchAll, saveBatchAtt, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
 </script>
 </body>
 </html>
