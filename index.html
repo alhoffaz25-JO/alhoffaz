@@ -76,6 +76,30 @@ svg{display:block;}
 .cap-group .cap-chev{transition:transform .2s; flex-shrink:0;}
 .cap-group[open] .cap-chev{transform:rotate(-90deg);}
 .cap-body{background:#FAFCFB; border-top:1px solid var(--border);}
+#present{position:fixed; inset:0; z-index:9999; background:linear-gradient(160deg,var(--green-dark),#06281c); color:#fff; display:flex; flex-direction:column; overflow:hidden}
+.pr-top{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:12px 18px}
+.pr-ctrls{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.pr-ctrls select,.pr-ctrls button,.pr-nav button{background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.25); border-radius:10px; padding:7px 12px; font:inherit; font-size:13px; cursor:pointer}
+.pr-ctrls select option{color:#000}
+.pr-stage{flex:1; overflow:auto; padding:8px 20px 12px; display:flex; flex-direction:column; justify-content:center; align-items:center}
+.pr-slide{width:100%; max-width:980px; animation:prIn .6s ease both}
+@keyframes prIn{from{opacity:0; transform:translateY(16px)}to{opacity:1; transform:none}}
+.pr-h{font-size:clamp(22px,4.5vw,44px); font-weight:900; text-align:center}
+.pr-sub{text-align:center; opacity:.8; font-size:clamp(12px,2vw,18px); margin:6px 0 22px}
+.pr-cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px}
+.pr-card{background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.18); border-radius:20px; padding:22px 10px; text-align:center}
+.pr-num{font-size:clamp(34px,8vw,84px); font-weight:900; color:var(--gold-light); line-height:1.1}
+.pr-lbl{font-size:clamp(12px,2vw,20px); opacity:.9; margin-top:6px}
+.pr-row{display:flex; align-items:center; gap:12px; margin:10px 0; animation:prIn .6s ease both; animation-delay:calc(var(--i)*.12s)}
+.pr-rank{width:34px; height:34px; border-radius:50%; background:var(--gold-light); color:#06281c; font-weight:900; display:flex; align-items:center; justify-content:center; flex-shrink:0}
+.pr-name{min-width:110px; max-width:220px; font-weight:800; font-size:clamp(14px,2.4vw,24px)}
+.pr-track{flex:1; height:16px; background:rgba(255,255,255,.14); border-radius:99px; overflow:hidden}
+.pr-bar-fill{height:100%; width:0; border-radius:99px; transition:width 1.4s cubic-bezier(.2,.8,.2,1)}
+.pr-val{min-width:80px; text-align:left; font-weight:900; color:var(--gold-light); font-size:clamp(14px,2.4vw,24px)}
+.pr-nav{display:flex; align-items:center; justify-content:center; gap:10px; padding:12px}
+.pr-dot{width:9px; height:9px; border-radius:9px; background:rgba(255,255,255,.3); transition:all .3s}
+.pr-dot.on{background:var(--gold-light); width:24px}
+@media (prefers-reduced-motion:reduce){.pr-slide,.pr-row{animation:none}.pr-bar-fill{transition:none}}
 html{overflow-x:hidden;}
 .page{overflow-x:clip; min-width:0;}
 .tbl-wrap{overflow-x:auto; border-radius:12px; margin-top:10px; -webkit-overflow-scrolling:touch;}
@@ -622,6 +646,116 @@ async function saveEntityPhoto(kind, id, file){
     if(kind==='student') await loadStudentsForRole(); else await loadBranches();
     render();
   }catch(err){ alert('تعذّر حفظ الصورة: '+err.message); }
+}
+
+/* ================= وضع العرض ================= */
+let pres = null;
+const PRES_PERIODS = {week:'هذا الأسبوع', month:'هذا الشهر', all:'كل الفترات'};
+const PRES_SLIDES = 4;
+async function openPresent(period, bid){
+  closePresent();
+  pres = {period: period||'week', bid: bid||'', slide:0, data:null};
+  const el = document.createElement('div'); el.id = 'present'; el.dir = 'rtl';
+  el.innerHTML = `<div class="pr-top">
+    <b style="font-size:16px">شعبة الحفاظ</b>
+    <div class="pr-ctrls">
+      <select id="pr-scope" onchange="window.presSet()"><option value="">كل الشعب</option>${cache.branches.map(b=>`<option value="${b.id}" ${b.id===pres.bid?'selected':''}>شعبة ${b.name}</option>`).join('')}</select>
+      <select id="pr-period" onchange="window.presSet()">${Object.entries(PRES_PERIODS).map(([k,v])=>`<option value="${k}" ${k===pres.period?'selected':''}>${v}</option>`).join('')}</select>
+      <button onclick="window.presRestart()">إعادة الحركة</button>
+      <button onclick="window.presFull()">ملء الشاشة</button>
+      <button onclick="window.presClose()">✕</button>
+    </div></div>
+    <div class="pr-stage" id="pr-stage"><div class="pr-sub">جارٍ التحميل...</div></div>
+    <div class="pr-nav"><button onclick="window.presStep(-1)">${icon('chevronR',18)}</button><div id="pr-dots" style="display:flex; gap:6px"></div><button onclick="window.presStep(1)">${icon('chevronL',18)}</button></div>`;
+  document.body.appendChild(el);
+  document.addEventListener('keydown', presKey);
+  try{ await loadAllDetails(); }catch(e){}
+  if(!pres) return;
+  pres.data = presData(); presRender();
+}
+function closePresent(){
+  const el = document.getElementById('present'); if(el) el.remove();
+  if(document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+  document.removeEventListener('keydown', presKey); pres = null;
+}
+function presKey(e){
+  if(!pres) return;
+  if(e.key==='Escape') closePresent();
+  else if(e.key==='ArrowLeft' || e.key===' ' || e.key==='PageDown') { e.preventDefault(); presStep(1); }
+  else if(e.key==='ArrowRight' || e.key==='PageUp') { e.preventDefault(); presStep(-1); }
+}
+function presStep(d){ if(!pres||!pres.data) return; pres.slide = Math.min(PRES_SLIDES-1, Math.max(0, pres.slide+d)); presRender(); }
+function presSet(){ if(!pres) return; pres.bid = document.getElementById('pr-scope').value; pres.period = document.getElementById('pr-period').value; pres.data = presData(); presRender(); }
+function presRestart(){ if(pres && pres.data) presRender(); }
+function presFull(){ const el = document.getElementById('present'); if(!el) return; if(document.fullscreenElement) document.exitFullscreen(); else if(el.requestFullscreen) el.requestFullscreen(); }
+function presData(){
+  const {period, bid} = pres;
+  const sum = a => a.reduce((x,y)=>x+y,0);
+  const emptyC = () => ({'حضور':0,'تأخر':0,'غياب':0});
+  const rate = c => { const t = c['حضور']+c['تأخر']+c['غياب']; return t ? Math.round((c['حضور']+c['تأخر'])/t*100) : 0; };
+  const rows = cache.students.filter(s=>!bid || s.branchId===bid).map(s=>{
+    const st = studentStats(s, period), c = emptyC();
+    ((cache.details[s.id]||{}).attendance||[]).forEach(r=>{ if(inPeriod(r.date,period) && c[r.status]!==undefined) c[r.status]++; });
+    return {s, pts:st.pts, ph:st.ph, pr:st.pr, pages:st.pages, c};
+  });
+  const attAll = emptyC(); rows.forEach(r=>{ for(const k in attAll) attAll[k]+=r.c[k]; });
+  const branches = cache.branches.filter(b=>!bid || b.id===bid).map(b=>{
+    const rs = rows.filter(r=>r.s.branchId===b.id), c = emptyC();
+    rs.forEach(r=>{ for(const k in c) c[k]+=r.c[k]; });
+    return {b, n:rs.length, pts:sum(rs.map(r=>r.pts)), pages:sum(rs.map(r=>r.pages)), rate:rate(c)};
+  });
+  return {rows, n:rows.length, pts:sum(rows.map(r=>r.pts)), pages:sum(rows.map(r=>r.pages)), ph:sum(rows.map(r=>r.ph)), pr:sum(rows.map(r=>r.pr)), attAll, rate:rate(attAll), branches};
+}
+function presBar(i, label, sub, val, max, color, suffix, rank){
+  const w = val>0 && max>0 ? Math.max(2, Math.round(val/max*100)) : 0;
+  return `<div class="pr-row" style="--i:${i}">${rank? `<div class="pr-rank">${rank}</div>` : ''}
+    <div class="pr-name">${label}${sub? `<div style="font-size:.6em; font-weight:500; opacity:.7">${sub}</div>` : ''}</div>
+    <div class="pr-track"><div class="pr-bar-fill" data-w="${w}" style="background:${color}"></div></div>
+    <div class="pr-val" data-count="${val}" data-suffix="${suffix||''}">0</div></div>`;
+}
+function presRender(){
+  const d = pres.data, stage = document.getElementById('pr-stage'), bid = pres.bid;
+  const scope = bid ? 'شعبة '+getBranch(bid).name : 'كل الشعب', per = PRES_PERIODS[pres.period];
+  const head = (t, sub) => `<div class="pr-h">${t}</div><div class="pr-sub">${sub||(scope+' · '+per)}</div>`;
+  let html;
+  if(!d.n){ html = head('لا توجد بيانات') ; }
+  else if(pres.slide===0){
+    const card = (v, l, suf) => `<div class="pr-card"><div class="pr-num" data-count="${v}" data-suffix="${suf||''}">0</div><div class="pr-lbl">${l}</div></div>`;
+    html = head('الملخص العام') + `<div class="pr-cards">${card(d.n,'طالب')}${card(d.pages,'صفحة مسمّعة')}${card(d.pts,'نقطة')}${card(d.rate,'نسبة الحضور','%')}</div>`;
+  } else if(pres.slide===1){
+    const top = d.rows.slice().sort((a,b)=>b.pts-a.pts).slice(0,8), max = top[0] ? top[0].pts : 0;
+    html = head('أعلى الطلاب نقاطًا') + top.map((r,i)=>presBar(i, r.s.name, 'شعبة '+getBranch(r.s.branchId).name, r.pts, max, 'var(--gold-light)', '', i+1)).join('');
+  } else if(pres.slide===2){
+    if(!bid){
+      const bs = d.branches.slice().sort((a,b)=>b.pts-a.pts), max = bs[0] ? bs[0].pts : 0;
+      html = head('مقارنة الشعب', 'حسب النقاط · '+per) + bs.map((x,i)=>presBar(i, 'شعبة '+x.b.name, x.pages+' صفحة · '+x.n+' طالب', x.pts, max, colorOfBranch(x.b.id), ' نقطة')).join('');
+    } else {
+      const max = Math.max(d.ph, d.pr);
+      html = head('الحفظ والمراجعة', 'عدد الصفحات · '+scope+' · '+per) + presBar(0,'الحفظ','',d.ph,max,'#4fd18b',' صفحة') + presBar(1,'المراجعة','',d.pr,max,'var(--gold-light)',' صفحة');
+    }
+  } else {
+    const big = `<div class="pr-cards" style="grid-template-columns:1fr; margin-bottom:14px"><div class="pr-card"><div class="pr-num" data-count="${d.rate}" data-suffix="%">0</div><div class="pr-lbl">نسبة الحضور العامة (الحضور والتأخر)</div></div></div>`;
+    let bars;
+    if(!bid){ bars = d.branches.slice().sort((a,b)=>b.rate-a.rate).map((x,i)=>presBar(i, 'شعبة '+x.b.name, '', x.rate, 100, colorOfBranch(x.b.id), '%')).join(''); }
+    else {
+      const a = d.attAll, max = Math.max(a['حضور'],a['تأخر'],a['غياب']);
+      bars = presBar(0,'حضور','',a['حضور'],max,'#4fd18b') + presBar(1,'تأخر','',a['تأخر'],max,'#E0B84B') + presBar(2,'غياب','',a['غياب'],max,'#E5665F');
+    }
+    html = head('الحضور') + big + bars;
+  }
+  stage.innerHTML = `<div class="pr-slide">${html}</div>`;
+  document.getElementById('pr-dots').innerHTML = Array.from({length:PRES_SLIDES},(_,i)=>`<div class="pr-dot ${i===pres.slide?'on':''}"></div>`).join('');
+  presAnimate(stage);
+}
+function presAnimate(stage){
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  stage.querySelectorAll('[data-count]').forEach(el=>{
+    const to = Number(el.dataset.count)||0, suf = el.dataset.suffix||'', t0 = performance.now(), dur = 1400;
+    if(reduce){ el.textContent = to.toLocaleString('en')+suf; return; }
+    const tick = now=>{ const k = Math.min(1,(now-t0)/dur), e = 1-Math.pow(1-k,3); el.textContent = Math.round(to*e).toLocaleString('en')+suf; if(k<1 && pres) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  });
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ stage.querySelectorAll('[data-w]').forEach(el=>{ el.style.width = el.dataset.w+'%'; }); }));
 }
 
 /* ================= Renderers ================= */
@@ -1429,6 +1563,7 @@ async function achievementsHome(){
   const stats = cache.students.map(s=>studentStats(s,period));
   const go = (o)=>`window.goto('achievementsHome',${JSON.stringify({tab,period,metric,...o}).replace(/"/g,"'")})`;
   let html = subheader('الإنجازات',homeRoute()) + `
+  <button class="btn btn-primary" style="margin-top:12px" onclick="window.openPresent('${period}','')">${icon('trend',16)} وضع العرض</button>
   <div class="tabs" style="margin-top:12px">
     <div class="tab ${tab==='branches'?'active':''}" onclick="${go({tab:'branches'})}">الشعب</div>
     <div class="tab ${tab==='students'?'active':''}" onclick="${go({tab:'students'})}">الطلاب</div>
@@ -1579,7 +1714,7 @@ function supervisorPermissions(){
     const note = g.sensitive ? `<div class="cap-note">صلاحيات حساسة ومقفولة افتراضيًا: "تعديل محتوى الموقع" بتعطي المشرف زر القلم لتعديل النصوص، و"عرض تعريف المشرفين" بتفتحله بيانات باقي المشرفين.</div>` : '';
     return capGroupHTML(g, on, g.caps.length, rows + note);
   }).join('');
-  return subheader(sup.name,'accountAdmin') + supCard(sup,'supervisorPermissions') + `
+  return subheader('حساب المشرف','accountAdmin') + supCard(sup,'supervisorPermissions') + `
   <div class="section-title"><span class="bar"></span>الصلاحيات</div>
   <div class="list">${branchesGroup}${groups}</div>
   <div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} فتح وإغلاق أي صلاحية وقت ما بدك — تتحدّث فورًا</div>
@@ -1755,7 +1890,7 @@ async function accountView(){
   return html;
 }
 
-Object.assign(window, {pickEntityPhoto, removeEntityPhoto, batchPick, batchAll, saveBatchAtt, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
+Object.assign(window, {openPresent, presSet, presRestart, presFull, presStep, presClose: closePresent, pickEntityPhoto, removeEntityPhoto, batchPick, batchAll, saveBatchAtt, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
 </script>
 </body>
 </html>
