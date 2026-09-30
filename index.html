@@ -525,7 +525,7 @@ async function bootSession(user){
   const pdoc = await getDoc(doc(db,'people',email));
   if(!pdoc.exists()){
     state = {role:null, personEmail:null, personName:null, personPhoto:null, view:'login', params:{}, loginMode:'signin', editMode:false, capabilities:{}, branchIds:[]};
-    renderLoginError('لا يوجد حساب مُعرَّف لهذا البريد داخل النظام. تواصل مع مدير النظام.');
+    renderLoginError('لا يوجد حساب مُعرَّف لهذا البريد داخل النظام. تواصل مع مدير المشروع.');
     await signOut(auth);
     return;
   }
@@ -570,7 +570,7 @@ async function doActivate(){
     const pref = doc(db,'people',email);
     const pdoc = await getDoc(pref);
     if(!pdoc.exists() || pdoc.data().uid){
-      const msg = !pdoc.exists() ? 'هذا البريد غير مُضاف من قِبل مدير النظام بعد' : 'هذا الحساب مُفعّل مسبقًا، سجّل الدخول مباشرة';
+      const msg = !pdoc.exists() ? 'هذا البريد غير مُضاف من قِبل مدير المشروع بعد' : 'هذا الحساب مُفعّل مسبقًا، سجّل الدخول مباشرة';
       try{ await deleteUser(cred.user); }catch(_){ await signOut(auth); }
       activating = false;
       renderLoginError(msg); btn.disabled=false; return;
@@ -945,7 +945,7 @@ function renderLogin(){
         <button id="li-btn" class="btn btn-primary" style="margin-top:18px" onclick="window.doSignIn()">تسجيل الدخول</button>
         <div style="text-align:center; margin-top:12px"><button style="color:var(--green); font-size:12px; font-weight:700; text-decoration:underline" onclick="window.doForgotPassword()">نسيت كلمة السر؟</button></div>
       ` : `
-        <div class="field"><label>البريد الإلكتروني (اللي أضافه مدير النظام)</label><input id="ac-email" type="email"></div>
+        <div class="field"><label>البريد الإلكتروني (اللي أضافه مدير المشروع)</label><input id="ac-email" type="email"></div>
         <div class="field"><label>الاسم الكامل</label><input id="ac-name" type="text"></div>
         <div class="field"><label>كلمة مرور جديدة</label><input id="ac-pass" type="password"></div>
         <div class="field"><label>تأكيد كلمة المرور</label><input id="ac-pass2" type="password"></div>
@@ -953,11 +953,11 @@ function renderLogin(){
       `}
       <div id="login-alert"></div>
     </div>
-    <div class="hint">لتفعيل حساب، لازم يكون بريدك مُضافًا مسبقًا من قِبل مدير النظام</div>
+    <div class="hint">لتفعيل حساب، لازم يكون بريدك مُضافًا مسبقًا من قِبل مدير المشروع</div>
   </div>`;
 }
 function roleLabel(){
-  const prefix = state.role==='admin' ? 'مدير النظام' : state.role==='supervisor' ? 'المشرف' : 'الطالب';
+  const prefix = state.role==='admin' ? 'مدير المشروع' : state.role==='supervisor' ? 'المشرف' : 'الطالب';
   return `${prefix}: ${state.personName}`;
 }
 function renderTopbar(){
@@ -2016,7 +2016,7 @@ async function saveSupProfile(email, from){
 }
 async function accountView(){
   let roleTxt;
-  if(state.role==='admin') roleTxt='مدير النظام';
+  if(state.role==='admin') roleTxt='مدير المشروع';
   else if(state.role==='supervisor') roleTxt='مشرف'+((state.branchIds||[]).length? ' - شعبة '+state.branchIds.map(id=>getBranch(id).name).join('، ') : ' (بدون شعبة مُسندة)');
   else roleTxt='طالب - شعبة '+getBranch(findStudent(state.studentId)?.branchId).name;
   let html = subheader('حسابي', state.role==='admin'?'adminHome':state.role==='supervisor'?'supervisorHome':'studentHome') + `
