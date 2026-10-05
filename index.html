@@ -160,8 +160,10 @@ svg{display:block;}
 .ag-add{display:flex; gap:8px; align-items:center; margin-top:10px}
 .ag-add input{flex:1}
 .ag-add .btn{width:auto; padding:10px 14px; white-space:nowrap}
-input[type="date"]{direction:ltr; text-align:right;}
-input[type="date"]::-webkit-datetime-edit{direction:ltr;}
+.dp{display:flex; gap:6px; width:100%}
+.dp select{width:auto; min-width:0; padding:11px 6px; border:1px solid var(--border); border-radius:10px; font-family:inherit; font-size:13.5px; background:var(--card); color:var(--text)}
+.dp .dp-d{flex:.8} .dp .dp-m{flex:1.5} .dp .dp-y{flex:1.1}
+.ag-add .dp{flex:1}
 html{overflow-x:hidden;}
 .page{overflow-x:clip; min-width:0;}
 .tbl-wrap{overflow-x:auto; border-radius:12px; margin-top:10px; -webkit-overflow-scrolling:touch;}
@@ -712,6 +714,45 @@ async function saveEntityPhoto(kind, id, file){
   }catch(err){ alert('تعذّر حفظ الصورة: '+err.message); }
 }
 
+/* ===== حقل تاريخ مخصص (يوم / شهر / سنة) ===== */
+function dateField(id, value, kind){
+  const m = String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})$/), Y = new Date().getFullYear();
+  const dv = m ? +m[3] : 0, mv = m ? +m[2] : 0, yv = m ? +m[1] : 0;
+  let ys = [];
+  if(kind==='birth'){ for(let y=Y-5; y>=Y-80; y--) ys.push(y); } else { for(let y=2024; y<=Y+3; y++) ys.push(y); }
+  if(yv && !ys.includes(yv)){ ys.push(yv); ys.sort((a,b)=> kind==='birth' ? b-a : a-b); }
+  const opt = (v,t,sel) => `<option value="${v}" ${sel?'selected':''}>${t}</option>`;
+  const days = Array.from({length:31},(_,i)=>opt(i+1,i+1,dv===i+1)).join('');
+  const mons = Array.from({length:12},(_,i)=>opt(i+1,AR_MONTHS[i],mv===i+1)).join('');
+  const on = `onchange="window.dpChange('${id}')"`;
+  return `<div class="dp" data-for="${id}"><select class="dp-d" ${on}>${opt('','يوم',!dv)}${days}</select><select class="dp-m" ${on}>${opt('','شهر',!mv)}${mons}</select><select class="dp-y" ${on}>${opt('','سنة',!yv)}${ys.map(y=>opt(y,y,y===yv)).join('')}</select><input type="hidden" id="${id}" class="dp-val" value="${m ? value : ''}"></div>`;
+}
+function dpSync(inp){
+  const box = inp.closest ? inp.closest('.dp') : null; if(!box) return;
+  const v = String(inp.value||''), m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const sd = box.querySelector('.dp-d'), sm = box.querySelector('.dp-m'), sy = box.querySelector('.dp-y');
+  if(!m){ sd.value = ''; sm.value = ''; sy.value = ''; return; }
+  if(![...sy.options].some(o=>o.value===m[1])){ const o = document.createElement('option'); o.value = m[1]; o.textContent = m[1]; sy.appendChild(o); }
+  sd.value = String(+m[3]); sm.value = String(+m[2]); sy.value = m[1];
+}
+function dpChange(id){
+  const inp = document.getElementById(id); if(!inp) return;
+  const box = inp.closest('.dp');
+  const d = +box.querySelector('.dp-d').value, mo = +box.querySelector('.dp-m').value, y = +box.querySelector('.dp-y').value;
+  let v = '';
+  if(d && mo && y){ const dd = Math.min(d, new Date(y, mo, 0).getDate()); v = y+'-'+String(mo).padStart(2,'0')+'-'+String(dd).padStart(2,'0'); }
+  inp.value = v;
+  inp.dispatchEvent(new Event('change', {bubbles:true}));
+}
+(function(){
+  const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+  Object.defineProperty(HTMLInputElement.prototype, 'value', {
+    get(){ return desc.get.call(this); },
+    set(v){ desc.set.call(this, v); if(this.classList && this.classList.contains('dp-val')) dpSync(this); },
+    configurable: true
+  });
+})();
+
 /* ================= وضع العرض ================= */
 let pres = null;
 const PRES_PERIODS = {week:'هذا الأسبوع', month:'هذا الشهر', all:'كل الفترات'};
@@ -1196,7 +1237,7 @@ function addStudentForm(){
     <div id="as-phones">${phoneRowHTML('أب','')}${phoneRowHTML('أم','')}</div>
     <button type="button" class="btn btn-outline" style="margin-top:8px" onclick="window.addPhoneRow('as-phones')">${icon('plus',14)} إضافة رقم آخر</button>
   </div>
-  <div class="field"><label>تاريخ الميلاد</label><input id="as-bd" type="date"></div>
+  <div class="field"><label>تاريخ الميلاد</label>${dateField('as-bd','','birth')}</div>
   <div class="field"><label>مقدار الحفظ</label><input id="as-hifz" placeholder="مثال: 5 أجزاء"></div>
   <div class="field"><label>ملاحظات</label><textarea id="as-notes"></textarea></div>
   <button class="btn btn-primary" style="margin-top:18px" onclick="window.submitAddStudent()">إضافة الطالب</button>
@@ -1235,7 +1276,7 @@ function editStudentForm(){
     <div id="es-phones">${(s.phones&&s.phones.length? s.phones : (s.phone? [{type:'أب',number:s.phone}]:[{type:'أب',number:''},{type:'أم',number:''}])).map(p=>phoneRowHTML(p.type,p.number)).join('')}</div>
     <button type="button" class="btn btn-outline" style="margin-top:8px" onclick="window.addPhoneRow('es-phones')">${icon('plus',14)} إضافة رقم آخر</button>
   </div>
-  <div class="field"><label>تاريخ الميلاد</label><input id="es-bd" type="date" value="${s.birthDate||''}"></div>
+  <div class="field"><label>تاريخ الميلاد</label>${dateField('es-bd', s.birthDate||'', 'birth')}</div>
   <div class="field"><label>مقدار الحفظ</label><input id="es-hifz" value="${s.hifzAmount||''}"></div>
   <div class="field"><label>ملاحظات</label><textarea id="es-notes">${s.notes||''}</textarea></div>
   <button class="btn btn-primary" style="margin-top:18px" onclick="window.submitEditStudent('${s.id}','${from}')">حفظ التعديلات</button>
@@ -1484,7 +1525,7 @@ async function branchAttendanceView(){
   ${kinds.length>1? `<div class="seg" style="margin-top:14px">${kinds.map(k=>`<button class="${k[0]===kind?'active':''}" onclick="window.gridGo('${k[0]}','${month}')">${k[1]}</button>`).join('')}</div>` : ''}
   <div class="ag-months">${years.map(y=>`<button class="ag-mb ${y===selYear?'on':''}" onclick="window.gridGo('${kind}','${pickMonth(y)}')">${y}</button>`).join('')}</div>
   <div class="ag-months" style="margin-top:2px">${months.filter(m=>m.startsWith(selYear)).map(m=>`<button class="ag-mb ${m===month?'on':''}" onclick="window.gridGo('${kind}','${m}')"><div>${monthLabel(m,false)}</div><div style="font-size:10px; opacity:.75; margin-top:2px">${hijriMonthLabel(m)}</div></button>`).join('')}${selYear===lastYear ? `<button class="ag-mb" onclick="window.gridAddMonth()">+ شهر</button>` : ''}</div>
-  <div class="ag-add"><input type="date" id="g-extra"><button class="btn btn-outline" onclick="window.gridAddDate()">+ موعد استثنائي</button></div>
+  <div class="ag-add">${dateField('g-extra','')}<button class="btn btn-outline" onclick="window.gridAddDate()">+ موعد استثنائي</button></div>
   <div class="row-sub" style="margin-top:10px">اضغط الخانة للتبديل: حضور ← تأخر ← غياب ← فارغ · النقطة الذهبية = موعد استثنائي${kind==='attendance'?' · النقاط: 7 / 3 / 0':''}</div>
   <div style="margin-top:14px; text-align:center; font-weight:800; font-size:13.5px">${monthLabel(month,true)} م${hijriMonthLabel(month) ? ' · '+hijriMonthLabel(month)+' هـ' : ''}</div>
   ${studs.length ? `<div class="tbl-wrap"><table class="att-grid"><thead><tr><th class="ag-name">الطالب</th>${head}<th>${kind==='attendance'?'النسبة · النقاط':'النسبة'}</th></tr></thead><tbody>${body}</tbody></table></div>` : `<div class="empty">لا يوجد طلاب في هذه الشعبة بعد</div>`}
@@ -1616,14 +1657,14 @@ async function studentProfileView(mode){
       body += `<div class="section-title" style="margin-top:16px"><span class="bar"></span>سجل المواعيد (سبتي)</div>
       <table><thead><tr><th>التاريخ</th><th>الحالة</th>${canAtt?'<th></th>':''}</tr></thead>
       <tbody>${det.attendance.map(r=>`<tr><td onclick="${canAtt?`document.getElementById('att-date').value='${r.date}'`:''}" style="${canAtt?'cursor:pointer':''}">${r.date}${recTimeLine(r)}</td><td><span class="badge ${r.status==='حضور'?'green':r.status==='تأخر'?'gold':'red'}">${r.status}</span></td>${canAtt?`<td><span onclick="window.deleteAttRecord('${s.id}','attendance','${r.date}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canAtt?3:2}">لا يوجد سجل</td></tr>`}</tbody></table>
-      ${canAtt? `<div class="field"><label>التاريخ (اضغط على أي سجل بالجدول لتعديله، أو غيّره يدويًا)</label><input type="date" id="att-date" value="${todayStr()}"></div>
+      ${canAtt? `<div class="field"><label>التاريخ (اضغط على أي سجل بالجدول لتعديله، أو غيّره يدويًا)</label>${dateField('att-date', todayStr())}</div>
       <div class="seg" style="margin-top:8px"><button onclick="window.recordAttendance('${s.id}','حضور','${from}')">حضور</button><button onclick="window.recordAttendance('${s.id}','تأخر','${from}')">تأخر</button><button onclick="window.recordAttendance('${s.id}','غياب','${from}')">غياب</button></div>` : (canEdit? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:12px">لا تملك صلاحية تسجيل المواعيد</div>`:'')}`;
     }
     if(tab==='tajweed'){
       body += `<div class="section-title" style="margin-top:16px"><span class="bar"></span>سجل حضور التجويد</div>
       <table><thead><tr><th>التاريخ</th><th>الحالة</th>${canTaj?'<th></th>':''}</tr></thead>
       <tbody>${det.tajweedAtt.map(r=>`<tr><td onclick="${canTaj?`document.getElementById('taj-date').value='${r.date}'`:''}" style="${canTaj?'cursor:pointer':''}">${r.date}${recTimeLine(r)}</td><td><span class="badge ${r.status==='حضور'?'green':'red'}">${r.status}</span></td>${canTaj?`<td><span onclick="window.deleteAttRecord('${s.id}','tajweedAtt','${r.date}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canTaj?3:2}">لا يوجد سجل</td></tr>`}</tbody></table>
-      ${canTaj? `<div class="field"><label>التاريخ (اضغط على أي سجل بالجدول لتعديله، أو غيّره يدويًا)</label><input type="date" id="taj-date" value="${todayStr()}"></div>
+      ${canTaj? `<div class="field"><label>التاريخ (اضغط على أي سجل بالجدول لتعديله، أو غيّره يدويًا)</label>${dateField('taj-date', todayStr())}</div>
       <div class="seg" style="margin-top:8px"><button onclick="window.recordTajweed('${s.id}','حضور','${from}')">حضور</button><button onclick="window.recordTajweed('${s.id}','غياب','${from}')">غياب</button></div>` : (canEdit? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:12px">لا تملك صلاحية تسجيل حضور التجويد</div>`:'')}`;
     }
     if(tab==='pay'){
@@ -1648,7 +1689,7 @@ function wirdForm(){
   return `<div class="subheader"><div class="back-btn" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'hifz',from:'${from}'})">${icon('chevronR',16)}</div><h1>تسجيل ورد جديد</h1></div>` + `
   <div class="list" style="padding:14px 14px 2px; margin-top:0"><div class="row-title">${s.name}</div><div class="row-sub">شعبة ${getBranch(s.branchId).name}</div></div>
   <div class="field"><label>نوع الإضافة</label><div class="seg" id="wf-type"><button class="active" onclick="window.selectSeg('wf-type',this)">حفظ</button><button onclick="window.selectSeg('wf-type',this)">مراجعة</button><button onclick="window.selectSeg('wf-type',this)">سرد</button></div></div>
-  <div class="field"><label>التاريخ</label><input type="date" id="wf-date" value="${todayStr()}"></div>
+  <div class="field"><label>التاريخ</label>${dateField('wf-date', todayStr())}</div>
   ${surahPicker('wf-surah','')}
   <div style="display:flex; gap:10px">
     ${ayahPicker('wf-from','من الآية')}
@@ -2136,7 +2177,7 @@ async function supervisorProfileFormView(){
   <div class="field"><label>الحالة</label>${seg('sp-occ',['يدرس','يعمل'],p.occupation)}</div>
   <div class="field"><label>مكان الدراسة أو العمل</label><input id="sp-place" type="text" value="${p.place||''}"></div>
   <div class="field"><label>التخصص</label><input id="sp-major" type="text" value="${p.major||''}"></div>
-  <div class="field"><label>تاريخ الميلاد</label><input id="sp-bd" type="date" value="${p.birthDate||''}"></div>
+  <div class="field"><label>تاريخ الميلاد</label>${dateField('sp-bd', p.birthDate||'', 'birth')}</div>
   <div class="section-title"><span class="bar"></span>مستوى التجويد (اضغط على المستوى لتغيير حالته)</div>
   <div class="list">${TAJWEED_LEVELS.map(l=>{ const st=(p.tajweedLevels&&p.tajweedLevels[l.key])||0;
     return `<div class="row" id="spt-${l.key}" data-st="${st}" style="cursor:pointer" onclick="window.toggleSupTajweed('${email}','${l.key}')"><div class="row-title">${l.label}</div><span class="badge ${TAJWEED_STATUS_CLASS[st]}">${TAJWEED_STATUS[st]}</span></div>`;
@@ -2202,7 +2243,7 @@ async function accountView(){
   return html;
 }
 
-Object.assign(window, {gridTap, gridAll, gridGo, gridAddMonth, gridAddDate, saveGrid, presAuto, presVs, openPresent, presSet, presRestart, presFull, presStep, presClose: closePresent, pickEntityPhoto, removeEntityPhoto, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
+Object.assign(window, {dpChange, gridTap, gridAll, gridGo, gridAddMonth, gridAddDate, saveGrid, presAuto, presVs, openPresent, presSet, presRestart, presFull, presStep, presClose: closePresent, pickEntityPhoto, removeEntityPhoto, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
 </script>
 </body>
 </html>
