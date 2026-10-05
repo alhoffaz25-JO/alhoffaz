@@ -160,6 +160,8 @@ svg{display:block;}
 .ag-add{display:flex; gap:8px; align-items:center; margin-top:10px}
 .ag-add input{flex:1}
 .ag-add .btn{width:auto; padding:10px 14px; white-space:nowrap}
+input[type="date"]{direction:ltr; text-align:right;}
+input[type="date"]::-webkit-datetime-edit{direction:ltr;}
 html{overflow-x:hidden;}
 .page{overflow-x:clip; min-width:0;}
 .tbl-wrap{overflow-x:auto; border-radius:12px; margin-top:10px; -webkit-overflow-scrolling:touch;}
@@ -1416,7 +1418,12 @@ function gridGo(kind, month){
   const id = grid.bid; grid.bid = '';
   goto('branchAttendance', {id, kind, month});
 }
-function gridAddMonth(){ gridEnd = ymNext(gridEnd); goto('branchAttendance', {id:grid.bid, kind:grid.kind, month:grid.month}); }
+function gridAddMonth(){
+  if(gridDirty()>0 && !confirm('في تغييرات غير محفوظة، هل تتجاهلها؟')) return;
+  gridEnd = ymNext(gridEnd);
+  const id = grid.bid, kind = grid.kind; grid.bid = '';
+  goto('branchAttendance', {id, kind, month:gridEnd});
+}
 function gridAddDate(){
   const v = document.getElementById('g-extra').value; if(!v) return;
   const ym = v.slice(0,7);
@@ -1425,6 +1432,26 @@ function gridAddDate(){
   const key = grid.bid+'|'+ym; gridExtra[key] = [...new Set([...(gridExtra[key]||[]), v])];
   const id = grid.bid, kind = grid.kind; if(ym!==grid.month) grid.bid = '';
   goto('branchAttendance', {id, kind, month:ym});
+}
+const HJ_LOC = 'ar-SA-u-ca-islamic-umalqura-nu-latn';
+const HJ_NUM = (()=>{ try{ return new Intl.DateTimeFormat(HJ_LOC,{day:'numeric',month:'numeric',year:'numeric'}); }catch(e){ return null; } })();
+const HJ_NAME = (()=>{ try{ return new Intl.DateTimeFormat(HJ_LOC,{month:'long'}); }catch(e){ return null; } })();
+function hijri(dateStr){
+  if(!HJ_NUM || !HJ_NAME) return null;
+  try{
+    const d = new Date(dateStr+'T12:00:00'), o = {};
+    HJ_NUM.formatToParts(d).forEach(q=>{ if(q.type!=='literal') o[q.type] = q.value; });
+    o.name = HJ_NAME.formatToParts(d).find(q=>q.type==='month').value;
+    return o;
+  }catch(e){ return null; }
+}
+function hjDay(d){ const h = hijri(d); return h ? h.day+'/'+h.month : ''; }
+function hijriMonthLabel(ym){
+  const last = new Date(+ym.slice(0,4), +ym.slice(5,7), 0).getDate();
+  const a = hijri(ym+'-01'), b = hijri(ym+'-'+String(last).padStart(2,'0'));
+  if(!a || !b) return '';
+  if(a.name===b.name) return a.name+' '+a.year;
+  return a.year===b.year ? a.name+' – '+b.name+' '+a.year : a.name+' '+a.year+' – '+b.name+' '+b.year;
 }
 async function branchAttendanceView(){
   const b = getBranch(state.params.id);
@@ -1445,17 +1472,21 @@ async function branchAttendanceView(){
     studs.forEach(s=>{ ((cache.details[s.id]||{})[det]||[]).forEach(r=>{ if(r.date && r.date.startsWith(month) && r.status){ grid.sel[s.id+'|'+r.date] = r.status; grid.prev[s.id+'|'+r.date] = r.status; } }); });
   }
   gridComputeDates();
+  const years = [...new Set(months.map(m=>m.slice(0,4)))], selYear = month.slice(0,4), lastYear = years[years.length-1];
+  const pickMonth = y => { const t = today.slice(0,7), ms = months.filter(m=>m.startsWith(y)); return ms.includes(t) ? t : ms[ms.length-1]; };
   const extraSet = new Set(gridExtra[b.id+'|'+month]||[]);
   const isOff = d => new Date(d+'T00:00:00').getDay()!==6;
-  const head = grid.dates.map(d=>`<th>${+d.slice(8)}/${+d.slice(5,7)}${isOff(d)?'<span class="ag-dot"></span>':''}${d>today?'':`<button class="ag-all" onclick="window.gridAll('${d}')">الكل</button>`}</th>`).join('');
+  const head = grid.dates.map(d=>`<th>${+d.slice(8)}/${+d.slice(5,7)}${isOff(d)?'<span class="ag-dot"></span>':''}<div style="font-size:9px; opacity:.75">${hjDay(d)}</div>${d>today?'':`<button class="ag-all" onclick="window.gridAll('${d}')">الكل</button>`}</th>`).join('');
   const body = studs.map(s=>`<tr><td class="ag-name">${s.name}</td>${grid.dates.map(d=>{ const st = grid.sel[s.id+'|'+d]||'', lock = d>today;
       return `<td class="ag-c ${lock?'lock':(GCLS[st]||'')}" id="gc-${s.id}-${d}" ${lock?'':`onclick="window.gridTap('${s.id}','${d}')"`}>${lock?'':(GSYM[st]||'')}</td>`; }).join('')}<td class="ag-s" id="gs-${s.id}">${gridSummary(s.id)}</td></tr>`).join('');
   setTimeout(()=>{ const el = document.querySelector('.ag-mb.on'); if(el && el.scrollIntoView) el.scrollIntoView({inline:'center', block:'nearest'}); }, 120);
   return back + `
   ${kinds.length>1? `<div class="seg" style="margin-top:14px">${kinds.map(k=>`<button class="${k[0]===kind?'active':''}" onclick="window.gridGo('${k[0]}','${month}')">${k[1]}</button>`).join('')}</div>` : ''}
-  <div class="ag-months">${months.map(m=>`<button class="ag-mb ${m===month?'on':''}" onclick="window.gridGo('${kind}','${m}')">${monthLabel(m, m.slice(5)==='01' || m===months[0])}</button>`).join('')}<button class="ag-mb" onclick="window.gridAddMonth()">+ شهر</button></div>
+  <div class="ag-months">${years.map(y=>`<button class="ag-mb ${y===selYear?'on':''}" onclick="window.gridGo('${kind}','${pickMonth(y)}')">${y}</button>`).join('')}</div>
+  <div class="ag-months" style="margin-top:2px">${months.filter(m=>m.startsWith(selYear)).map(m=>`<button class="ag-mb ${m===month?'on':''}" onclick="window.gridGo('${kind}','${m}')"><div>${monthLabel(m,false)}</div><div style="font-size:10px; opacity:.75; margin-top:2px">${hijriMonthLabel(m)}</div></button>`).join('')}${selYear===lastYear ? `<button class="ag-mb" onclick="window.gridAddMonth()">+ شهر</button>` : ''}</div>
   <div class="ag-add"><input type="date" id="g-extra"><button class="btn btn-outline" onclick="window.gridAddDate()">+ موعد استثنائي</button></div>
   <div class="row-sub" style="margin-top:10px">اضغط الخانة للتبديل: حضور ← تأخر ← غياب ← فارغ · النقطة الذهبية = موعد استثنائي${kind==='attendance'?' · النقاط: 7 / 3 / 0':''}</div>
+  <div style="margin-top:14px; text-align:center; font-weight:800; font-size:13.5px">${monthLabel(month,true)} م${hijriMonthLabel(month) ? ' · '+hijriMonthLabel(month)+' هـ' : ''}</div>
   ${studs.length ? `<div class="tbl-wrap"><table class="att-grid"><thead><tr><th class="ag-name">الطالب</th>${head}<th>${kind==='attendance'?'النسبة · النقاط':'النسبة'}</th></tr></thead><tbody>${body}</tbody></table></div>` : `<div class="empty">لا يوجد طلاب في هذه الشعبة بعد</div>`}
   <div class="row-sub" id="g-info" style="margin-top:10px; color:#B23A3A"></div>
   <button class="btn btn-primary" style="margin-top:12px" onclick="window.saveGrid()">حفظ تغييرات الشهر</button>
@@ -2036,7 +2067,6 @@ function supCard(sv, from){
     <div style="display:flex; align-items:center; gap:12px">
       ${avatarBlock(52, sv.photo, sv.name, false)}
       <div style="flex:1"><div class="row-title" style="font-size:14.5px">${sv.name}</div><div class="row-sub">${brs}</div></div>
-      ${canEditIt? `<div class="back-btn" style="cursor:pointer" onclick="event.stopPropagation(); window.goto('supervisorProfile',{email:'${sv.id}',from:'${from||'supervisorsList'}'})">${icon('pencil',15)}</div>`:''}
     </div>
     <div class="list" style="margin-top:12px">
       ${line('حفظ القرآن', hafiz)}
