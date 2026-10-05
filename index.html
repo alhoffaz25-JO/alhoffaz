@@ -128,6 +128,38 @@ svg{display:block;}
 @keyframes podUp{from{height:0}}
 .pr-crown{font-size:clamp(28px,6vw,56px); animation:prBob 1.2s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.pr-pod-col,.pr-pod-top,.pr-vs-row,.pr-vsbadge,.pr-pop,.pr-arrow,.pr-crown{animation:none}}
+.pv-hero{position:relative; overflow:hidden; border-radius:22px; padding:26px 16px 20px; text-align:center; color:#fff; background:linear-gradient(150deg,var(--green-dark),var(--green,#0f7a44)); margin-top:12px; box-shadow:0 10px 26px rgba(10,80,50,.22)}
+.pv-hero::before{content:''; position:absolute; inset:0; background:radial-gradient(circle at 15% 20%,rgba(255,255,255,.16),transparent 40%),radial-gradient(circle at 85% 80%,rgba(224,184,75,.25),transparent 45%)}
+.pv-hero>*{position:relative}
+.pv-ava{display:inline-block}
+.pv-ava .avatar{border:3px solid var(--gold-light); box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.pv-name{font-size:20px; font-weight:900; margin-top:10px}
+.pv-role{display:inline-block; margin-top:6px; padding:3px 14px; border-radius:99px; background:rgba(255,255,255,.18); font-size:11.5px}
+.pv-chips{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:12px}
+.pv-chips span{background:var(--gold-light); color:#06281c; font-weight:800; font-size:11.5px; padding:4px 12px; border-radius:99px}
+.pv-grid{display:grid; gap:10px; margin-top:14px}
+.pv-item{display:flex; align-items:center; gap:12px; background:var(--card,#fff); border:1px solid var(--border,#e6ece8); border-radius:16px; padding:12px 14px; box-shadow:0 2px 10px rgba(0,0,0,.04)}
+.pv-ic{width:40px; height:40px; border-radius:12px; background:#EAF4EE; color:#0f7a44; display:flex; align-items:center; justify-content:center; flex-shrink:0}
+.pv-l{font-size:11px; color:var(--text-muted,#888)}
+.pv-v{font-size:14px; font-weight:800; margin-top:2px; word-break:break-word}
+.pv-act{font-size:11px; font-weight:800; text-decoration:none; background:#EAF4EE; color:#0f7a44; padding:6px 10px; border-radius:99px}
+.att-grid{border-collapse:separate; border-spacing:0; font-size:12px; width:auto; margin:0}
+.att-grid th,.att-grid td{padding:8px 6px; text-align:center; white-space:nowrap}
+.att-grid thead th{background:var(--green-dark); color:#fff}
+.att-grid .ag-name{position:sticky; right:0; z-index:2; background:var(--card,#fff); min-width:104px; text-align:right; font-weight:700; box-shadow:-2px 0 4px rgba(0,0,0,.06)}
+.att-grid thead .ag-name{background:var(--green-dark); color:#fff}
+.ag-c{min-width:42px; cursor:pointer; border-bottom:1px solid var(--border,#eee); font-weight:900; user-select:none}
+.ag-c.p{background:#DDF3E6; color:#13804a} .ag-c.l{background:#FBF0D1; color:#9a7410} .ag-c.a{background:#FADBD8; color:#B23A3A}
+.ag-c.lock{background:#F1F1F1; cursor:not-allowed}
+.ag-s{font-size:11px; font-weight:700; border-bottom:1px solid var(--border,#eee)}
+.ag-all{display:block; margin:4px auto 0; font-size:10px; padding:2px 6px; border-radius:6px; border:none; background:rgba(255,255,255,.25); color:#fff; cursor:pointer; font-family:inherit}
+.ag-dot{display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--gold-light); margin-inline-start:3px}
+.ag-months{display:flex; gap:8px; overflow-x:auto; padding:4px 0; margin-top:12px}
+.ag-mb{flex-shrink:0; padding:8px 14px; border-radius:99px; border:1px solid var(--border,#ddd); background:var(--card,#fff); font:inherit; font-size:12.5px; cursor:pointer}
+.ag-mb.on{background:var(--green-dark); color:#fff; border-color:var(--green-dark)}
+.ag-add{display:flex; gap:8px; align-items:center; margin-top:10px}
+.ag-add input{flex:1}
+.ag-add .btn{width:auto; padding:10px 14px; white-space:nowrap}
 html{overflow-x:hidden;}
 .page{overflow-x:clip; min-width:0;}
 .tbl-wrap{overflow-x:auto; border-radius:12px; margin-top:10px; -webkit-overflow-scrolling:touch;}
@@ -1010,6 +1042,7 @@ async function renderView(){
     case 'quickWird': return await quickWirdView();
     case 'supervisorsList': return await supervisorsListView();
     case 'supervisorProfileForm': return await supervisorProfileFormView();
+    case 'supervisorProfile': return await supervisorProfileView();
     case 'notificationsView': return await notificationsView();
     case 'wirdForm': return wirdForm();
     case 'accountAdmin': return await accountView();
@@ -1331,72 +1364,129 @@ function wirdRange(r){
   if(fi>0 && ti>0 && f.slice(0,fi)===t.slice(0,ti)) return f.slice(0,fi)+' <b>'+f.slice(fi+1)+'</b> ← <b>'+t.slice(ti+1)+'</b>';
   return f+' ← '+t;
 }
-let batchAtt = {bid:'', kind:'', date:'', sel:{}, prev:{}};
+const AR_MONTHS = ['كانون الثاني','شباط','آذار','نيسان','أيار','حزيران','تموز','آب','أيلول','تشرين الأول','تشرين الثاني','كانون الأول'];
+const GCLS = {'حضور':'p','تأخر':'l','غياب':'a'}, GSYM = {'حضور':'✓','تأخر':'ت','غياب':'✗'};
+let gridStart = '2026-05', gridEnd = '2027-01', gridExtra = {};
+let grid = {bid:'', kind:'', month:'', sel:{}, prev:{}, dates:[], studs:[]};
+const ymNext = ym => { let y = +ym.slice(0,4), m = +ym.slice(5,7)+1; if(m>12){ m=1; y++; } return y+'-'+String(m).padStart(2,'0'); };
+const monthLabel = (ym, withYear) => AR_MONTHS[+ym.slice(5,7)-1] + (withYear ? ' '+ym.slice(0,4) : '');
+function gridMonths(){ const out = []; let ym = gridStart; while(ym<=gridEnd){ out.push(ym); ym = ymNext(ym); } return out; }
+function gridDirty(){
+  let n = 0; const keys = new Set([...Object.keys(grid.sel), ...Object.keys(grid.prev)]);
+  keys.forEach(k=>{ if((grid.sel[k]||'')!==(grid.prev[k]||'')) n++; });
+  return n;
+}
+function gridComputeDates(){
+  const ym = grid.month, set = new Set(), y = +ym.slice(0,4), m = +ym.slice(5,7);
+  const last = new Date(y, m, 0).getDate();
+  for(let d=1; d<=last; d++){ if(new Date(y, m-1, d).getDay()===6) set.add(ym+'-'+String(d).padStart(2,'0')); }
+  [...Object.keys(grid.sel), ...Object.keys(grid.prev)].forEach(k=>{ if(grid.sel[k] || grid.prev[k]) set.add(k.split('|')[1]); });
+  (gridExtra[grid.bid+'|'+ym]||[]).forEach(d=>set.add(d));
+  grid.dates = [...set].sort();
+}
+function gridSummary(sid){
+  let h=0, l=0, a=0;
+  grid.dates.forEach(d=>{ const st = grid.sel[sid+'|'+d]; if(st==='حضور') h++; else if(st==='تأخر') l++; else if(st==='غياب') a++; });
+  const tot = h+l+a; if(!tot) return '—';
+  const pct = Math.round((h+l)/tot*100)+'%';
+  return grid.kind==='attendance' ? pct+' · '+(h*ATT_POINTS['حضور']+l*ATT_POINTS['تأخر']) : pct;
+}
+function gridCellDom(sid, date){
+  const el = document.getElementById(`gc-${sid}-${date}`); if(!el) return;
+  const st = grid.sel[sid+'|'+date] || '';
+  el.className = 'ag-c '+(GCLS[st]||''); el.textContent = GSYM[st]||'';
+}
+function gridRefresh(sid){
+  const el = document.getElementById('gs-'+sid); if(el) el.textContent = gridSummary(sid);
+  const info = document.getElementById('g-info'); if(info){ const n = gridDirty(); info.textContent = n ? 'تغييرات غير محفوظة: '+n : ''; }
+}
+function gridTap(sid, date){
+  if(date>todayStr()) return;
+  const k = sid+'|'+date, cur = grid.sel[k] || '';
+  const nxt = {'':'حضور','حضور':'تأخر','تأخر':'غياب','غياب':''}[cur];
+  if(nxt) grid.sel[k] = nxt; else delete grid.sel[k];
+  gridCellDom(sid, date); gridRefresh(sid);
+}
+function gridAll(date){
+  if(date>todayStr()) return;
+  grid.studs.forEach(sid=>{ grid.sel[sid+'|'+date] = 'حضور'; gridCellDom(sid, date); gridRefresh(sid); });
+}
+function gridGo(kind, month){
+  if(gridDirty()>0 && !confirm('في تغييرات غير محفوظة، هل تتجاهلها؟')) return;
+  const id = grid.bid; grid.bid = '';
+  goto('branchAttendance', {id, kind, month});
+}
+function gridAddMonth(){ gridEnd = ymNext(gridEnd); goto('branchAttendance', {id:grid.bid, kind:grid.kind, month:grid.month}); }
+function gridAddDate(){
+  const v = document.getElementById('g-extra').value; if(!v) return;
+  const ym = v.slice(0,7);
+  if(ym!==grid.month && gridDirty()>0 && !confirm('في تغييرات غير محفوظة، هل تتجاهلها؟')) return;
+  if(ym>gridEnd) gridEnd = ym; if(ym<gridStart) gridStart = ym;
+  const key = grid.bid+'|'+ym; gridExtra[key] = [...new Set([...(gridExtra[key]||[]), v])];
+  const id = grid.bid, kind = grid.kind; if(ym!==grid.month) grid.bid = '';
+  goto('branchAttendance', {id, kind, month:ym});
+}
 async function branchAttendanceView(){
   const b = getBranch(state.params.id);
   const back = `<div class="subheader"><div class="back-btn" onclick="window.goto('branchDetail',{id:'${b.id}'})">${icon('chevronR',16)}</div><h1>تسجيل الحضور — شعبة ${b.name}</h1></div>`;
   const kinds = [['attendance','المواعيد',canDo('attendance')],['tajweed','حضور التجويد',canDo('tajweed')]].filter(k=>k[2]);
   if(!canEditBranch(b.id) || !kinds.length) return back + `<div class="empty">لا تملك صلاحية تسجيل الحضور لهذه الشعبة</div>`;
-  if(state.params.fresh){ batchAtt.bid=''; delete state.params.fresh; }
+  if(state.params.fresh){ delete state.params.fresh; grid.bid = ''; }
+  await loadAllDetails();
   const kind = kinds.some(k=>k[0]===state.params.kind) ? state.params.kind : kinds[0][0];
-  const date = state.params.date || todayStr();
-  const list = cache.students.filter(s=>s.branchId===b.id);
-  if(batchAtt.bid!==b.id || batchAtt.kind!==kind || batchAtt.date!==date){
-    batchAtt = {bid:b.id, kind, date, sel:{}, prev:{}};
-    const coll = kind==='attendance' ? 'attendance' : 'tajweedAtt';
-    const res = await Promise.all(list.map(s=>getDoc(doc(db,'students',s.id,coll,date)).then(d=>[s.id, d.exists()? d.data().status : null]).catch(()=>[s.id,null])));
-    res.forEach(([id,st])=>{ if(st){ batchAtt.prev[id]=st; batchAtt.sel[id]=st; } });
+  const today = todayStr(), months = gridMonths();
+  let month = state.params.month || today.slice(0,7);
+  if(!months.includes(month)) month = months.includes(today.slice(0,7)) ? today.slice(0,7) : months[months.length-1];
+  const studs = cache.students.filter(s=>s.branchId===b.id);
+  const same = grid.bid===b.id && grid.kind===kind && grid.month===month;
+  if(!same || gridDirty()===0){
+    const det = kind==='attendance' ? 'attendance' : 'tajweedAtt';
+    grid = {bid:b.id, kind, month, sel:{}, prev:{}, dates:[], studs:studs.map(s=>s.id)};
+    studs.forEach(s=>{ ((cache.details[s.id]||{})[det]||[]).forEach(r=>{ if(r.date && r.date.startsWith(month) && r.status){ grid.sel[s.id+'|'+r.date] = r.status; grid.prev[s.id+'|'+r.date] = r.status; } }); });
   }
-  const rows = list.map(st=>{ const cur = batchAtt.sel[st.id];
-    return `<div class="row" style="flex-direction:column; align-items:stretch; gap:8px"><div class="row-title">${st.name}</div>
-    <div class="seg" id="ba-${st.id}" style="margin-top:0">${['حضور','تأخر','غياب'].map(x=>`<button data-st="${x}" class="${cur===x?'active':''}" onclick="window.batchPick('${st.id}','${x}')">${x}</button>`).join('')}</div></div>`; }).join('');
+  gridComputeDates();
+  const extraSet = new Set(gridExtra[b.id+'|'+month]||[]);
+  const isOff = d => new Date(d+'T00:00:00').getDay()!==6;
+  const head = grid.dates.map(d=>`<th>${+d.slice(8)}/${+d.slice(5,7)}${isOff(d)?'<span class="ag-dot"></span>':''}${d>today?'':`<button class="ag-all" onclick="window.gridAll('${d}')">الكل</button>`}</th>`).join('');
+  const body = studs.map(s=>`<tr><td class="ag-name">${s.name}</td>${grid.dates.map(d=>{ const st = grid.sel[s.id+'|'+d]||'', lock = d>today;
+      return `<td class="ag-c ${lock?'lock':(GCLS[st]||'')}" id="gc-${s.id}-${d}" ${lock?'':`onclick="window.gridTap('${s.id}','${d}')"`}>${lock?'':(GSYM[st]||'')}</td>`; }).join('')}<td class="ag-s" id="gs-${s.id}">${gridSummary(s.id)}</td></tr>`).join('');
+  setTimeout(()=>{ const el = document.querySelector('.ag-mb.on'); if(el && el.scrollIntoView) el.scrollIntoView({inline:'center', block:'nearest'}); }, 120);
   return back + `
-  ${kinds.length>1? `<div class="seg" style="margin-top:14px">${kinds.map(k=>`<button class="${k[0]===kind?'active':''}" onclick="window.goto('branchAttendance',{id:'${b.id}',kind:'${k[0]}',date:'${date}'})">${k[1]}</button>`).join('')}</div>` : ''}
-  <div class="field"><label>التاريخ</label><input type="date" value="${date}" onchange="window.goto('branchAttendance',{id:'${b.id}',kind:'${kind}',date:this.value||''})"></div>
-  ${kind==='attendance'? `<div class="row-sub" style="margin-top:8px">النقاط: حضور 7 · تأخر 3 · غياب 0</div>` : ''}
-  <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:14px">
-    <div class="row-sub" id="ba-count">تم تحديد ${list.filter(x=>batchAtt.sel[x.id]).length} من ${list.length}</div>
-    <button class="btn btn-outline" style="width:auto; padding:8px 14px" onclick="window.batchAll()">تحديد الكل حضور</button>
-  </div>
-  <div class="list">${rows || `<div class="empty">لا يوجد طلاب في هذه الشعبة بعد</div>`}</div>
-  <button class="btn btn-primary" id="ba-save" style="margin-top:16px" onclick="window.saveBatchAtt()">حفظ</button>
-  <div id="ba-alert"></div>`;
+  ${kinds.length>1? `<div class="seg" style="margin-top:14px">${kinds.map(k=>`<button class="${k[0]===kind?'active':''}" onclick="window.gridGo('${k[0]}','${month}')">${k[1]}</button>`).join('')}</div>` : ''}
+  <div class="ag-months">${months.map(m=>`<button class="ag-mb ${m===month?'on':''}" onclick="window.gridGo('${kind}','${m}')">${monthLabel(m, m.slice(5)==='01' || m===months[0])}</button>`).join('')}<button class="ag-mb" onclick="window.gridAddMonth()">+ شهر</button></div>
+  <div class="ag-add"><input type="date" id="g-extra"><button class="btn btn-outline" onclick="window.gridAddDate()">+ موعد استثنائي</button></div>
+  <div class="row-sub" style="margin-top:10px">اضغط الخانة للتبديل: حضور ← تأخر ← غياب ← فارغ · النقطة الذهبية = موعد استثنائي${kind==='attendance'?' · النقاط: 7 / 3 / 0':''}</div>
+  ${studs.length ? `<div class="tbl-wrap"><table class="att-grid"><thead><tr><th class="ag-name">الطالب</th>${head}<th>${kind==='attendance'?'النسبة · النقاط':'النسبة'}</th></tr></thead><tbody>${body}</tbody></table></div>` : `<div class="empty">لا يوجد طلاب في هذه الشعبة بعد</div>`}
+  <div class="row-sub" id="g-info" style="margin-top:10px; color:#B23A3A"></div>
+  <button class="btn btn-primary" style="margin-top:12px" onclick="window.saveGrid()">حفظ تغييرات الشهر</button>
+  <div id="g-alert"></div>`;
 }
-function batchCount(){
-  const el = document.getElementById('ba-count'); if(!el) return;
-  const list = cache.students.filter(s=>s.branchId===batchAtt.bid);
-  el.textContent = 'تم تحديد '+list.filter(s=>batchAtt.sel[s.id]).length+' من '+list.length;
-}
-function batchPick(sid, st){
-  batchAtt.sel[sid] = st;
-  document.querySelectorAll('#ba-'+sid+' button').forEach(b=>b.classList.toggle('active', b.dataset.st===st));
-  batchCount();
-}
-function batchAll(){ cache.students.filter(s=>s.branchId===batchAtt.bid).forEach(s=>batchPick(s.id,'حضور')); }
-async function saveBatchAtt(){
-  const {bid, kind, date, sel, prev} = batchAtt;
-  const alertEl = document.getElementById('ba-alert'), btn = document.getElementById('ba-save');
-  const todo = cache.students.filter(s=>s.branchId===bid && sel[s.id] && sel[s.id]!==prev[s.id]);
-  if(!todo.length){ alertEl.innerHTML = `<div class="alert error">${icon('check',16)} ما في تغييرات جديدة للحفظ</div>`; return; }
-  btn.disabled = true; btn.textContent = 'جارٍ الحفظ...';
-  const coll = kind==='attendance' ? 'attendance' : 'tajweedAtt';
+async function saveGrid(){
+  const kind = grid.kind, coll = kind==='attendance' ? 'attendance' : 'tajweedAtt';
+  const alertEl = document.getElementById('g-alert');
+  const changes = [], keys = new Set([...Object.keys(grid.sel), ...Object.keys(grid.prev)]);
+  keys.forEach(k=>{ const a = grid.sel[k]||'', b = grid.prev[k]||''; if(a!==b){ const [sid,date] = k.split('|'); changes.push({sid,date,a,b}); } });
+  if(!changes.length){ alertEl.innerHTML = `<div class="alert error">${icon('check',16)} ما في تغييرات جديدة للحفظ</div>`; return; }
   let failed = 0;
-  await Promise.all(todo.map(async s=>{
+  await Promise.all(changes.map(async c=>{
     try{
-      await setDoc(doc(db,'students',s.id,coll,date), {date, status:sel[s.id], recordedBy:state.personName, recordedAt:serverTimestamp()});
+      const ref = doc(db,'students',c.sid,coll,c.date);
+      if(c.a) await setDoc(ref, {date:c.date, status:c.a, recordedBy:state.personName, recordedAt:serverTimestamp()});
+      else await deleteDoc(ref);
       if(kind==='attendance'){
-        const diff = (ATT_POINTS[sel[s.id]]||0) - (ATT_POINTS[prev[s.id]]||0);
-        if(diff!==0) await updateDoc(doc(db,'students',s.id), {points: increment(diff)});
+        const diff = (ATT_POINTS[c.a]||0) - (ATT_POINTS[c.b]||0);
+        if(diff!==0) await updateDoc(doc(db,'students',c.sid), {points: increment(diff)});
       }
-      prev[s.id] = sel[s.id];
+      const arr = (cache.details[c.sid]||{})[coll] || [], i = arr.findIndex(r=>r.date===c.date);
+      if(c.a){ if(i>=0) arr[i] = {...arr[i], status:c.a}; else arr.push({id:c.date, date:c.date, status:c.a}); } else if(i>=0) arr.splice(i,1);
+      if(c.a) grid.prev[c.sid+'|'+c.date] = c.a; else delete grid.prev[c.sid+'|'+c.date];
     }catch(e){ failed++; }
   }));
   try{ await loadStudentsForRole(); }catch(e){}
-  cache.details = {};
-  btn.disabled = false; btn.textContent = 'حفظ';
+  const info = document.getElementById('g-info'); if(info){ const n = gridDirty(); info.textContent = n ? 'تغييرات غير محفوظة: '+n : ''; }
   alertEl.innerHTML = failed
-    ? `<div class="alert error">${icon('check',16)} تعذّر حفظ ${failed} من ${todo.length}، جرّب الحفظ مرة ثانية</div>`
-    : `<div class="alert success">${icon('check',16)} تم حفظ ${todo.length} سجل</div>`;
+    ? `<div class="alert error">${icon('check',16)} تعذّر حفظ ${failed} من ${changes.length}، جرّب الحفظ مرة ثانية</div>`
+    : `<div class="alert success">${icon('check',16)} تم حفظ ${changes.length} تغيير</div>`;
 }
 function branchDetail(){
   const b = getBranch(state.params.id);
@@ -1942,11 +2032,11 @@ function supCard(sv, from){
   const work = p.occupation ? (p.occupation+(p.place? ' في '+p.place : '')) : '—';
   const brs = (sv.branchIds||[]).map(id=>'شعبة '+getBranch(id).name).join('، ') || 'بدون شعبة مُسندة';
   const line = (k,v)=>`<div class="row"><span class="row-sub" style="white-space:nowrap">${k}</span><span class="row-title" style="text-align:left">${v||'—'}</span></div>`;
-  return `<div class="level-card">
+  return `<div class="level-card" style="cursor:pointer" onclick="window.goto('supervisorProfile',{email:'${sv.id}',from:'${from||'supervisorsList'}'})">
     <div style="display:flex; align-items:center; gap:12px">
       ${avatarBlock(52, sv.photo, sv.name, false)}
       <div style="flex:1"><div class="row-title" style="font-size:14.5px">${sv.name}</div><div class="row-sub">${brs}</div></div>
-      ${canEditIt? `<div class="back-btn" style="cursor:pointer" onclick="window.goto('supervisorProfileForm',{email:'${sv.id}',from:'${from||'supervisorsList'}'})">${icon('pencil',15)}</div>`:''}
+      ${canEditIt? `<div class="back-btn" style="cursor:pointer" onclick="event.stopPropagation(); window.goto('supervisorProfile',{email:'${sv.id}',from:'${from||'supervisorsList'}'})">${icon('pencil',15)}</div>`:''}
     </div>
     <div class="list" style="margin-top:12px">
       ${line('حفظ القرآن', hafiz)}
@@ -1964,6 +2054,43 @@ async function supervisorsListView(){
   const list = cache.supervisors;
   return subheader('تعريف المشرفين ('+list.length+')', homeRoute()) + (list.length? list.map(s=>supCard(s)).join('') : `<div class="empty">لا يوجد مشرفون بعد</div>`);
 }
+
+async function supervisorProfileView(){
+  const email = state.params.email, from = state.params.from || 'accountSup';
+  const backJs = from==='supervisorPermissions' ? `window.goto('supervisorPermissions',{id:'${email}'})` : `window.goto('${from}')`;
+  const head = `<div class="subheader"><div class="back-btn" onclick="${backJs}">${icon('chevronR',16)}</div><h1>ملف المشرف</h1></div>`;
+  let sv = null;
+  try{ const d = await getDoc(doc(db,'people',email)); if(d.exists()) sv = {id:email, ...d.data()}; }catch(e){}
+  if(!sv) return head + `<div class="empty">تعذّر تحميل بيانات المشرف</div>`;
+  const p = sv.profile || {}, canEdit = state.role==='admin' || email===state.personEmail;
+  const hafiz = p.hafiz==='نعم' ? ('حافظ للقرآن'+((p.juz!=null && p.juz!=='')? ' ('+p.juz+' جزء)':'')) : (p.hafiz==='لا' ? 'غير حافظ' : '');
+  const work = p.occupation ? (p.occupation+(p.place? ' في '+p.place : '')) : '';
+  let age = null;
+  if(p.birthDate){ const b = new Date(p.birthDate), n = new Date(); if(!isNaN(b)){ age = n.getFullYear()-b.getFullYear(); const m = n.getMonth()-b.getMonth(); if(m<0 || (m===0 && n.getDate()<b.getDate())) age--; } }
+  const svg = d => `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const PHONE = svg('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>');
+  const CAL = svg('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>');
+  const item = (ic, label, val, extra) => `<div class="pv-item"><div class="pv-ic">${ic}</div><div style="flex:1; min-width:0"><div class="pv-l">${label}</div><div class="pv-v">${val || '<span style="color:var(--text-muted,#999); font-weight:500">غير محدد</span>'}</div></div>${extra||''}</div>`;
+  const digits = String(p.phone||'').replace(/\D/g,'');
+  const wa = digits.startsWith('00') ? digits.slice(2) : (digits.startsWith('0') ? '962'+digits.slice(1) : digits);
+  const phoneActs = digits ? `<a class="pv-act" href="tel:${digits}">اتصال</a><a class="pv-act" href="https://wa.me/${wa}" target="_blank" rel="noopener">واتساب</a>` : '';
+  const brs = (sv.branchIds||[]).map(id=>`<span>شعبة ${getBranch(id).name}</span>`).join('') || `<span>بدون شعبة مُسندة</span>`;
+  const levels = TAJWEED_LEVELS.map(l=>{ const st = (p.tajweedLevels && p.tajweedLevels[l.key]) || 0;
+    return `<div class="row"><div class="row-title">${l.label}</div><span class="badge ${TAJWEED_STATUS_CLASS[st]}">${TAJWEED_STATUS[st]}</span></div>`; }).join('');
+  return head + `
+  <div class="pv-hero"><div class="pv-ava">${avatarBlock(92, sv.photo, sv.name, false)}</div>
+    <div class="pv-name">${sv.name}</div><div class="pv-role">مشرف</div><div class="pv-chips">${brs}</div></div>
+  <div class="pv-grid">
+    ${item(icon('book',20), 'حفظ القرآن', hafiz)}
+    ${item(PHONE, 'رقم الهاتف', p.phone ? `<span dir="ltr">${p.phone}</span>` : '', phoneActs)}
+    ${item(icon('briefcase',20), 'الدراسة / العمل', work)}
+    ${item(icon('cap',20), 'التخصص', p.major)}
+    ${item(CAL, 'تاريخ الميلاد', p.birthDate ? p.birthDate+(age!=null && age>=0 ? ' · '+age+' سنة' : '') : '')}
+  </div>
+  <div class="section-title"><span class="bar"></span>مستوى التجويد</div>
+  <div class="list">${levels}</div>
+  ${canEdit ? `<button class="btn btn-primary" style="margin-top:18px" onclick="window.goto('supervisorProfileForm',{email:'${email}',from:'${from}'})">${icon('pencil',15)} تعديل ملف المشرف</button>` : ''}`;
+}
 async function supervisorProfileFormView(){
   const email = state.params.email;
   const from = state.params.from || 'accountSup';
@@ -1972,7 +2099,7 @@ async function supervisorProfileFormView(){
   const data = snap.exists()? snap.data() : {};
   const p = data.profile || {};
   const seg = (id, opts, cur)=>`<div class="seg" id="${id}">${opts.map(o=>`<button class="${cur===o?'active':''}" onclick="window.selectSeg('${id}',this)">${o}</button>`).join('')}</div>`;
-  return `<div class="subheader"><div class="back-btn" onclick="${from==='supervisorPermissions'? `window.goto('supervisorPermissions',{id:'${email}'})` : `window.goto('${from}')`}">${icon('chevronR',16)}</div><h1>البيانات التعريفية: ${data.name||email}</h1></div>
+  return `<div class="subheader"><div class="back-btn" onclick="window.goto('supervisorProfile',{email:'${email}',from:'${from}'})">${icon('chevronR',16)}</div><h1>البيانات التعريفية: ${data.name||email}</h1></div>
   <div class="field"><label>هل هو حافظ للقرآن؟</label>${seg('sp-hafiz',['نعم','لا'],p.hafiz)}</div>
   <div class="field"><label>كم جزء يحفظ؟</label><input id="sp-juz" type="text" inputmode="numeric" placeholder="من 0 إلى 30" value="${p.juz!=null?p.juz:''}"></div>
   <div class="field"><label>رقم الهاتف</label><input id="sp-phone" type="tel" placeholder="05xxxxxxxx" value="${p.phone||''}"></div>
@@ -2011,7 +2138,7 @@ async function saveSupProfile(email, from){
     await updateDoc(doc(db,'people',email), {profile});
     if(email===state.personEmail) state.profile = profile;
     g('sp-alert').innerHTML = `<div class="alert success">${icon('check',16)} تم حفظ البيانات</div>`;
-    setTimeout(()=>{ if(from==='supervisorPermissions') goto(from,{id:email}); else goto(from); }, 700);
+    setTimeout(()=>goto('supervisorProfile',{email, from}), 700);
   }catch(e){ showErr('تعذّر الحفظ: '+e.message); }
 }
 async function accountView(){
@@ -2039,13 +2166,13 @@ async function accountView(){
     <button class="btn btn-outline" style="margin-top:14px" onclick="window.goto('inviteForm')">${icon('plus',16)} إضافة حساب جديد</button>`;
   }
   if(state.role==='supervisor'){
-    html += `<button class="btn btn-outline" style="margin-top:14px" onclick="window.goto('supervisorProfileForm',{email:'${state.personEmail}',from:'accountSup'})">${icon('idcard',16)} بياناتي التعريفية</button>`;
+    html += `<button class="btn btn-outline" style="margin-top:14px" onclick="window.goto('supervisorProfile',{email:'${state.personEmail}',from:'accountSup'})">${icon('idcard',16)} بياناتي التعريفية</button>`;
   }
   html += `<button class="btn btn-outline" style="margin-top:22px" onclick="window.logout()">تسجيل الخروج</button>`;
   return html;
 }
 
-Object.assign(window, {presAuto, presVs, openPresent, presSet, presRestart, presFull, presStep, presClose: closePresent, pickEntityPhoto, removeEntityPhoto, batchPick, batchAll, saveBatchAtt, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
+Object.assign(window, {gridTap, gridAll, gridGo, gridAddMonth, gridAddDate, saveGrid, presAuto, presVs, openPresent, presSet, presRestart, presFull, presStep, presClose: closePresent, pickEntityPhoto, removeEntityPhoto, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
 </script>
 </body>
 </html>
