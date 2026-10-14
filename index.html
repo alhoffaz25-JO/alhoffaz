@@ -873,11 +873,14 @@ function payAll(ym){
   if(!payOldOk(ym)) return;
   cache.students.filter(x=>x.branchId===pay.bid).forEach(x=>{ pay.sel[x.id+'|'+ym] = PAY_PRICE; payRefresh(x.id, ym); });
 }
+function payAddToggle(){ const el = document.getElementById('p-addbox'); if(el) el.style.display = el.style.display==='none' ? 'flex' : 'none'; }
 async function payAddMonth(){
+  const m = document.getElementById('pa-m'), y = document.getElementById('pa-y'); if(!m || !y) return;
+  const ym = y.value+'-'+String(m.value).padStart(2,'0'), id = pay.bid, b = getBranch(id), ms = payMonthsOf(b);
+  if(ms.includes(ym)){ alert('هذا الشهر موجود أصلًا بالجدول'); return; }
   if(payDirty()>0 && !confirm('في تغييرات غير محفوظة، هل تتجاهلها؟')) return;
-  const id = pay.bid, b = getBranch(id), ms = payMonthsOf(b);
   try{
-    await updateDoc(doc(db,'branches',id), {payMonths:[...ms, ymNext(ms[ms.length-1])]});
+    await updateDoc(doc(db,'branches',id), {payMonths:[...ms, ym].sort()});
     await loadBranches(); pay.bid = ''; goto('branchPayments', {id});
   }catch(e){ alert('تعذّر إضافة الشهر: '+e.message); }
 }
@@ -914,7 +917,8 @@ async function branchPaymentsView(){
   const foot = `<tr class="ag-foot"><td class="ag-name">المحصّل</td>${months.map(m=>`<td id="pt-${m}">${payFmt(payMonthSum(m))}</td>`).join('')}<td></td></tr>`;
   return back + `
   <div class="row-sub" style="margin-top:14px">السعر ${PAY_PRICE} دنانير للشهر · اضغط الخانة: مدفوع ← غير مدفوع ← فارغ · ضغطة طويلة لإدخال مبلغ جزئي (مثل 3/${PAY_PRICE})</div>
-  ${isAdm ? `<button class="btn btn-outline" style="margin-top:10px; width:auto; padding:9px 16px" onclick="window.payAddMonth()">+ إضافة شهر</button>` : ''}
+  ${isAdm ? `<button class="btn btn-outline" style="margin-top:10px; width:auto; padding:9px 16px" onclick="window.payAddToggle()">+ إضافة شهر</button>
+  <div id="p-addbox" style="display:none; gap:8px; align-items:center; margin-top:10px"><select id="pa-m" style="flex:1.4; padding:10px; border-radius:10px; border:1px solid var(--border)">${AR_MONTHS.map((n,i)=>`<option value="${i+1}" ${+ymNext(months[months.length-1]).slice(5)===i+1?'selected':''}>${n}</option>`).join('')}</select><select id="pa-y" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border)">${Array.from({length:8},(_,k)=>2024+k).map(y=>`<option value="${y}" ${+ymNext(months[months.length-1]).slice(0,4)===y?'selected':''}>${y}</option>`).join('')}</select><button class="btn btn-primary" style="width:auto; padding:10px 16px" onclick="window.payAddMonth()">إضافة</button></div>` : ''}
   ${studs.length ? `<div class="tbl-wrap"><table class="att-grid"><thead><tr><th class="ag-name">الطالب</th>${head}<th>الدفع</th></tr></thead><tbody>${body}${foot}</tbody></table></div>` : `<div class="empty">لا يوجد طلاب في هذه الشعبة بعد</div>`}
   <div class="row-sub" id="p-info" style="margin-top:10px; color:#B23A3A"></div>
   <button class="btn btn-primary" style="margin-top:12px" onclick="window.savePayGrid()">حفظ الدفعات</button>
@@ -1623,9 +1627,24 @@ function wirdRange(r){
   return f+' ← '+t;
 }
 const AR_DAYS = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
-const branchDay = b => (b && b.officialDay!=null) ? Number(b.officialDay) : (b && /البشائر/.test(b.name||'') ? 3 : 6);
-async function setBranchDay(id, v){
-  try{ await updateDoc(doc(db,'branches',id), {officialDay:Number(v)}); await loadBranches(); render(); }
+const branchDefaultDay = b => (b && b.officialDay!=null) ? Number(b.officialDay) : (b && /البشائر/.test(b.name||'') ? 3 : 6);
+const branchDay = b => branchDefaultDay(b);
+function dayOn(b, kind, date){
+  const h = b && b.dayHistory && b.dayHistory[kind];
+  if(Array.isArray(h) && h.length){ let day = h[0].day; h.forEach(e=>{ if(e.from<=date) day = e.day; }); return Number(day); }
+  return branchDefaultDay(b);
+}
+async function setBranchDay(id, kind, v){
+  const b = getBranch(id), n = Number(v), today = todayStr();
+  if(n===dayOn(b,kind,today)){ render(); return; }
+  if(!confirm('التغيير يسري من اليوم، ولا يؤثر على الأيام والأشهر السابقة. هل تريد المتابعة؟')){ render(); return; }
+  const hd = b.dayHistory || {};
+  const hist = {attendance:[...(hd.attendance||[])], tajweed:[...(hd.tajweed||[])]};
+  const h = hist[kind];
+  if(!h.length) h.push({from:'0000-00-00', day:branchDefaultDay(b)});
+  const last = h[h.length-1];
+  if(last.from===today) last.day = n; else h.push({from:today, day:n});
+  try{ await updateDoc(doc(db,'branches',id), {dayHistory:hist}); await loadBranches(); render(); }
   catch(e){ alert('تعذّر الحفظ: '+e.message); }
 }
 const AR_MONTHS = ['كانون الثاني','شباط','آذار','نيسان','أيار','حزيران','تموز','آب','أيلول','تشرين الأول','تشرين الثاني','كانون الأول'];
@@ -1643,8 +1662,8 @@ function gridDirty(){
 function gridComputeDates(){
   const ym = grid.month, set = new Set(), y = +ym.slice(0,4), m = +ym.slice(5,7);
   const last = new Date(y, m, 0).getDate();
-  const od = branchDay(getBranch(grid.bid));
-  for(let d=1; d<=last; d++){ if(new Date(y, m-1, d).getDay()===od) set.add(ym+'-'+String(d).padStart(2,'0')); }
+  const gb = getBranch(grid.bid);
+  for(let d=1; d<=last; d++){ const ds = ym+'-'+String(d).padStart(2,'0'); if(new Date(y, m-1, d).getDay()===dayOn(gb, grid.kind, ds)) set.add(ds); }
   [...Object.keys(grid.sel), ...Object.keys(grid.prev)].forEach(k=>{ if(grid.sel[k] || grid.prev[k]) set.add(k.split('|')[1]); });
   (gridExtra[grid.bid+'|'+ym]||[]).forEach(d=>set.add(d));
   grid.dates = [...set].sort();
@@ -1665,7 +1684,7 @@ function gridRefresh(sid){
   const el = document.getElementById('gs-'+sid); if(el) el.textContent = gridSummary(sid);
   const info = document.getElementById('g-info'); if(info){ const n = gridDirty(); info.textContent = n ? 'تغييرات غير محفوظة: '+n : ''; }
 }
-function gridLastSat(){ const od = branchDay(getBranch(grid.bid)); return addDaysStr(todayStr(), -((new Date(todayStr()+'T00:00:00').getDay()-od+7)%7)); }
+function gridLastSat(){ const gb = getBranch(grid.bid); let d = todayStr(); for(let i=0;i<70;i++){ if(new Date(d+'T00:00:00').getDay()===dayOn(gb, grid.kind, d)) return d; d = addDaysStr(d,-1); } return todayStr(); }
 function gridOldOk(date, sid){
   if(!grid.confirmed) grid.confirmed = new Set();
   if(date>=gridLastSat() || grid.confirmed.has(date)) return true;
@@ -1749,14 +1768,14 @@ async function branchAttendanceView(){
   const years = [...new Set(months.map(m=>m.slice(0,4)))], selYear = month.slice(0,4), lastYear = years[years.length-1];
   const pickMonth = y => { const t = today.slice(0,7), ms = months.filter(m=>m.startsWith(y)); return ms.includes(t) ? t : ms[ms.length-1]; };
   const extraSet = new Set(gridExtra[b.id+'|'+month]||[]);
-  const isOff = d => new Date(d+'T00:00:00').getDay()!==branchDay(b);
+  const isOff = d => new Date(d+'T00:00:00').getDay()!==dayOn(b, kind, d);
   const head = grid.dates.map(d=>`<th>${+d.slice(8)}/${+d.slice(5,7)}${isOff(d)?'<span class="ag-dot"></span>':''}<div style="font-size:9px; opacity:.75">${hjDay(d)}</div>${d>today?'':`<button class="ag-all" onclick="window.gridAll('${d}')">الكل</button>`}</th>`).join('');
   const body = studs.map(s=>`<tr><td class="ag-name">${s.name}</td>${grid.dates.map(d=>{ const st = grid.sel[s.id+'|'+d]||'', lock = d>today;
       return `<td class="ag-c ${lock?'lock':(GCLS[st]||'')}" id="gc-${s.id}-${d}" ${lock?'':`onclick="window.gridTap('${s.id}','${d}')"`}>${lock?'':(GSYM[st]||'')}</td>`; }).join('')}<td class="ag-s" id="gs-${s.id}">${gridSummary(s.id)}</td></tr>`).join('');
   setTimeout(()=>{ const el = document.querySelector('.ag-mb.on'); if(el && el.scrollIntoView) el.scrollIntoView({inline:'center', block:'nearest'}); }, 120);
   return back + `
   ${kinds.length>1? `<div class="seg" style="margin-top:14px">${kinds.map(k=>`<button class="${k[0]===kind?'active':''}" onclick="window.gridGo('${k[0]}','${month}')">${k[1]}</button>`).join('')}</div>` : ''}
-  ${state.role==='admin' ? `<div class="field" style="margin-top:12px"><label>يوم الدوام الرسمي للشعبة</label><select onchange="window.setBranchDay('${b.id}',this.value)">${AR_DAYS.map((n,i)=>`<option value="${i}" ${branchDay(b)===i?'selected':''}>${n}</option>`).join('')}</select></div>` : ''}
+  ${state.role==='admin' ? `<div class="field" style="margin-top:12px"><label>يوم دوام ${kind==='attendance'?'المواعيد':'التجويد'} للشعبة (يسري من اليوم)</label><select onchange="window.setBranchDay('${b.id}','${kind}',this.value)">${AR_DAYS.map((n,i)=>`<option value="${i}" ${dayOn(b,kind,today)===i?'selected':''}>${n}</option>`).join('')}</select></div>` : ''}
   <div class="ag-months">${years.map(y=>`<button class="ag-mb ${y===selYear?'on':''}" onclick="window.gridGo('${kind}','${pickMonth(y)}')">${y}</button>`).join('')}</div>
   <div class="ag-months" style="margin-top:2px">${months.filter(m=>m.startsWith(selYear)).map(m=>`<button class="ag-mb ${m===month?'on':''}" onclick="window.gridGo('${kind}','${m}')"><div>${monthLabel(m,false)}</div><div style="font-size:10px; opacity:.75; margin-top:2px">${hijriMonthLabel(m)}</div></button>`).join('')}${selYear===lastYear ? `<button class="ag-mb" onclick="window.gridAddMonth()">+ شهر</button>` : ''}</div>
   <div class="ag-add">${dateField('g-extra','')}<button class="btn btn-outline" onclick="window.gridAddDate()">+ موعد استثنائي</button></div>
@@ -1801,7 +1820,7 @@ function branchDetail(){
   return subheader('شعبة '+b.name, 'adminBranches') +
   (!editable && state.role==='supervisor' ? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:14px">${icon('eye',14)} عرض فقط — لا تملك صلاحية تعديل هذه الشعبة</div>` : '') + `
   <div style="display:flex; flex-direction:column; align-items:center; margin-top:14px">${entityAvatar(72, b.photo, b.name, 'branch', b.id, state.role==='admin')}${b.photo && state.role==='admin' ? `<div class="row-sub" style="cursor:pointer; margin-top:6px; color:#B23A3A" onclick="window.removeEntityPhoto('branch','${b.id}')">إزالة الصورة</div>` : ''}</div>
-  ${state.role==='admin' ? `<div class="field" style="margin-top:12px"><label>يوم الدوام الرسمي للشعبة</label><select onchange="window.setBranchDay('${b.id}',this.value)">${AR_DAYS.map((n,i)=>`<option value="${i}" ${branchDay(b)===i?'selected':''}>${n}</option>`).join('')}</select></div>` : ''}
+  ${state.role==='admin' ? [['attendance','المواعيد'],['tajweed','التجويد']].map(([k,l])=>`<div class="field" style="margin-top:12px"><label>يوم دوام ${l} (يسري من اليوم)</label><select onchange="window.setBranchDay('${b.id}','${k}',this.value)">${AR_DAYS.map((n,i)=>`<option value="${i}" ${dayOn(b,k,todayStr())===i?'selected':''}>${n}</option>`).join('')}</select></div>`).join('') : ''}
   <div class="stat-card" style="margin-top:16px; text-align:center"><div class="stat-num">${students.length}</div><div class="stat-label">عدد الطلاب</div></div>
   ${editable && (canDo('attendance')||canDo('tajweed')) ? `<button class="btn btn-primary" style="margin-top:12px" onclick="window.goto('branchAttendance',{id:'${b.id}',fresh:1})">${icon('check',16)} تسجيل الحضور للشعبة</button>` : ''}
   ${canPay() && editable ? `<button class="btn btn-outline" style="margin-top:10px" onclick="window.goto('branchPayments',{id:'${b.id}',fresh:1})">${icon('briefcase',16)} جدول الدفع للشعبة</button>` : ''}
@@ -2641,7 +2660,7 @@ async function accountView(){
   return html;
 }
 
-Object.assign(window, {payDown, payUp, payCancel, payAll, payAddMonth, payDelMonth, savePayGrid: savePayGrid, setBranchDay, hmapSetMode, hmapPick, hmapEditToggle, hmapPrev, hmapSaveBase, growthTip, dpChange, gridTap, gridAll, gridGo, gridAddMonth, gridAddDate, saveGrid, presAuto, presVs, openPresent, presSet, presRestart, presFull, presStep, presClose: closePresent, pickEntityPhoto, removeEntityPhoto, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
+Object.assign(window, {payAddToggle, payDown, payUp, payCancel, payAll, payAddMonth, payDelMonth, savePayGrid: savePayGrid, setBranchDay, hmapSetMode, hmapPick, hmapEditToggle, hmapPrev, hmapSaveBase, growthTip, dpChange, gridTap, gridAll, gridGo, gridAddMonth, gridAddDate, saveGrid, presAuto, presVs, openPresent, presSet, presRestart, presFull, presStep, presClose: closePresent, pickEntityPhoto, removeEntityPhoto, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
 </script>
 </body>
 </html>
