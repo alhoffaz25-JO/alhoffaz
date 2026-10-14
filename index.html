@@ -157,6 +157,20 @@ svg{display:block;}
 .ag-months{display:flex; gap:8px; overflow-x:auto; padding:4px 0; margin-top:12px}
 .ag-mb{flex-shrink:0; padding:8px 14px; border-radius:99px; border:1px solid var(--border,#ddd); background:var(--card,#fff); font:inherit; font-size:12.5px; cursor:pointer}
 .ag-mb.on{background:var(--green-dark); color:#fff; border-color:var(--green-dark)}
+.pr-champs{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px}
+.pr-ch{display:flex; align-items:center; gap:10px; margin:8px 0}
+.pr-ch-n{flex:1; font-weight:800; font-size:clamp(14px,2.4vw,22px)}
+.pr-ch-v{color:var(--gold-light); font-weight:900; font-size:clamp(14px,2.4vw,22px)}
+.pr-tbl{width:100%; border-collapse:separate; border-spacing:0 6px; color:#fff; margin:0}
+.pr-tbl th{background:transparent !important; color:var(--gold-light) !important; font-size:clamp(11px,2vw,16px); padding:6px; text-align:center; white-space:nowrap}
+.pr-tbl td{background:rgba(255,255,255,.08); padding:8px 6px; text-align:center; min-width:70px}
+.pr-tbl td.pr-tn{text-align:right; font-weight:800; font-size:clamp(13px,2.2vw,20px); background:rgba(255,255,255,.12); white-space:nowrap}
+.pr-cv{font-weight:900; font-size:clamp(13px,2.2vw,20px)}
+.pr-mini{height:6px; background:rgba(255,255,255,.14); border-radius:9px; overflow:hidden; margin-top:5px}
+.pr-tbl td.best{background:rgba(224,184,75,.22); box-shadow:0 0 14px rgba(224,184,75,.55) inset}
+.pr-tbl td.best .pr-cv{color:var(--gold-light); text-shadow:0 0 10px var(--gold-light)}
+.ag-foot td{font-weight:800; background:#F6F8F7; font-size:11.5px}
+.ag-foot .ag-name{background:#F6F8F7}
 .ag-add{display:flex; gap:8px; align-items:center; margin-top:10px}
 .ag-add input{flex:1}
 .ag-add .btn{width:auto; padding:10px 14px; white-space:nowrap}
@@ -183,6 +197,9 @@ svg{display:block;}
 .hm-c{aspect-ratio:1; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:800; font-size:13px; cursor:pointer; border:2px solid transparent; transition:transform .15s; animation:prIn .4s ease both; animation-delay:calc(var(--i)*18ms)}
 .hm-c small{font-size:10px; line-height:1}
 .hm-c.sel{border-color:#06281c; transform:scale(1.07)}
+.pg-strip{display:grid; grid-template-columns:repeat(10,1fr); gap:4px; margin-top:8px}
+.pg{aspect-ratio:1; border-radius:6px; background:#EEF0F2; color:#7a8794; font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center}
+.pg.on{background:#3FAE6F; color:#fff} .pg.old{background:#F08A4B; color:#fff}
 .hm-detail{margin-top:10px; font-size:13px; font-weight:700; text-align:center}
 .hm-legend{margin-top:6px; font-size:10.5px; color:var(--text-muted,#888); text-align:center}
 .hm-fc{margin-top:12px; padding:10px 12px; border-radius:12px; background:#EAF4EE; color:#0f6a3c; font-size:12.5px; font-weight:700; text-align:center}
@@ -579,6 +596,7 @@ async function ensureStudentDetail(sid, force){
   const subs = ['hifzLog','reviewLog','recitationLog','attendance','tajweedAtt','payments','pointsAdjustments'];
   const out = {};
   for(const sub of subs){
+    if(sub==='payments' && !canPay()){ out[sub] = []; continue; }
     const snap = await getDocs(collection(db,'students',sid,sub));
     out[sub] = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
   }
@@ -785,21 +803,163 @@ Object.defineProperty(HTMLInputElement.prototype, 'value', {
   configurable: true
 });
 
+/* ===== جدول الدفع ===== */
+const PAY_PRICE = 5;
+const canPay = () => state.role==='admin' || (state.role==='supervisor' && !!state.capabilities && state.capabilities.pay===true);
+const payFmt = v => Number.isInteger(v) ? String(v) : v.toFixed(2);
+function defaultPayMonths(){ const out = []; let ym = '2026-10'; for(let i=0;i<8;i++){ out.push(ym); ym = ymNext(ym); } return out; }
+const payMonthsOf = b => (b && Array.isArray(b.payMonths) && b.payMonths.length) ? b.payMonths : defaultPayMonths();
+function payParse(p){
+  let ym = null;
+  if(/^\d{4}-\d{2}$/.test(p.ym||'')) ym = p.ym;
+  else if(/^\d{4}-\d{2}$/.test(p.id||'')) ym = p.id;
+  else { const txt = String(p.month||p.id||''), mi = AR_MONTHS.findIndex(n=>txt.includes(n)), y = /(20\d\d)/.exec(txt); if(mi>=0 && y) ym = y[1]+'-'+String(mi+1).padStart(2,'0'); }
+  const amt = Number(p.amount)||0;
+  const paid = p.status==='مدفوع' ? (amt>0 ? amt : PAY_PRICE) : (p.status==='جزئي' ? amt : 0);
+  return {ym, label: ym ? monthLabel(ym,true) : String(p.month||''), paid, id:p.id};
+}
+function payRecords(det){ return (det.payments||[]).map(payParse).filter(x=>x.ym); }
+let pay = {bid:'', months:[], sel:{}, prev:{}, src:{}, confirmed:new Set()};
+function payDirty(){
+  let n = 0; const keys = new Set([...Object.keys(pay.sel), ...Object.keys(pay.prev)]);
+  keys.forEach(k=>{ if(pay.sel[k]!==pay.prev[k]) n++; });
+  return n;
+}
+function payClass(v){ return v===undefined ? '' : v>=PAY_PRICE ? 'p' : v>0 ? 'l' : 'a'; }
+function payText(v){ return v===undefined ? '' : v>=PAY_PRICE ? '✓' : v>0 ? payFmt(v)+'/'+PAY_PRICE : '✗'; }
+function paySummary(sid){
+  let full = 0, owed = 0;
+  pay.months.forEach(m=>{ const v = pay.sel[sid+'|'+m]; if(v!==undefined){ if(v>=PAY_PRICE) full++; else owed += PAY_PRICE-v; } });
+  return 'دفع '+full+' من '+pay.months.length+(owed>0 ? ' · عليه '+payFmt(owed)+' د' : '');
+}
+function payMonthSum(ym){ let t = 0; cache.students.filter(x=>x.branchId===pay.bid).forEach(x=>{ const v = pay.sel[x.id+'|'+ym]; if(v) t += v; }); return t; }
+function payRefresh(sid, ym){
+  const c = document.getElementById(`pc-${sid}-${ym}`), v = pay.sel[sid+'|'+ym];
+  if(c){ c.className = 'ag-c '+payClass(v); c.textContent = payText(v); }
+  const r = document.getElementById('ps-'+sid); if(r) r.textContent = paySummary(sid);
+  const f = document.getElementById('pt-'+ym); if(f) f.textContent = payFmt(payMonthSum(ym));
+  const info = document.getElementById('p-info'); if(info){ const n = payDirty(); info.textContent = n ? 'تغييرات غير محفوظة: '+n : ''; }
+}
+function payOldOk(ym, sid){
+  if(ym>=todayStr().slice(0,7) || pay.confirmed.has(ym)) return true;
+  const filled = sid ? pay.prev[sid+'|'+ym]!==undefined : cache.students.some(x=>x.branchId===pay.bid && pay.prev[x.id+'|'+ym]!==undefined);
+  if(!filled) return true;
+  if(!confirm('هذا شهر قديم ('+monthLabel(ym,true)+') وفيه دفعات مسجّلة. هل تريد تعديله؟')) return false;
+  pay.confirmed.add(ym); return true;
+}
+let payTimer = null, payLong = false;
+function payDown(sid, ym){ payLong = false; clearTimeout(payTimer); payTimer = setTimeout(()=>{ payLong = true; payPrompt(sid, ym); }, 550); }
+function payUp(sid, ym){ clearTimeout(payTimer); if(!payLong) payTap(sid, ym); }
+function payCancel(){ clearTimeout(payTimer); }
+function payTap(sid, ym){
+  if(!payOldOk(ym, sid)) return;
+  const k = sid+'|'+ym, v = pay.sel[k];
+  if(v===undefined) pay.sel[k] = PAY_PRICE;
+  else if(v>0 && v<PAY_PRICE) pay.sel[k] = PAY_PRICE;
+  else if(v>=PAY_PRICE) pay.sel[k] = 0;
+  else delete pay.sel[k];
+  payRefresh(sid, ym);
+}
+function payPrompt(sid, ym){
+  if(!payOldOk(ym, sid)) return;
+  const k = sid+'|'+ym, cur = pay.sel[k];
+  const inp = prompt('المبلغ المدفوع (من '+PAY_PRICE+' دنانير). اتركه فارغًا لمسح الخانة:', cur!==undefined ? cur : '');
+  if(inp===null) return;
+  if(inp.trim()===''){ delete pay.sel[k]; }
+  else { const n = Number(inp); if(isNaN(n) || n<0){ alert('رقم غير صحيح'); return; } pay.sel[k] = Math.min(n, 999); }
+  payRefresh(sid, ym);
+}
+function payAll(ym){
+  if(!payOldOk(ym)) return;
+  cache.students.filter(x=>x.branchId===pay.bid).forEach(x=>{ pay.sel[x.id+'|'+ym] = PAY_PRICE; payRefresh(x.id, ym); });
+}
+async function payAddMonth(){
+  if(payDirty()>0 && !confirm('في تغييرات غير محفوظة، هل تتجاهلها؟')) return;
+  const id = pay.bid, b = getBranch(id), ms = payMonthsOf(b);
+  try{
+    await updateDoc(doc(db,'branches',id), {payMonths:[...ms, ymNext(ms[ms.length-1])]});
+    await loadBranches(); pay.bid = ''; goto('branchPayments', {id});
+  }catch(e){ alert('تعذّر إضافة الشهر: '+e.message); }
+}
+async function payDelMonth(ym){
+  const id = pay.bid, b = getBranch(id), ms = payMonthsOf(b);
+  if(ms.length<=1){ alert('لا يمكن حذف آخر شهر'); return; }
+  if(!confirm('حذف شهر '+monthLabel(ym,true)+' وكل دفعاته لطلاب الشعبة؟ لا يمكن التراجع.')) return;
+  try{
+    for(const st of cache.students.filter(x=>x.branchId===id)){
+      const det = cache.details[st.id]; if(!det) continue;
+      for(const r of (det.payments||[]).filter(r=>payParse(r).ym===ym)){ await deleteDoc(doc(db,'students',st.id,'payments',r.id)); }
+      det.payments = (det.payments||[]).filter(r=>payParse(r).ym!==ym);
+    }
+    await updateDoc(doc(db,'branches',id), {payMonths: ms.filter(m=>m!==ym)});
+    await loadBranches(); pay.bid = ''; goto('branchPayments', {id});
+  }catch(e){ alert('تعذّر حذف الشهر: '+e.message); }
+}
+async function branchPaymentsView(){
+  const b = getBranch(state.params.id);
+  const back = `<div class="subheader"><div class="back-btn" onclick="window.goto('branchDetail',{id:'${b.id}'})">${icon('chevronR',16)}</div><h1>جدول الدفع — شعبة ${b.name}</h1></div>`;
+  if(!canPay() || !canEditBranch(b.id)) return back + `<div class="empty">لا تملك صلاحية الدفع لهذه الشعبة</div>`;
+  if(state.params.fresh){ delete state.params.fresh; pay.bid = ''; }
+  await loadAllDetails();
+  const months = payMonthsOf(b), studs = cache.students.filter(x=>x.branchId===b.id);
+  if(pay.bid!==b.id || payDirty()===0){
+    pay = {bid:b.id, months, sel:{}, prev:{}, src:{}, confirmed:new Set()};
+    studs.forEach(st=>{ ((cache.details[st.id]||{}).payments||[]).forEach(r=>{ const x = payParse(r);
+      if(x.ym && months.includes(x.ym)){ const k = st.id+'|'+x.ym; pay.sel[k] = x.paid; pay.prev[k] = x.paid; pay.src[k] = r.id; } }); });
+  } else pay.months = months;
+  const isAdm = state.role==='admin';
+  const head = months.map(m=>`<th><div>${monthLabel(m,false)}</div><div style="font-size:9px; opacity:.75">${m.slice(0,4)}</div><button class="ag-all" onclick="window.payAll('${m}')">الكل</button>${isAdm?`<button class="ag-all" style="background:rgba(229,102,95,.75)" onclick="window.payDelMonth('${m}')">حذف</button>`:''}</th>`).join('');
+  const body = studs.map(st=>`<tr><td class="ag-name">${st.name}</td>${months.map(m=>{ const v = pay.sel[st.id+'|'+m];
+    return `<td class="ag-c ${payClass(v)}" id="pc-${st.id}-${m}" onpointerdown="window.payDown('${st.id}','${m}')" onpointerup="window.payUp('${st.id}','${m}')" onpointerleave="window.payCancel()" onpointercancel="window.payCancel()" oncontextmenu="return false">${payText(v)}</td>`; }).join('')}<td class="ag-s" id="ps-${st.id}">${paySummary(st.id)}</td></tr>`).join('');
+  const foot = `<tr class="ag-foot"><td class="ag-name">المحصّل</td>${months.map(m=>`<td id="pt-${m}">${payFmt(payMonthSum(m))}</td>`).join('')}<td></td></tr>`;
+  return back + `
+  <div class="row-sub" style="margin-top:14px">السعر ${PAY_PRICE} دنانير للشهر · اضغط الخانة: مدفوع ← غير مدفوع ← فارغ · ضغطة طويلة لإدخال مبلغ جزئي (مثل 3/${PAY_PRICE})</div>
+  ${isAdm ? `<button class="btn btn-outline" style="margin-top:10px; width:auto; padding:9px 16px" onclick="window.payAddMonth()">+ إضافة شهر</button>` : ''}
+  ${studs.length ? `<div class="tbl-wrap"><table class="att-grid"><thead><tr><th class="ag-name">الطالب</th>${head}<th>الدفع</th></tr></thead><tbody>${body}${foot}</tbody></table></div>` : `<div class="empty">لا يوجد طلاب في هذه الشعبة بعد</div>`}
+  <div class="row-sub" id="p-info" style="margin-top:10px; color:#B23A3A"></div>
+  <button class="btn btn-primary" style="margin-top:12px" onclick="window.savePayGrid()">حفظ الدفعات</button>
+  <div id="p-alert"></div>`;
+}
+async function savePayGrid(){
+  const alertEl = document.getElementById('p-alert'), changes = [], keys = new Set([...Object.keys(pay.sel), ...Object.keys(pay.prev)]);
+  keys.forEach(k=>{ if(pay.sel[k]!==pay.prev[k]){ const [sid,ym] = k.split('|'); changes.push({sid, ym, k, v:pay.sel[k]}); } });
+  if(!changes.length){ alertEl.innerHTML = `<div class="alert error">${icon('check',16)} ما في تغييرات جديدة للحفظ</div>`; return; }
+  let failed = 0;
+  await Promise.all(changes.map(async c=>{
+    try{
+      const col = 'payments', old = pay.src[c.k];
+      if(c.v===undefined){ await deleteDoc(doc(db,'students',c.sid,col,old||c.ym)); delete pay.src[c.k]; delete pay.prev[c.k]; }
+      else {
+        await setDoc(doc(db,'students',c.sid,col,c.ym), {ym:c.ym, month:monthLabel(c.ym,true), amount:c.v, status: c.v>=PAY_PRICE?'مدفوع':(c.v>0?'جزئي':'غير مدفوع'), recordedBy:state.personName, recordedAt:serverTimestamp()});
+        if(old && old!==c.ym) await deleteDoc(doc(db,'students',c.sid,col,old));
+        pay.src[c.k] = c.ym; pay.prev[c.k] = c.v;
+      }
+      const det = cache.details[c.sid];
+      if(det){ det.payments = (det.payments||[]).filter(r=>payParse(r).ym!==c.ym); if(c.v!==undefined) det.payments.push({id:c.ym, ym:c.ym, month:monthLabel(c.ym,true), amount:c.v, status: c.v>=PAY_PRICE?'مدفوع':(c.v>0?'جزئي':'غير مدفوع')}); }
+    }catch(e){ failed++; }
+  }));
+  const info = document.getElementById('p-info'); if(info){ const n = payDirty(); info.textContent = n ? 'تغييرات غير محفوظة: '+n : ''; }
+  alertEl.innerHTML = failed
+    ? `<div class="alert error">${icon('check',16)} تعذّر حفظ ${failed} من ${changes.length}، جرّب مرة ثانية</div>`
+    : `<div class="alert success">${icon('check',16)} تم حفظ ${changes.length} تغيير</div>`;
+}
+
 /* ================= وضع العرض ================= */
 let pres = null;
 const PRES_PERIODS = {week:'هذا الأسبوع', month:'هذا الشهر', all:'كل الفترات'};
 const PRES_PREV = {week:'الأسبوع الماضي', month:'الشهر الماضي'};
-const PRES_SLIDES = 8;
+const PRES_SLIDES = 7;
+const presDefaultBranch = () => { const bs = cache.branches.filter(b=>canEditBranch(b.id)); return (bs[0] || cache.branches[0] || {}).id || ''; };
 const presReduce = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 function presLater(gen, ms, fn){ setTimeout(()=>{ if(pres && pres.gen===gen) fn(); }, ms); }
 async function openPresent(period, bid){
   closePresent();
-  pres = {period: period||'week', bid: bid||'', slide:0, data:null, gen:0, auto:false, autoT:null, vsA:null, vsB:null};
+  pres = {period: period||'week', bid: bid || presDefaultBranch(), slide:0, data:null, gen:0, auto:false, autoT:null, vsA:null, vsB:null};
   const el = document.createElement('div'); el.id = 'present'; el.dir = 'rtl';
   el.innerHTML = `<div class="pr-top">
     <b style="font-size:16px">شعبة الحفاظ</b>
     <div class="pr-ctrls">
-      <select id="pr-scope" onchange="window.presSet()"><option value="">كل الشعب</option>${cache.branches.map(b=>`<option value="${b.id}" ${b.id===pres.bid?'selected':''}>شعبة ${b.name}</option>`).join('')}</select>
+      <select id="pr-scope" onchange="window.presSet()">${cache.branches.filter(b=>canEditBranch(b.id)).map(b=>`<option value="${b.id}" ${b.id===pres.bid?'selected':''}>شعبة ${b.name}</option>`).join('')}</select>
       <select id="pr-period" onchange="window.presSet()">${Object.entries(PRES_PERIODS).map(([k,v])=>`<option value="${k}" ${k===pres.period?'selected':''}>${v}</option>`).join('')}</select>
       <button id="pr-auto" onclick="window.presAuto()">تشغيل تلقائي</button>
       <button onclick="window.presRestart()">إعادة الحركة</button>
@@ -850,26 +1010,31 @@ function presPrevPred(period){
 }
 function presCalc(s, pred){
   const det = cache.details[s.id] || {};
-  let pts=0, ph=0, pr=0; const c = {'حضور':0,'تأخر':0,'غياب':0};
+  let pts=0, ph=0, pr=0, got=0, max=0; const c = {'حضور':0,'تأخر':0,'غياب':0};
+  const tally = (t,r)=>{ const v = recPts(t,r); got += v; max += r.pts!=null ? t[0]*Math.max(1,Number(r.pagesEst)||1) : t[0]; return v; };
   (det.attendance||[]).forEach(r=>{ if(pred(r.date)){ pts += ATT_POINTS[r.status]||0; if(c[r.status]!==undefined) c[r.status]++; } });
-  (det.hifzLog||[]).forEach(r=>{ if(pred(r.date)){ pts += recPts(TYPE_POINTS.hifz,r); ph += recPages(r); } });
-  (det.reviewLog||[]).forEach(r=>{ if(pred(r.date)){ pts += recPts(TYPE_POINTS.review,r); pr += recPages(r); } });
-  (det.recitationLog||[]).forEach(r=>{ if(pred(r.date)) pts += recPts(TYPE_POINTS.recitation,r); });
+  (det.hifzLog||[]).forEach(r=>{ if(pred(r.date)){ pts += tally(TYPE_POINTS.hifz,r); ph += recPages(r); } });
+  (det.reviewLog||[]).forEach(r=>{ if(pred(r.date)){ pts += tally(TYPE_POINTS.review,r); pr += recPages(r); } });
+  (det.recitationLog||[]).forEach(r=>{ if(pred(r.date)) pts += tally(TYPE_POINTS.recitation,r); });
   (det.pointsAdjustments||[]).forEach(a=>{ if(pred(a.date)) pts += a.delta||0; });
-  return {pts, ph, pr, pages:ph+pr, c};
+  return {pts, ph, pr, pages:ph+pr, c, got, max};
 }
 function presData(){
   const {period, bid} = pres, prevP = presPrevPred(period), curP = dt => inPeriod(dt, period);
-  const all = cache.students.map(s=>{ const cur = presCalc(s,curP); if(period==='all') cur.pts = s.points||0; return {s, cur, prev: prevP ? presCalc(s,prevP) : null}; });
-  const rows = bid ? all.filter(r=>r.s.branchId===bid) : all;
-  const sumOf = (rs,k)=>{
-    const c = {'حضور':0,'تأخر':0,'غياب':0}; let pts=0, ph=0, pr=0;
-    rs.forEach(r=>{ const x=r[k]; pts+=x.pts; ph+=x.ph; pr+=x.pr; for(const t in c) c[t]+=x.c[t]; });
+  const rows = cache.students.filter(s=>s.branchId===bid).map(s=>{
+    const cur = presCalc(s, curP); if(period==='all') cur.pts = s.points||0;
+    const tot = cur.c['حضور']+cur.c['تأخر']+cur.c['غياب'];
+    cur.rate = tot ? Math.round((cur.c['حضور']+cur.c['تأخر'])/tot*100) : null;
+    cur.ex = cur.max ? Math.min(100, Math.round(cur.got/cur.max*100)) : null;
+    return {s, cur, prev: prevP ? presCalc(s, prevP) : null};
+  });
+  const sumOf = k=>{
+    const c = {'حضور':0,'تأخر':0,'غياب':0}; let pts=0, ph=0, pr=0, got=0, max=0;
+    rows.forEach(r=>{ const x = r[k]; pts+=x.pts; ph+=x.ph; pr+=x.pr; got+=x.got; max+=x.max; for(const t in c) c[t]+=x.c[t]; });
     const tot = c['حضور']+c['تأخر']+c['غياب'];
-    return {pts, ph, pr, pages:ph+pr, c, rate: tot ? Math.round((c['حضور']+c['تأخر'])/tot*100) : 0};
+    return {pts, ph, pr, pages:ph+pr, c, rate: tot ? Math.round((c['حضور']+c['تأخر'])/tot*100) : 0, ex: max ? Math.min(100,Math.round(got/max*100)) : 0};
   };
-  const branchesAll = cache.branches.map(b=>{ const rs = all.filter(r=>r.s.branchId===b.id); return {b, n:rs.length, cur:sumOf(rs,'cur'), prev: prevP ? sumOf(rs,'prev') : null}; });
-  return {rows, n:rows.length, cur:sumOf(rows,'cur'), prev: prevP ? sumOf(rows,'prev') : null, hasPrev:!!prevP, branchesAll, branches: branchesAll.filter(x=>!bid || x.b.id===bid)};
+  return {rows, n:rows.length, cur:sumOf('cur'), prev: prevP ? sumOf('prev') : null, hasPrev:!!prevP};
 }
 function presDelta(cur, prev, pp){
   if(prev===null || prev===undefined) return '';
@@ -947,72 +1112,46 @@ function presAnimate(stage, gen){
 }
 function presRender(){
   const d = pres.data, stage = document.getElementById('pr-stage'), bid = pres.bid, gen = ++pres.gen, i = pres.slide;
-  const scope = bid ? 'شعبة '+getBranch(bid).name : 'كل الشعب', per = PRES_PERIODS[pres.period], sc = scope+' · '+per, lab = PRES_PREV[pres.period];
+  const br = bid ? getBranch(bid) : null;
+  const scope = br ? 'شعبة '+br.name : '—', per = PRES_PERIODS[pres.period], sc = scope+' · '+per, lab = PRES_PREV[pres.period];
   const head = (t, sub) => `<div class="pr-h">${t}</div><div class="pr-sub">${sub||sc}</div>`;
+  const MET = [['النقاط', r=>r.cur.pts, ''], ['الصفحات', r=>r.cur.pages, ''], ['نسبة الحضور', r=>r.cur.rate, '%'], ['التميّز والتقييم', r=>r.cur.ex, '%']];
   let html = '', hook = null;
   if(i===0){
-    html = `<div style="text-align:center"><div class="pr-h" style="font-size:clamp(28px,6vw,64px)">نتائج شعبة الحفاظ</div><div class="pr-sub">${sc}</div><div class="pr-countdown" id="pr-count"></div></div>`;
+    html = `<div style="text-align:center"><div class="pr-h" style="font-size:clamp(28px,6vw,64px)">نتائج ${scope}</div><div class="pr-sub">${per}</div><div class="pr-countdown" id="pr-count"></div></div>`;
     hook = ()=>presIntro(gen);
-  } else if(!d.n){ html = head('لا توجد بيانات');
+  } else if(!br || !d.n){ html = head('لا توجد بيانات');
   } else if(i===1){
     const P = d.prev, C = d.cur;
     const card = (v,l,suf,dl)=>`<div class="pr-card"><div class="pr-num" data-count="${v}" data-suffix="${suf||''}">0</div><div class="pr-lbl">${l}</div>${dl||''}</div>`;
-    html = head('الملخص العام') + `<div class="pr-cards">${card(d.n,'طالب')}${card(C.pages,'صفحة مسمّعة','',P?presDelta(C.pages,P.pages):'')}${card(C.pts,'نقطة','',P?presDelta(C.pts,P.pts):'')}${card(C.rate,'نسبة الحضور','%',P?presDelta(C.rate,P.rate,true):'')}</div>`;
+    html = head('ملخص الشعبة') + `<div class="pr-cards">${card(d.n,'طالب')}${card(C.pages,'صفحة مسمّعة','',P?presDelta(C.pages,P.pages):'')}${card(C.pts,'نقطة','',P?presDelta(C.pts,P.pts):'')}${card(C.rate,'نسبة الحضور','%',P?presDelta(C.rate,P.rate,true):'')}${card(C.ex,'التميّز والتقييم','%',P?presDelta(C.ex,P.ex,true):'')}</div>`;
   } else if(i===2){
-    const items = !bid ? d.branchesAll.map(x=>({label:'شعبة '+x.b.name, v:x.cur.pts, color:colorOfBranch(x.b.id)}))
-                       : d.rows.slice().sort((a,b)=>b.cur.pts-a.cur.pts).slice(0,6).map(r=>({label:r.s.name, v:r.cur.pts, color:'var(--gold-light)'}));
-    const rowH = 58;
-    html = head(!bid ? 'سباق الشعب' : 'سباق الطلاب', 'من سيتصدّر؟ · '+per) + `<div id="pr-race" data-h="${rowH}" style="position:relative; height:${items.length*rowH}px">${items.map(x=>`<div class="pr-race-row" data-v="${x.v}" style="height:${rowH-8}px"><div class="pr-rank">1</div><div class="pr-name">${x.label}</div><div class="pr-track"><div class="pr-bar-fill" style="background:${x.color}"></div></div><div class="pr-val">0</div></div>`).join('')}</div>`;
+    const items = d.rows.map(r=>({label:r.s.name, v:r.cur.pts, color:colorOfBranch(bid)})), rowH = items.length>14 ? 44 : 58;
+    html = head('سباق النقاط','من سيتصدّر؟ · '+sc) + `<div id="pr-race" data-h="${rowH}" style="position:relative; height:${items.length*rowH}px">${items.map(x=>`<div class="pr-race-row" data-v="${x.v}" style="height:${rowH-8}px"><div class="pr-rank">1</div><div class="pr-name">${x.label}</div><div class="pr-track"><div class="pr-bar-fill" style="background:${x.color}"></div></div><div class="pr-val">0</div></div>`).join('')}</div>`;
     hook = ()=>presRace(gen);
   } else if(i===3){
-    const bs = d.branchesAll;
-    if(bs.length<2){ html = head('شعبة ضد شعبة','تحتاج شعبتين على الأقل'); }
-    else {
-      const ok = id => bs.some(x=>x.b.id===id);
-      if(!ok(pres.vsA) || !ok(pres.vsB) || pres.vsA===pres.vsB){ const top = bs.slice().sort((a,b)=>b.cur.pts-a.cur.pts); pres.vsA = top[0].b.id; pres.vsB = top[1].b.id; }
-      const A = bs.find(x=>x.b.id===pres.vsA), B = bs.find(x=>x.b.id===pres.vsB), ca = colorOfBranch(A.b.id), cb = colorOfBranch(B.b.id);
-      const ms = [['النقاط',A.cur.pts,B.cur.pts,''],['الصفحات',A.cur.pages,B.cur.pages,''],['نسبة الحضور',A.cur.rate,B.cur.rate,'%'],['متوسط نقاط الطالب',A.n?Math.round(A.cur.pts/A.n):0,B.n?Math.round(B.cur.pts/B.n):0,'']];
-      let wa=0, wb=0;
-      const rows = ms.map(([l,a,b,suf],k)=>{
-        if(a>b) wa++; else if(b>a) wb++;
-        const mx = Math.max(a,b,1), wd = v => v ? Math.max(3,Math.round(v/mx*100)) : 0;
-        return `<div class="pr-vs-row" style="--i:${k}"><div class="pr-vs-l">${l}</div><div style="display:flex; align-items:center; gap:8px">
-          <div class="pr-val ${a>b?'win':''}" data-count="${a}" data-suffix="${suf}">0</div>
-          <div class="pr-track" style="direction:ltr"><div class="pr-bar-fill" data-w="${wd(a)}" style="background:${ca}"></div></div>
-          <div class="pr-track" style="direction:rtl"><div class="pr-bar-fill" data-w="${wd(b)}" style="background:${cb}"></div></div>
-          <div class="pr-val ${b>a?'win':''}" data-count="${b}" data-suffix="${suf}">0</div></div></div>`;
-      }).join('');
-      const opts = sel => bs.map(x=>`<option value="${x.b.id}" ${x.b.id===sel?'selected':''}>شعبة ${x.b.name}</option>`).join('');
-      const res = wa===wb ? 'تعادل بين الشعبتين' : `فازت شعبة ${wa>wb?A.b.name:B.b.name} بـ ${Math.max(wa,wb)} من 4 مقاييس`;
-      html = `<div class="pr-vs-head"><div style="color:${ca}">شعبة ${A.b.name}</div><div class="pr-vsbadge">VS</div><div style="color:${cb}">شعبة ${B.b.name}</div></div>
-        <div class="pr-ctrls" style="justify-content:center; margin-bottom:10px"><select id="vs-a" onchange="window.presVs()">${opts(pres.vsA)}</select><select id="vs-b" onchange="window.presVs()">${opts(pres.vsB)}</select></div>
-        ${rows}<div class="pr-h" style="font-size:clamp(16px,3vw,28px); margin-top:18px; color:var(--gold-light)">${res}</div>`;
-      if(wa!==wb) hook = ()=>presLater(gen,1800,()=>presConfetti(gen));
-    }
+    const cards = MET.map(([l,f,suf],mi)=>{
+      const top = d.rows.map(r=>({r, v:f(r)})).filter(x=>x.v!=null && x.v>0).sort((a,b)=>b.v-a.v).slice(0,3);
+      return `<div class="pr-card" style="text-align:right; animation:prIn .6s ease ${mi*.15}s both"><div class="pr-lbl" style="font-weight:900; color:var(--gold-light); margin:0 0 8px">${l}</div>${top.length ? top.map((x,k)=>`<div class="pr-ch"><span class="pr-rank">${k+1}</span><span class="pr-ch-n">${x.r.s.name}</span><span class="pr-ch-v" data-count="${x.v}" data-suffix="${suf}" data-delay="${mi*150+k*150}">0</span></div>`).join('') : `<div class="pr-lbl" style="opacity:.6">لا توجد بيانات</div>`}</div>`;
+    }).join('');
+    html = head('أبطال كل مقياس') + `<div class="pr-champs">${cards}</div>`;
   } else if(i===4){
-    if(!d.hasPrev) html = head('مقارنة بالفترة السابقة','اختر "هذا الأسبوع" أو "هذا الشهر" لعرض المقارنة');
-    else {
-      const C = d.cur, P = d.prev;
-      const mc = (l,c,p,suf,pp)=>`<div class="pr-card"><div class="pr-lbl">${l}</div><div class="pr-num" data-count="${c}" data-suffix="${suf||''}">0</div>${presDelta(c,p,pp)}<div class="pr-lbl" style="font-size:.8em; opacity:.7">${lab}: ${p.toLocaleString('en')}${suf||''}</div></div>`;
-      html = head('مقارنة مع '+lab, scope) + `<div class="pr-cards">${mc('النقاط',C.pts,P.pts)}${mc('الصفحات',C.pages,P.pages)}${mc('نسبة الحضور',C.rate,P.rate,'%',true)}</div><div class="pr-sub" style="margin-top:16px">الفترة الحالية (حتى اليوم) مقابل الفترة السابقة كاملة</div>`;
-    }
+    const rowsS = d.rows.slice().sort((a,b)=>b.cur.pts-a.cur.pts), maxs = MET.map(([l,f])=>Math.max(0, ...d.rows.map(r=>f(r)||0)));
+    const trs = rowsS.map((r,ri)=>`<tr style="animation:prIn .5s ease ${Math.min(ri,12)*.08}s both"><td class="pr-tn">${r.s.name}</td>${MET.map(([l,f,suf],mi)=>{
+      const v = f(r), best = v!=null && v>0 && v===maxs[mi], w = v && maxs[mi] ? Math.max(3, Math.round(v/maxs[mi]*100)) : 0;
+      return `<td class="${best?'best':''}">${v==null ? '<div class="pr-cv">—</div>' : `<div class="pr-cv" data-count="${v}" data-suffix="${suf}">0</div>`}<div class="pr-mini"><div class="pr-bar-fill" data-w="${w}" style="background:${best?'var(--gold-light)':'#4fd18b'}"></div></div></td>`; }).join('')}</tr>`).join('');
+    html = head('جدول المقارنة الشامل','كل طلاب '+sc) + `<div class="tbl-wrap" style="margin-top:0"><table class="pr-tbl"><thead><tr><th>الطالب</th>${MET.map(m=>`<th>${m[0]}</th>`).join('')}</tr></thead><tbody>${trs}</tbody></table></div>`;
   } else if(i===5){
     if(!d.hasPrev) html = head('الأكثر تحسنًا','اختر "هذا الأسبوع" أو "هذا الشهر" لعرض التحسّن');
     else {
-      const imp = d.rows.map(r=>({r, diff:r.cur.pts-r.prev.pts})).filter(x=>x.diff>0).sort((a,b)=>b.diff-a.diff).slice(0,6), mx = imp[0] ? imp[0].diff : 0;
-      html = head('الأكثر تحسنًا','زيادة النقاط عن '+lab+' · '+scope) + (imp.length ? imp.map((x,k)=>presBar(k, x.r.s.name, 'شعبة '+getBranch(x.r.s.branchId).name+' · كان '+x.r.prev.pts, x.diff, mx, '#4fd18b', ' نقطة', k+1, '+')).join('') : `<div class="pr-sub">لا توجد زيادة عن الفترة السابقة</div>`);
+      const imp = d.rows.map(r=>({r, diff:r.cur.pts-r.prev.pts})).filter(x=>x.diff>0).sort((a,b)=>b.diff-a.diff).slice(0,8), mx = imp[0] ? imp[0].diff : 0;
+      html = head('الأكثر تحسنًا','زيادة النقاط عن '+lab+' · '+scope) + (imp.length ? imp.map((x,k)=>presBar(k, x.r.s.name, 'كان '+x.r.prev.pts+' نقطة', x.diff, mx, '#4fd18b', ' نقطة', k+1, '+')).join('') : `<div class="pr-sub">لا توجد زيادة عن الفترة السابقة</div>`);
     }
-  } else if(i===6){
+  } else {
     const top = d.rows.slice().sort((a,b)=>b.cur.pts-a.cur.pts).slice(0,3), H = [72,56,42], D = [2.0,1.2,0.4];
     html = head('منصة التتويج') + `<div class="pr-podium">${[1,0,2].filter(k=>top[k]).map(k=>{ const r = top[k];
       return `<div class="pr-pod" style="--h:${H[k]}%; --d:${D[k]}s"><div class="pr-pod-top">${k===0?'<div class="pr-crown">👑</div>':''}<div class="pr-pod-name">${r.s.name}</div><div class="pr-pod-pts" data-count="${r.cur.pts}" data-delay="${Math.round(D[k]*1000+600)}" data-suffix=" نقطة">0</div></div><div class="pr-pod-col"><span>${k+1}</span></div></div>`; }).join('')}</div>`;
     hook = ()=>presLater(gen,3000,()=>presConfetti(gen));
-  } else {
-    const big = `<div class="pr-cards" style="grid-template-columns:1fr; margin-bottom:14px"><div class="pr-card"><div class="pr-num" data-count="${d.cur.rate}" data-suffix="%">0</div><div class="pr-lbl">نسبة الحضور العامة (الحضور والتأخر)</div></div></div>`;
-    let bars;
-    if(!bid){ bars = d.branches.slice().sort((a,b)=>b.cur.rate-a.cur.rate).map((x,k)=>presBar(k,'شعبة '+x.b.name,'',x.cur.rate,100,colorOfBranch(x.b.id),'%')).join(''); }
-    else { const a = d.cur.c, mx = Math.max(a['حضور'],a['تأخر'],a['غياب']); bars = presBar(0,'حضور','',a['حضور'],mx,'#4fd18b') + presBar(1,'تأخر','',a['تأخر'],mx,'#E0B84B') + presBar(2,'غياب','',a['غياب'],mx,'#E5665F'); }
-    html = head('الحضور') + big + bars;
   }
   stage.innerHTML = `<div class="pr-slide">${html}</div>`;
   document.getElementById('pr-dots').innerHTML = Array.from({length:PRES_SLIDES},(_,k)=>`<div class="pr-dot ${k===i?'on':''}"></div>`).join('');
@@ -1026,14 +1165,15 @@ async function render(){
   const app = document.getElementById('app');
   if(state.view==='login'){ app.innerHTML = renderLogin(); return; }
   document.body.classList.remove('login-bg');
-  app.innerHTML = renderTopbar() + `<div class="page"><div class="spin"></div></div>` + renderBottomNav();
+  const sp = skipSpin; skipSpin = false;
+  if(!sp) app.innerHTML = renderTopbar() + `<div class="page"><div class="spin"></div></div>` + renderBottomNav();
   const html = await renderView();
   app.innerHTML = renderTopbar() + `<div class="${state.editMode?'edit-mode':''}"><div class="page">${html}</div></div>` + renderBottomNav();
   if(state.view==='accountAdmin' && state.role==='admin'){
     presenceInterval = setInterval(async()=>{ await loadSupervisors(); render(); }, 12000);
   }
 }
-let navFromPop = false, backWarnAt = 0;
+let navFromPop = false, backWarnAt = 0, skipSpin = false;
 const FORM_VIEWS = new Set(['wirdForm','addStudentForm','editStudentForm','adjustPointsForm','supervisorProfileForm','inviteForm','editContentForm']);
 const homeView = () => state.role==='admin' ? 'adminHome' : state.role==='supervisor' ? 'supervisorHome' : 'studentHome';
 const curEntry = () => ({v:state.view, p:state.params});
@@ -1043,13 +1183,17 @@ function navToast(msg){
   document.body.appendChild(el); setTimeout(()=>el.remove(), 2000);
 }
 function goto(view, params={}){
-  const prevView = state.view, prevKey = JSON.stringify(state.params||{});
+  const prevView = state.view, prevKey = JSON.stringify(state.params||{}), prevParams = state.params||{};
   state.view = view; state.params = params;
   if(!navFromPop && state.role){
     const same = view===prevView && JSON.stringify(params)===prevKey;
     try{ if(same || FORM_VIEWS.has(prevView)) history.replaceState({v:view,p:params},''); else history.pushState({v:view,p:params},''); }catch(e){}
   }
-  render(); window.scrollTo(0,0);
+  const idOf = o => (o && (o.id || o.email)) || '';
+  const keep = view===prevView && idOf(params)===idOf(prevParams), y = window.scrollY;
+  skipSpin = keep;
+  const pr = render();
+  if(keep) Promise.resolve(pr).then(()=>window.scrollTo(0,y)); else window.scrollTo(0,0);
 }
 window.addEventListener('popstate', e=>{
   const st = e.state;
@@ -1063,9 +1207,9 @@ window.addEventListener('popstate', e=>{
     return;
   }
   if(st && st.v){
-    if(state.view==='branchAttendance' && gridDirty()>0){
+    if((state.view==='branchAttendance' && gridDirty()>0) || (state.view==='branchPayments' && payDirty()>0)){
       if(!confirm('في تغييرات غير محفوظة، هل تتجاهلها؟')){ history.pushState(curEntry(),''); return; }
-      grid.bid = '';
+      grid.bid = ''; pay.bid = '';
     }
     navFromPop = true; goto(st.v, st.p||{}); navFromPop = false;
   }
@@ -1139,6 +1283,7 @@ async function renderView(){
     case 'adminBranches': return adminBranches();
     case 'branchDetail': return branchDetail();
     case 'branchAttendance': return branchAttendanceView();
+    case 'branchPayments': return branchPaymentsView();
     case 'adminDirectory': return directory();
     case 'addStudentForm': return addStudentForm();
     case 'plansHome': return plansHome();
@@ -1356,8 +1501,10 @@ async function deleteStudentFully(sid, from){
   try{
     const subs = ['hifzLog','reviewLog','recitationLog','attendance','tajweedAtt','payments','pointsAdjustments'];
     for(const sub of subs){
-      const snap = await getDocs(collection(db,'students',sid,sub));
-      for(const d of snap.docs){ await deleteDoc(d.ref); }
+      try{
+        const snap = await getDocs(collection(db,'students',sid,sub));
+        for(const d of snap.docs){ await deleteDoc(d.ref); }
+      }catch(e){ if(sub!=='payments') throw e; }
     }
     await deleteDoc(doc(db,'students',sid));
     await loadStudentsForRole();
@@ -1475,6 +1622,12 @@ function wirdRange(r){
   if(fi>0 && ti>0 && f.slice(0,fi)===t.slice(0,ti)) return f.slice(0,fi)+' <b>'+f.slice(fi+1)+'</b> ← <b>'+t.slice(ti+1)+'</b>';
   return f+' ← '+t;
 }
+const AR_DAYS = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const branchDay = b => (b && b.officialDay!=null) ? Number(b.officialDay) : (b && /البشائر/.test(b.name||'') ? 3 : 6);
+async function setBranchDay(id, v){
+  try{ await updateDoc(doc(db,'branches',id), {officialDay:Number(v)}); await loadBranches(); render(); }
+  catch(e){ alert('تعذّر الحفظ: '+e.message); }
+}
 const AR_MONTHS = ['كانون الثاني','شباط','آذار','نيسان','أيار','حزيران','تموز','آب','أيلول','تشرين الأول','تشرين الثاني','كانون الأول'];
 const GCLS = {'حضور':'p','تأخر':'l','غياب':'a'}, GSYM = {'حضور':'✓','تأخر':'ت','غياب':'✗'};
 let gridStart = '2026-05', gridEnd = '2027-01', gridExtra = {};
@@ -1490,7 +1643,8 @@ function gridDirty(){
 function gridComputeDates(){
   const ym = grid.month, set = new Set(), y = +ym.slice(0,4), m = +ym.slice(5,7);
   const last = new Date(y, m, 0).getDate();
-  for(let d=1; d<=last; d++){ if(new Date(y, m-1, d).getDay()===6) set.add(ym+'-'+String(d).padStart(2,'0')); }
+  const od = branchDay(getBranch(grid.bid));
+  for(let d=1; d<=last; d++){ if(new Date(y, m-1, d).getDay()===od) set.add(ym+'-'+String(d).padStart(2,'0')); }
   [...Object.keys(grid.sel), ...Object.keys(grid.prev)].forEach(k=>{ if(grid.sel[k] || grid.prev[k]) set.add(k.split('|')[1]); });
   (gridExtra[grid.bid+'|'+ym]||[]).forEach(d=>set.add(d));
   grid.dates = [...set].sort();
@@ -1511,7 +1665,7 @@ function gridRefresh(sid){
   const el = document.getElementById('gs-'+sid); if(el) el.textContent = gridSummary(sid);
   const info = document.getElementById('g-info'); if(info){ const n = gridDirty(); info.textContent = n ? 'تغييرات غير محفوظة: '+n : ''; }
 }
-function gridLastSat(){ return addDaysStr(todayStr(), -((new Date(todayStr()+'T00:00:00').getDay()+1)%7)); }
+function gridLastSat(){ const od = branchDay(getBranch(grid.bid)); return addDaysStr(todayStr(), -((new Date(todayStr()+'T00:00:00').getDay()-od+7)%7)); }
 function gridOldOk(date, sid){
   if(!grid.confirmed) grid.confirmed = new Set();
   if(date>=gridLastSat() || grid.confirmed.has(date)) return true;
@@ -1595,13 +1749,14 @@ async function branchAttendanceView(){
   const years = [...new Set(months.map(m=>m.slice(0,4)))], selYear = month.slice(0,4), lastYear = years[years.length-1];
   const pickMonth = y => { const t = today.slice(0,7), ms = months.filter(m=>m.startsWith(y)); return ms.includes(t) ? t : ms[ms.length-1]; };
   const extraSet = new Set(gridExtra[b.id+'|'+month]||[]);
-  const isOff = d => new Date(d+'T00:00:00').getDay()!==6;
+  const isOff = d => new Date(d+'T00:00:00').getDay()!==branchDay(b);
   const head = grid.dates.map(d=>`<th>${+d.slice(8)}/${+d.slice(5,7)}${isOff(d)?'<span class="ag-dot"></span>':''}<div style="font-size:9px; opacity:.75">${hjDay(d)}</div>${d>today?'':`<button class="ag-all" onclick="window.gridAll('${d}')">الكل</button>`}</th>`).join('');
   const body = studs.map(s=>`<tr><td class="ag-name">${s.name}</td>${grid.dates.map(d=>{ const st = grid.sel[s.id+'|'+d]||'', lock = d>today;
       return `<td class="ag-c ${lock?'lock':(GCLS[st]||'')}" id="gc-${s.id}-${d}" ${lock?'':`onclick="window.gridTap('${s.id}','${d}')"`}>${lock?'':(GSYM[st]||'')}</td>`; }).join('')}<td class="ag-s" id="gs-${s.id}">${gridSummary(s.id)}</td></tr>`).join('');
   setTimeout(()=>{ const el = document.querySelector('.ag-mb.on'); if(el && el.scrollIntoView) el.scrollIntoView({inline:'center', block:'nearest'}); }, 120);
   return back + `
   ${kinds.length>1? `<div class="seg" style="margin-top:14px">${kinds.map(k=>`<button class="${k[0]===kind?'active':''}" onclick="window.gridGo('${k[0]}','${month}')">${k[1]}</button>`).join('')}</div>` : ''}
+  ${state.role==='admin' ? `<div class="field" style="margin-top:12px"><label>يوم الدوام الرسمي للشعبة</label><select onchange="window.setBranchDay('${b.id}',this.value)">${AR_DAYS.map((n,i)=>`<option value="${i}" ${branchDay(b)===i?'selected':''}>${n}</option>`).join('')}</select></div>` : ''}
   <div class="ag-months">${years.map(y=>`<button class="ag-mb ${y===selYear?'on':''}" onclick="window.gridGo('${kind}','${pickMonth(y)}')">${y}</button>`).join('')}</div>
   <div class="ag-months" style="margin-top:2px">${months.filter(m=>m.startsWith(selYear)).map(m=>`<button class="ag-mb ${m===month?'on':''}" onclick="window.gridGo('${kind}','${m}')"><div>${monthLabel(m,false)}</div><div style="font-size:10px; opacity:.75; margin-top:2px">${hijriMonthLabel(m)}</div></button>`).join('')}${selYear===lastYear ? `<button class="ag-mb" onclick="window.gridAddMonth()">+ شهر</button>` : ''}</div>
   <div class="ag-add">${dateField('g-extra','')}<button class="btn btn-outline" onclick="window.gridAddDate()">+ موعد استثنائي</button></div>
@@ -1646,8 +1801,11 @@ function branchDetail(){
   return subheader('شعبة '+b.name, 'adminBranches') +
   (!editable && state.role==='supervisor' ? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:14px">${icon('eye',14)} عرض فقط — لا تملك صلاحية تعديل هذه الشعبة</div>` : '') + `
   <div style="display:flex; flex-direction:column; align-items:center; margin-top:14px">${entityAvatar(72, b.photo, b.name, 'branch', b.id, state.role==='admin')}${b.photo && state.role==='admin' ? `<div class="row-sub" style="cursor:pointer; margin-top:6px; color:#B23A3A" onclick="window.removeEntityPhoto('branch','${b.id}')">إزالة الصورة</div>` : ''}</div>
+  ${state.role==='admin' ? `<div class="field" style="margin-top:12px"><label>يوم الدوام الرسمي للشعبة</label><select onchange="window.setBranchDay('${b.id}',this.value)">${AR_DAYS.map((n,i)=>`<option value="${i}" ${branchDay(b)===i?'selected':''}>${n}</option>`).join('')}</select></div>` : ''}
   <div class="stat-card" style="margin-top:16px; text-align:center"><div class="stat-num">${students.length}</div><div class="stat-label">عدد الطلاب</div></div>
   ${editable && (canDo('attendance')||canDo('tajweed')) ? `<button class="btn btn-primary" style="margin-top:12px" onclick="window.goto('branchAttendance',{id:'${b.id}',fresh:1})">${icon('check',16)} تسجيل الحضور للشعبة</button>` : ''}
+  ${canPay() && editable ? `<button class="btn btn-outline" style="margin-top:10px" onclick="window.goto('branchPayments',{id:'${b.id}',fresh:1})">${icon('briefcase',16)} جدول الدفع للشعبة</button>` : ''}
+  ${editable ? `<button class="btn btn-outline" style="margin-top:10px" onclick="window.openPresent('week','${b.id}')">${icon('trend',16)} وضع العرض للشعبة</button>` : ''}
   <div class="search-box">${icon('search',15)}<input placeholder="ابحث عن طالب بهذه الشعبة..." oninput="window.filterBranchStudents(this.value,'${b.id}')"></div>
   <div class="section-title"><span class="bar"></span>طلاب الشعبة</div>
   <div class="list" id="branch-student-list">${branchStudentRows(students)}</div>`;
@@ -1734,29 +1892,36 @@ function studentInsights(s, det){
     attPct: A.length ? Math.round(att/A.length*100) : 0, attTxt: A.length ? 'سجل '+att+' من '+A.length+' مواعيد' : 'لا يوجد سجل حضور بعد',
     exPct: max ? Math.min(100, Math.round(got/max*100)) : 0, exTxt: 'سجل '+n+' ورد (حفظ ومراجعة وسرد)',
     pagesTotal: sumPages(H)+sumPages(R), pagesMonth: sumPages(H,inMonth)+sumPages(R,inMonth),
-    last: all[0]||null, juz, memCount: mem.size, fc, sel: curJuz||1, growth: pts
+    last: all[0]||null, juz, mem, lastRev, cutoff, memCount: mem.size, fc, sel: curJuz||1, growth: pts
   };
 }
 function hmapBody(){
   const I = profIns, j = I.sel, ji = I.juz[j-1];
   const cells = I.juz.map((x,k)=>{
-    const pct = x.got/x.total; let bg, fg = '#fff', txt = '';
-    if(hmMode==='mem'){
-      if(pct===0){ bg = '#EEF0F2'; fg = '#7a8794'; } else if(pct<=.34){ bg = '#CBEAD6'; fg = '#14633b'; } else if(pct<=.67){ bg = '#8FD3A9'; fg = '#0e4a2b'; }
-      else if(pct<1){ bg = '#3FAE6F'; } else { bg = '#E0B84B'; fg = '#06281c'; txt = '✓'; }
-    } else {
-      if(x.got===0){ bg = '#EEF0F2'; fg = '#7a8794'; } else { const f = x.fresh/x.got; if(f>=.7) bg = '#3FAE6F'; else if(f>=.3){ bg = '#F0C050'; fg = '#5a4300'; } else bg = '#F08A4B'; }
-    }
-    return `<div class="hm-c ${k+1===j?'sel':''}" style="--i:${k}; background:${bg}; color:${fg}" onclick="window.hmapPick(${k+1})">${k+1}${txt?`<small>${txt}</small>`:''}</div>`;
+    const pct = x.got/x.total, full = pct>=1;
+    let fill = '#3FAE6F', fg = pct>.45 ? '#fff' : '#14633b';
+    if(hmMode==='rev' && x.got>0){ const f = x.fresh/x.got; if(f>=.7) fill = '#3FAE6F'; else if(f>=.3){ fill = '#F0C050'; fg = pct>.45 ? '#5a4300' : '#7a5b00'; } else fill = '#F08A4B'; }
+    if(hmMode==='mem' && full){ fill = '#E0B84B'; fg = '#06281c'; }
+    if(x.got===0) fg = '#7a8794';
+    const h = Math.round(pct*100);
+    return `<div class="hm-c ${k+1===j?'sel':''}" style="--i:${k}; background:linear-gradient(to top, ${fill} ${h}%, #EEF0F2 ${h}%); color:${fg}" onclick="window.hmapPick(${k+1})">${k+1}${full&&hmMode==='mem'?'<small>✓</small>':''}</div>`;
   }).join('');
-  const legend = hmMode==='mem' ? 'رمادي: لم يبدأ · أخضر: قيد الحفظ · ذهبي: مكتمل' : 'أخضر: روجع مؤخرًا · أصفر: يحتاج مراجعة · برتقالي: مهمل (أكثر من شهر)';
+  const [pa,pb] = juzRange(j);
+  let strip = '';
+  for(let pg=pa; pg<=pb; pg++){
+    let cls = '';
+    if(I.mem.has(pg)) cls = (hmMode==='rev' && !(I.lastRev[pg] && I.lastRev[pg]>=I.cutoff)) ? 'old' : 'on';
+    strip += `<div class="pg ${cls}">${pg}</div>`;
+  }
+  const legend = hmMode==='mem' ? 'التعبئة = نسبة الصفحات المنجزة · ذهبي: جزء مكتمل' : 'التعبئة = نسبة المنجز · أخضر: روجع مؤخرًا · أصفر: يحتاج مراجعة · برتقالي: مهمل (أكثر من شهر)';
   const edit = I.canEdit ? (hmEdit
     ? `<div class="row-sub" style="margin-top:12px">اضغط على الأجزاء اللي حفظها الطالب قبل التسجيل بالموقع:</div><div class="hm-chips">${Array.from({length:30},(_,i)=>`<div class="hm-chip ${I.prevSel.has(i+1)?'on':''}" onclick="window.hmapPrev(${i+1})">${i+1}</div>`).join('')}</div>
        <div style="display:flex; gap:8px; margin-top:10px"><button class="btn btn-primary" onclick="window.hmapSaveBase()">حفظ</button><button class="btn btn-outline" onclick="window.hmapEditToggle()">إلغاء</button></div>`
     : `<button class="btn btn-outline" style="margin-top:12px" onclick="window.hmapEditToggle()">تسجيل ما حفظه سابقًا</button>`) : '';
   return `<div class="seg" style="margin-top:12px"><button class="${hmMode==='mem'?'active':''}" onclick="window.hmapSetMode('mem')">المحفوظ</button><button class="${hmMode==='rev'?'active':''}" onclick="window.hmapSetMode('rev')">حداثة المراجعة</button></div>
   <div class="hm-grid">${cells}</div>
-  <div class="hm-detail">جزء ${j}: ${ji.got} من ${ji.total} صفحة محفوظة${hmMode==='rev' && ji.got ? ' · روجعت '+ji.fresh+' صفحة خلال آخر 30 يومًا' : ''}</div>
+  <div class="hm-detail">جزء ${j}: ${ji.total} صفحة · أُنجز ${ji.got} · متبقّي ${ji.total-ji.got}${hmMode==='rev' && ji.got ? ' · روجعت '+ji.fresh+' خلال آخر 30 يومًا' : ''}</div>
+  <div class="pg-strip">${strip}</div>
   <div class="hm-legend">${legend}</div>
   <div class="hm-fc">${I.fc}</div>${edit}`;
 }
@@ -1825,7 +1990,7 @@ async function studentProfileView(mode){
   const tab = state.params.tab || 'data';
   const from = state.params.from || 'adminDirectory';
   const backTarget = state.role==='admin'? from : (state.role==='student'?'studentHome':'supervisorHome');
-  const tabs = [['data','البيانات'],['hifz','الحفظ'],['attendance','المواعيد'],['tajweed','التجويد'],['pay','الدفع']];
+  const tabs = [['data','البيانات'],['hifz','الحفظ'],['attendance','المواعيد'],['tajweed','التجويد'],['pay','الدفع']].filter(t=>t[0]!=='pay' || canPay());
   const dash = studentDashboard(s, await ensureStudentDetail(s.id));
   setTimeout(dashAfter, 80);
   let body = `<div style="display:flex; flex-direction:column; align-items:center; margin-top:6px">
@@ -1889,7 +2054,7 @@ async function studentProfileView(mode){
       ${canHifz? `<button class="btn btn-primary" style="margin-top:16px" onclick="window.goto('wirdForm',{id:'${s.id}',from:'${from}'})">${icon('plus',16)} تسجيل ورد جديد</button>` : (canEdit? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:12px">لا تملك صلاحية تسجيل الورد</div>`:'')}`;
     }
     if(tab==='attendance'){
-      body += `<div class="section-title" style="margin-top:16px"><span class="bar"></span>سجل المواعيد (سبتي)</div>
+      body += `<div class="section-title" style="margin-top:16px"><span class="bar"></span>سجل المواعيد</div>
       <table><thead><tr><th>التاريخ</th><th>الحالة</th>${canAtt?'<th></th>':''}</tr></thead>
       <tbody>${det.attendance.map(r=>`<tr><td>${r.date}${recTimeLine(r)}</td><td><span class="badge ${r.status==='حضور'?'green':r.status==='تأخر'?'gold':'red'}">${r.status}</span></td>${canAtt?`<td><span onclick="window.deleteAttRecord('${s.id}','attendance','${r.date}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canAtt?3:2}">لا يوجد سجل</td></tr>`}</tbody></table>
       ${canAtt? `<div class="row-sub" style="margin-top:12px">لتسجيل الحضور افتح "تسجيل الحضور للشعبة" من صفحة الشعبة</div>` : ''}`;
@@ -1900,13 +2065,12 @@ async function studentProfileView(mode){
       <tbody>${det.tajweedAtt.map(r=>`<tr><td>${r.date}${recTimeLine(r)}</td><td><span class="badge ${r.status==='حضور'?'green':'red'}">${r.status}</span></td>${canTaj?`<td><span onclick="window.deleteAttRecord('${s.id}','tajweedAtt','${r.date}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canTaj?3:2}">لا يوجد سجل</td></tr>`}</tbody></table>
       ${canTaj? `<div class="row-sub" style="margin-top:12px">لتسجيل الحضور افتح "تسجيل الحضور للشعبة" من صفحة الشعبة</div>` : ''}`;
     }
-    if(tab==='pay'){
+    if(tab==='pay' && canPay()){
+      const rows = payRecords(det).sort((a,b)=>b.ym.localeCompare(a.ym));
+      const part = 'background:#FBF0D1; color:#9a7410';
       body += `<div class="section-title" style="margin-top:16px"><span class="bar"></span>سجل الدفع الشهري</div>
-      <div class="list">${det.payments.map(p=>`<div class="row"><div><span class="row-title">${p.month}</span>${recTimeLine(p)}</div><div style="display:flex;align-items:center;gap:8px">${p.amount?`<span class="row-sub">${p.amount}</span>`:''}<span class="badge ${p.status==='مدفوع'?'green':'red'}">${p.status}</span></div></div>`).join('')||`<div class="empty">لا يوجد سجل دفع بعد</div>`}</div>
-      ${canEdit? `<div class="field"><label>الشهر</label><input type="text" id="pay-month" placeholder="مثال: تشرين الأول 2026"></div>
-      <div class="field"><label>المبلغ</label><input type="number" id="pay-amount" placeholder="0"></div>
-      <div class="seg" id="pay-status"><button class="active" onclick="window.selectSeg('pay-status',this)">مدفوع</button><button onclick="window.selectSeg('pay-status',this)">غير مدفوع</button></div>
-      <button class="btn btn-primary" style="margin-top:12px" onclick="window.savePayment('${s.id}','${from}')">حفظ الدفعة</button>`:''}`;
+      <div class="list">${rows.map(r=>`<div class="row"><div class="row-title">${r.label}</div><div style="display:flex; align-items:center; gap:8px"><span class="row-sub">${r.paid} / ${PAY_PRICE}</span>${r.paid>=PAY_PRICE ? '<span class="badge green">مدفوع</span>' : r.paid>0 ? `<span class="badge" style="${part}">جزئي</span>` : '<span class="badge red">غير مدفوع</span>'}</div></div>`).join('') || '<div class="empty">لا يوجد سجل دفع</div>'}</div>
+      <div class="row-sub" style="margin-top:10px">التسجيل من "جدول الدفع للشعبة" بصفحة الشعبة</div>`;
     }
   }
   return subheader(s.name, backTarget) + body;
@@ -2041,7 +2205,7 @@ async function deleteAttRecord(sid, sub, date, from){
 }
 
 async function notificationsView(){
-  const list = state.role==='supervisor' ? cache.students.filter(s=>canEditBranch(s.branchId)) : cache.students;
+  const list = !canPay() ? [] : (state.role==='supervisor' ? cache.students.filter(s=>canEditBranch(s.branchId)) : cache.students);
   const unpaid = [];
   for(const s of list){
     const det = await ensureStudentDetail(s.id);
@@ -2225,14 +2389,15 @@ function pointsHome(){
 async function supervisorHome(){ return homeContent(); }
 
 const CAP_LABELS = {hifz:'تسجيل ورد الحفظ', attendance:'تسجيل المواعيد', tajweed:'تسجيل حضور التجويد', editStudent:'تعديل بيانات الطلاب', addStudent:'إضافة طلاب جدد'};
-const CAP_DEFAULT_ON = {hifz:true, attendance:true, tajweed:true, editStudent:true, addStudent:true, editContent:false, viewSupervisors:false, viewRecordTime:false};
-const EXTRA_CAPS = {editContent:'تعديل محتوى الموقع (الرؤية، الخطط، الخانات)', viewSupervisors:'عرض صفحة تعريف المشرفين', viewRecordTime:'إظهار وقت تسجيل السجلات'};
+const CAP_DEFAULT_ON = {hifz:true, attendance:true, tajweed:true, editStudent:true, addStudent:true, editContent:false, viewSupervisors:false, viewRecordTime:false, pay:false};
+const EXTRA_CAPS = {editContent:'تعديل محتوى الموقع (الرؤية، الخطط، الخانات)', viewSupervisors:'عرض صفحة تعريف المشرفين', viewRecordTime:'إظهار وقت تسجيل السجلات', pay:'تسجيل الدفع وعرضه'};
 let capOpen = {};
 function capGroupToggle(k, open){ capOpen[k] = open; }
 const CAP_GROUPS = [
   {key:'daily', title:'التسجيل اليومي', sub:'ورد الحفظ، المواعيد، حضور التجويد', icon:'book', caps:['hifz','attendance','tajweed']},
   {key:'students', title:'إدارة الطلاب', sub:'تعديل البيانات وإضافة طلاب جدد', icon:'cap', caps:['editStudent','addStudent']},
-  {key:'content', title:'المحتوى والعرض', sub:'محتوى الموقع، وقت التسجيل، تعريف المشرفين', icon:'crown', caps:['editContent','viewRecordTime','viewSupervisors'], sensitive:true}
+  {key:'content', title:'المحتوى والعرض', sub:'محتوى الموقع، وقت التسجيل، تعريف المشرفين', icon:'crown', caps:['editContent','viewRecordTime','viewSupervisors'], sensitive:true},
+  {key:'pay', title:'الدفع', sub:'جدول الدفع وسجل الدفعات (مقفولة افتراضيًا)', icon:'briefcase', caps:['pay']}
 ];
 function capGroupHTML(g, on, total, bodyHtml){
   return `<details class="cap-group" ${capOpen[g.key]?'open':''} ontoggle="window.capGroupToggle('${g.key}', this.open)">
@@ -2476,7 +2641,7 @@ async function accountView(){
   return html;
 }
 
-Object.assign(window, {hmapSetMode, hmapPick, hmapEditToggle, hmapPrev, hmapSaveBase, growthTip, dpChange, gridTap, gridAll, gridGo, gridAddMonth, gridAddDate, saveGrid, presAuto, presVs, openPresent, presSet, presRestart, presFull, presStep, presClose: closePresent, pickEntityPhoto, removeEntityPhoto, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
+Object.assign(window, {payDown, payUp, payCancel, payAll, payAddMonth, payDelMonth, savePayGrid: savePayGrid, setBranchDay, hmapSetMode, hmapPick, hmapEditToggle, hmapPrev, hmapSaveBase, growthTip, dpChange, gridTap, gridAll, gridGo, gridAddMonth, gridAddDate, saveGrid, presAuto, presVs, openPresent, presSet, presRestart, presFull, presStep, presClose: closePresent, pickEntityPhoto, removeEntityPhoto, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
 </script>
 </body>
 </html>
