@@ -506,8 +506,9 @@ function pickSurah(prefix, name, ayat){
   const list = document.getElementById(prefix+'-list'); if(list) list.style.display='none';
   const note = document.getElementById(prefix+'-ayat-note');
   if(note) note.textContent = 'عدد آيات '+name+': '+ayat;
-  if(prefix==='wf-surah'){
-    ['wf-from','wf-to'].forEach(id=>{ const el=document.getElementById(id); if(el){ el.value=''; el.placeholder='اختر من 1 إلى '+ayat; } });
+  if(prefix.startsWith('wf-surah')){
+    const suf = prefix.slice('wf-surah'.length);
+    ['wf-from'+suf,'wf-to'+suf].forEach(id=>{ const el=document.getElementById(id); if(el){ el.value=''; el.placeholder='اختر من 1 إلى '+ayat; } });
   }
 }
 function normDigits(s){ return String(s||'').replace(/[٠-٩]/g, d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)); }
@@ -523,7 +524,8 @@ function ayahPicker(id, label){
 function filterAyah(id){
   const el = document.getElementById(id);
   const list = document.getElementById(id+'-list');
-  const sName = (document.getElementById('wf-surah-input')||{value:''}).value.trim();
+  const suf = id.replace(/^wf-(from|to)/,'');
+  const sName = (document.getElementById('wf-surah'+suf+'-input')||{value:''}).value.trim();
   const sObj = SURAHS.find(x=>x.name===sName);
   if(!sObj){ list.innerHTML = `<div style="padding:9px 12px; font-size:12px; color:var(--text-muted)">اختر السورة أولاً</div>`; list.style.display='block'; return; }
   const q = normDigits(el.value.trim());
@@ -2099,19 +2101,28 @@ function ringSvg(pct){
   return `<svg width="112" height="112" viewBox="0 0 112 112"><circle cx="56" cy="56" r="${r}" stroke="var(--green-tint)" stroke-width="9" fill="none"/><circle cx="56" cy="56" r="${r}" stroke="var(--gold)" stroke-width="9" fill="none" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}"/></svg><div class="ring-num"><b>${pct}%</b></div>`;
 }
 
+let wfCount = 1;
+function wfSegHTML(i){
+  const err = ['0','1','2','3+'].map((n,k)=>`<button class="${k===0?'active':''}" onclick="window.selectSeg('wf-err-${i}',this)">${n}</button>`).join('');
+  return `<div class="wf-seg" id="wf-seg-${i}" data-i="${i}" style="border:1px solid var(--border); border-radius:14px; padding:12px; margin-top:12px">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px"><b style="font-size:13px">السورة ${i+1}</b>${i>0 ? `<button class="btn btn-outline" style="width:auto; padding:4px 12px; font-size:12px; border-color:#B23A3A; color:#B23A3A" onclick="window.wfRemoveSeg(${i})">حذف</button>` : ''}</div>
+    ${surahPicker('wf-surah-'+i,'')}
+    <div style="display:flex; gap:10px">${ayahPicker('wf-from-'+i,'من الآية')}${ayahPicker('wf-to-'+i,'إلى الآية')}</div>
+    <div class="field"><label>عدد الأخطاء</label><div class="seg" id="wf-err-${i}">${err}</div></div>
+  </div>`;
+}
+function wfAddSeg(){ const box = document.getElementById('wf-segs'); if(box) box.insertAdjacentHTML('beforeend', wfSegHTML(wfCount++)); }
+function wfRemoveSeg(i){ const el = document.getElementById('wf-seg-'+i); if(el) el.remove(); }
 function wirdForm(){
+  wfCount = 1;
   const s = findStudent(state.params.id);
   const from = state.params.from || 'adminDirectory';
   return `<div class="subheader"><div class="back-btn" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'hifz',from:'${from}'})">${icon('chevronR',16)}</div><h1>تسجيل ورد جديد</h1></div>` + `
   <div class="list" style="padding:14px 14px 2px; margin-top:0"><div class="row-title">${s.name}</div><div class="row-sub">شعبة ${getBranch(s.branchId).name}</div></div>
   <div class="field"><label>نوع الإضافة</label><div class="seg" id="wf-type"><button class="active" onclick="window.selectSeg('wf-type',this)">حفظ</button><button onclick="window.selectSeg('wf-type',this)">مراجعة</button><button onclick="window.selectSeg('wf-type',this)">سرد</button></div></div>
   <div class="field"><label>التاريخ</label>${dateField('wf-date', todayStr())}</div>
-  ${surahPicker('wf-surah','')}
-  <div style="display:flex; gap:10px">
-    ${ayahPicker('wf-from','من الآية')}
-    ${ayahPicker('wf-to','إلى الآية')}
-  </div>
-  <div class="field"><label>عدد الأخطاء</label><div class="seg" id="wf-err"><button class="active" onclick="window.selectSeg('wf-err',this)">0</button><button onclick="window.selectSeg('wf-err',this)">1</button><button onclick="window.selectSeg('wf-err',this)">2</button><button onclick="window.selectSeg('wf-err',this)">3+</button></div></div>
+  <div id="wf-segs">${wfSegHTML(0)}</div>
+  <button class="btn btn-outline" style="margin-top:12px" onclick="window.wfAddSeg()">+ إضافة سورة أخرى</button>
   <div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} التقدير (ممتاز / جيد جدًا / جيد) بيتحدد تلقائيًا حسب عدد الأخطاء · والنقاط بتنحسب لكل صفحة حسب توزيع الأخطاء</div>
   <button class="btn btn-primary" style="margin-top:18px" onclick="window.saveWird('${s.id}','${from}')">حفظ الورد</button>
   <div id="wf-alert"></div>`;
@@ -2126,32 +2137,35 @@ function gradeFromErrors(errStr){
 async function saveWird(sid, from){
   const date = document.getElementById('wf-date').value || todayStr();
   const showErr = m=>{ document.getElementById('wf-alert').innerHTML = `<div class="alert error">${icon('check',16)} ${m}</div>`; };
-  const surahName = document.getElementById('wf-surah-input').value.trim();
-  const sObj = SURAHS.find(x=>x.name===surahName);
-  if(!sObj){ showErr('اختر اسم السورة من القائمة'); return; }
-  const fRaw = normDigits(document.getElementById('wf-from').value.trim());
-  const tRaw = normDigits(document.getElementById('wf-to').value.trim());
-  if(!/^\d+$/.test(fRaw) || !/^\d+$/.test(tRaw)){ showErr('اكتب رقم آية البداية وآية النهاية'); return; }
-  const f = parseInt(fRaw,10), t = parseInt(tRaw,10);
-  if(f<1 || t<1 || f>sObj.ayat || t>sObj.ayat){ showErr('سورة '+sObj.name+' آياتها من 1 إلى '+sObj.ayat+' فقط'); return; }
-  if(f>t){ showErr('آية البداية لازم تكون أصغر من أو تساوي آية النهاية'); return; }
-  const surah = sObj.name;
-  const errors = document.querySelector('#wf-err .active').textContent;
   const typeTxt = document.querySelector('#wf-type .active').textContent;
   const collKey = {'حفظ':'hifzLog','مراجعة':'reviewLog','سرد':'recitationLog'}[typeTxt];
   const ptsTable = {'حفظ':TYPE_POINTS.hifz,'مراجعة':TYPE_POINTS.review,'سرد':TYPE_POINTS.recitation}[typeTxt];
-  const grade = gradeFromErrors(errors);
-  const recordedBy = state.personName;
-  const exactPages = computeExactPages(surah, f, t);
-  const pagesEst = exactPages!==null ? exactPages : estimatePages(f, t);
-  const pagesExact = exactPages!==null;
-  const pts = wirdPts(ptsTable, errors, pagesEst);
+  const recordedBy = state.personName, items = [];
+  const segs = [...document.querySelectorAll('.wf-seg')];
+  for(let n=0; n<segs.length; n++){
+    const i = segs[n].dataset.i, tag = segs.length>1 ? 'السورة '+(n+1)+': ' : '';
+    const sObj = SURAHS.find(x=>x.name===document.getElementById('wf-surah-'+i+'-input').value.trim());
+    if(!sObj){ showErr(tag+'اختر اسم السورة من القائمة'); return; }
+    const fRaw = normDigits(document.getElementById('wf-from-'+i).value.trim()), tRaw = normDigits(document.getElementById('wf-to-'+i).value.trim());
+    if(!/^\d+$/.test(fRaw) || !/^\d+$/.test(tRaw)){ showErr(tag+'اكتب رقم آية البداية وآية النهاية'); return; }
+    const f = parseInt(fRaw,10), t = parseInt(tRaw,10);
+    if(f<1 || t<1 || f>sObj.ayat || t>sObj.ayat){ showErr(tag+'سورة '+sObj.name+' آياتها من 1 إلى '+sObj.ayat+' فقط'); return; }
+    if(f>t){ showErr(tag+'آية البداية لازم تكون أصغر من أو تساوي آية النهاية'); return; }
+    const errors = document.querySelector('#wf-err-'+i+' .active').textContent;
+    const exactPages = computeExactPages(sObj.name, f, t), pagesEst = exactPages!==null ? exactPages : estimatePages(f, t);
+    items.push({surah:sObj.name, f, t, errors, grade:gradeFromErrors(errors), pagesEst, pagesExact:exactPages!==null, pts:wirdPts(ptsTable, errors, pagesEst)});
+  }
+  if(!items.length){ showErr('أضف سورة واحدة على الأقل'); return; }
   try{
-    await addDoc(collection(db,'students',sid,collKey), {date, from:surah+' '+f, to:surah+' '+t, errors, grade, recordedBy, pagesEst, pagesExact, pts, recordedAt:serverTimestamp()});
-    if(pts) await updateDoc(doc(db,'students',sid), {points: increment(pts)});
+    let total = 0, pages = 0, approx = false;
+    for(const it of items){
+      await addDoc(collection(db,'students',sid,collKey), {date, from:it.surah+' '+it.f, to:it.surah+' '+it.t, errors:it.errors, grade:it.grade, recordedBy, pagesEst:it.pagesEst, pagesExact:it.pagesExact, pts:it.pts, recordedAt:serverTimestamp()});
+      total += it.pts; pages += it.pagesEst; if(!it.pagesExact) approx = true;
+    }
+    if(total) await updateDoc(doc(db,'students',sid), {points: increment(total)});
     await loadStudentsForRole();
     await ensureStudentDetail(sid, true);
-    document.getElementById('wf-alert').innerHTML = `<div class="alert success">${icon('check',16)} تم تسجيل ${typeTxt} باسم ${recordedBy} (+${pts} نقطة، ${pagesEst} صفحة${pagesExact?'':' تقريبًا'})</div>`;
+    document.getElementById('wf-alert').innerHTML = `<div class="alert success">${icon('check',16)} تم تسجيل ${items.length>1 ? items.length+' سور' : typeTxt} باسم ${recordedBy} (+${total} نقطة، ${pages} صفحة${approx?' تقريبًا':''})</div>`;
     setTimeout(()=>goto('studentProfile',{id:sid,tab:'hifz',from}), 700);
   }catch(e){ document.getElementById('wf-alert').innerHTML = `<div class="alert error">تعذّر الحفظ: ${e.message}</div>`; }
 }
@@ -2660,7 +2674,7 @@ async function accountView(){
   return html;
 }
 
-Object.assign(window, {payAddToggle, payDown, payUp, payCancel, payAll, payAddMonth, payDelMonth, savePayGrid: savePayGrid, setBranchDay, hmapSetMode, hmapPick, hmapEditToggle, hmapPrev, hmapSaveBase, growthTip, dpChange, gridTap, gridAll, gridGo, gridAddMonth, gridAddDate, saveGrid, presAuto, presVs, openPresent, presSet, presRestart, presFull, presStep, presClose: closePresent, pickEntityPhoto, removeEntityPhoto, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
+Object.assign(window, {wfAddSeg, wfRemoveSeg, payAddToggle, payDown, payUp, payCancel, payAll, payAddMonth, payDelMonth, savePayGrid: savePayGrid, setBranchDay, hmapSetMode, hmapPick, hmapEditToggle, hmapPrev, hmapSaveBase, growthTip, dpChange, gridTap, gridAll, gridGo, gridAddMonth, gridAddDate, saveGrid, presAuto, presVs, openPresent, presSet, presRestart, presFull, presStep, presClose: closePresent, pickEntityPhoto, removeEntityPhoto, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
 </script>
 </body>
 </html>
