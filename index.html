@@ -312,7 +312,7 @@ body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
 button,.khana,.row,.navitem{-webkit-tap-highlight-color:transparent;transition:opacity .15s,transform .15s}
 button:active,.khana:active,.row:active{opacity:.65}
 .khana:active{transform:none}
-.topbar{background:var(--green);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 16px 12px;border-bottom:0;box-shadow:none}
+.topbar{background:linear-gradient(145deg,#25A862,#0B5E2F);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 16px 12px;border-bottom:0;box-shadow:none}
 .topbar::before,.greeting-rule{display:none}
 .icon-btn{width:36px;height:36px;background:rgba(255,255,255,.18);color:#fff;border:0}
 .icon-btn.on{background:#fff;color:var(--green)}
@@ -330,15 +330,21 @@ button:active,.khana:active,.row:active{opacity:.65}
 .vision-divider{background:var(--border);height:.5px}
 .stat-grid{gap:12px}
 .stat-card{padding:14px 16px}
-.stat-icon{width:30px;height:30px;border-radius:8px}
+.stat-icon{width:36px;height:36px;border-radius:10px}
 .stat-num{font-size:28px;font-weight:700;margin-top:8px}
 .stat-label{font-size:13px}
-.khana-grid{display:block;background:var(--card);border-radius:16px;overflow:hidden;margin-top:0}
-.khana{display:grid;grid-template-columns:36px 1fr;column-gap:12px;align-items:center;text-align:start;border-radius:0;padding:10px 16px;padding-inline-end:36px;min-height:56px;border-bottom:.5px solid var(--border);background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='14' fill='none' stroke='%238E8E93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 1 1 7l6 6'/%3E%3C/svg%3E") no-repeat left 16px center}
-.khana:last-child{border-bottom:0}
-.khana-icon{grid-row:1/3;width:36px;height:36px;border-radius:10px}
-.khana-label{font-size:17px;font-weight:500}
-.khana-sub{font-size:13px}
+.khana-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:none;border-radius:0;overflow:visible;margin-top:0}
+.khana{position:relative;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;text-align:start;aspect-ratio:1/1;min-height:0;padding:16px;border:0;border-radius:22px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 22px -14px rgba(15,123,62,.45)}
+.khana[style*="grid-column"]{aspect-ratio:auto;min-height:92px}
+.khana::after{content:"";position:absolute;top:16px;left:16px;width:26px;height:26px;border-radius:50%;background:#F2F2F7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='12' fill='none' stroke='%230F7B3E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 1 1 6l5 5'/%3E%3C/svg%3E") no-repeat center}
+.khana-icon{width:48px;height:48px;border-radius:15px;background:linear-gradient(145deg,#25A862,#0B5E2F);color:#fff;box-shadow:0 6px 12px -6px rgba(11,94,47,.6)}
+.khana-label{font-size:17px;font-weight:600;line-height:1.3;margin-top:auto}
+.khana-sub{font-size:13px;line-height:1.4;margin-top:2px}
+.khana-icon,.stat-icon,.vision-title .vi,.pv-ic{flex:none;display:flex;align-items:center;justify-content:center}
+.khana-icon svg{width:22px;height:22px;stroke-width:1.8}
+.stat-icon svg{width:16px;height:16px;stroke-width:1.8}
+.vision-title .vi svg{width:14px;height:14px;stroke-width:1.8}
+.pv-ic svg{width:18px;height:18px;stroke-width:1.8}
 .row{padding:10px 16px;min-height:52px;border-bottom:.5px solid var(--border)}
 .avatar{width:40px;height:40px;font-size:16px;font-weight:600}
 .avatar-edit-badge{background:var(--green)}
@@ -3158,5 +3164,6 @@ async function accountView(){
 
 Object.assign(window, {pgSet, saveWirdEdit, prApply, exportReport, exportRun, pgTap, pmToggle, pmKind, pmEditStart, pmDelete, pmSubmit, wfAddSeg, wfRemoveSeg, payAddToggle, payDown, payUp, payCancel, payAll, payAddMonth, payDelMonth, savePayGrid: savePayGrid, setBranchDay, hmapSetMode, hmapPick, hmapEditToggle, hmapPrev, hmapSaveBase, growthTip, dpChange, gridTap, gridAll, gridGo, gridAddMonth, gridAddDate, saveGrid, presAuto, presVs, openPresent, presSet, presRestart, presFull, presStep, presClose: closePresent, pickEntityPhoto, removeEntityPhoto, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
 </script>
+<script>(function(){function fix(){document.querySelectorAll('.khana-icon svg,.stat-icon svg,.vision-title .vi svg,.pv-ic svg').forEach(function(s){if(s.dataset.c)return;try{var b=s.getBBox();if(!b.width||!b.height)return;var v=(s.getAttribute('viewBox')||'0 0 24 24').split(/[\s,]+/).map(Number);s.setAttribute('viewBox',(b.x+b.width/2-v[2]/2)+' '+(b.y+b.height/2-v[3]/2)+' '+v[2]+' '+v[3]);s.dataset.c=1}catch(e){}})}fix();new MutationObserver(fix).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']})})();</script>
 </body>
 </html>
