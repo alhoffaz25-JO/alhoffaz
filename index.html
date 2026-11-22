@@ -211,6 +211,8 @@ svg{display:block;}
 .hm-c.sel{border-color:#06281c; transform:scale(1.07)}
 .pg-strip{display:grid; grid-template-columns:repeat(10,1fr); gap:4px; margin-top:8px}
 .pg{aspect-ratio:1; border-radius:6px; background:#EEF0F2; color:#7a8794; font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center}
+.pg.tap{cursor:pointer}
+.pg.pv{box-shadow:0 0 0 2px #E0B84B inset}
 .pg.on{background:#3FAE6F; color:#fff} .pg.old{background:#F08A4B; color:#fff}
 .hm-detail{margin-top:10px; font-size:13px; font-weight:700; text-align:center}
 .hm-legend{margin-top:6px; font-size:10.5px; color:var(--text-muted,#888); text-align:center}
@@ -545,12 +547,34 @@ function filterAyah(id){
   list.style.display='block';
   if(suf!==id) wfAutoPages(suf);
 }
+let PAGE_TOTAL = null;
+function pageTotals(){
+  if(PAGE_TOTAL) return PAGE_TOTAL;
+  const t = {};
+  try{ SURAHS.forEach((sr,i)=>{ for(let a=1;a<=sr.ayat;a++){ const p = findMushafPage(i+1,a); t[p] = (t[p]||0)+1; } }); }catch(e){ PAGE_TOTAL = {}; return PAGE_TOTAL; }
+  PAGE_TOTAL = t; return t;
+}
+function rangeSuggest(surahName, f, t){
+  const idx = SURAHS.findIndex(x=>x.name===surahName);
+  if(idx<0 || !f || !t || f>t || f<1 || t>SURAHS[idx].ayat) return null;
+  const tot = pageTotals(), cnt = {};
+  try{ for(let a=f;a<=t;a++){ const p = findMushafPage(idx+1,a); cnt[p] = (cnt[p]||0)+1; } }catch(e){ return null; }
+  let sum = 0; for(const p in cnt){ if(tot[p]) sum += Math.min(1, cnt[p]/tot[p]); }
+  if(!sum) return null;
+  let full = Math.floor(sum+0.0001), r = sum-full; if(r>0.83){ full++; r = 0; }
+  const frac = [0,0.33,0.5,0.67].reduce((x,y)=>Math.abs(y-r)<Math.abs(x-r) ? y : x);
+  return {sum, full, frac, total: full+frac};
+}
 function wfAutoPages(suf){
   const sObj = SURAHS.find(x=>x.name===(document.getElementById('wf-surah'+suf+'-input')||{value:''}).value.trim());
-  const full = document.getElementById('wf-full'+suf); if(!sObj || !full || full.dataset.edited) return;
+  const full = document.getElementById('wf-full'+suf), frac = document.getElementById('wf-frac'+suf), hint = document.getElementById('wf-hint'+suf);
+  if(!sObj || !full) return;
   const f = parseInt(normDigits(document.getElementById('wf-from'+suf).value),10), t = parseInt(normDigits(document.getElementById('wf-to'+suf).value),10);
-  if(!f || !t || f>t || f<1 || t>sObj.ayat) return;
-  const ex = computeExactPages(sObj.name, f, t); full.value = ex!==null ? ex : estimatePages(f, t);
+  const sg = rangeSuggest(sObj.name, f, t);
+  if(!sg){ if(hint) hint.textContent = ''; return; }
+  if(hint) hint.textContent = 'مقترح تلقائيًا حسب عدد الآيات (تقريبي): '+pgTxt(sg.total)+' صفحة';
+  if(!full.dataset.edited) full.value = sg.full;
+  if(frac && !frac.dataset.edited) frac.value = String(sg.frac);
 }
 function pgTxt(x){
   x = Number(x)||0; const w = Math.floor(x+0.001), f = x-w;
@@ -1019,6 +1043,169 @@ async function branchWeeklyView(){
     <div class="hm-card"><div class="hm-title">تقييم آخر 12 أسبوعًا</div><div class="wk-bars">${bars}</div></div>${cards}`;
 }
 
+/* ===== تعديل ورد قديم ===== */
+function wirdEditFill(r){
+  const g = id => document.getElementById(id); if(!g('wf-surah-0-input')) return;
+  const m = /^(.*)\s(\d+)$/.exec(r.from||''), m2 = /^(.*)\s(\d+)$/.exec(r.to||'');
+  if(m){ g('wf-surah-0-input').value = m[1]; g('wf-from-0').value = m[2]; }
+  if(m2) g('wf-to-0').value = m2[2];
+  const fe = g('wf-full-0'); fe.value = r.fullPages!=null ? r.fullPages : Math.round(Number(r.pagesEst)||0); fe.dataset.edited = 1;
+  const fr = g('wf-frac-0'); fr.value = String(r.frac||0); fr.dataset.edited = 1;
+  document.querySelectorAll('#wf-err-0 button').forEach(b=>b.classList.toggle('active', b.textContent===String(r.errors)));
+}
+async function wirdEditView(){
+  const {sid, coll, id} = state.params, from = state.params.from || '';
+  const s = findStudent(sid), typeTxt = {hifzLog:'حفظ', reviewLog:'مراجعة', recitationLog:'سرد'}[coll];
+  const back = `<div class="subheader"><div class="back-btn" onclick="window.goto('studentProfile',{id:'${sid}',tab:'hifz',from:'${from}'})">${icon('chevronR',16)}</div><h1>تعديل ورد — ${s.name}</h1></div>`;
+  const det = await ensureStudentDetail(sid), r = (det[coll]||[]).find(x=>x.id===id);
+  if(!r) return back + `<div class="empty">تعذّر العثور على هذا الورد</div>`;
+  setTimeout(()=>wirdEditFill(r), 40);
+  return back + `<div class="section-title"><span class="bar"></span>تعديل ${typeTxt}</div>
+    <div class="field"><label>التاريخ</label>${dateField('we-date', r.date)}</div>
+    <div id="wf-segs">${wfSegHTML(0)}</div>
+    <div class="row-sub" style="margin-top:8px">النقاط بتنحسب من جديد، والفرق بينضاف أو بينخصم من رصيد الطالب.</div>
+    <button class="btn btn-primary" style="margin-top:14px" onclick="window.saveWirdEdit('${sid}','${coll}','${id}','${from}')">حفظ التعديل</button><div id="wf-alert"></div>`;
+}
+async function saveWirdEdit(sid, coll, id, from){
+  const showErr = m=>{ document.getElementById('wf-alert').innerHTML = `<div class="alert error">${icon('check',16)} ${m}</div>`; };
+  const date = document.getElementById('we-date').value; if(!date){ showErr('اختر التاريخ كاملًا (يوم وشهر وسنة)'); return; }
+  const table = {hifzLog:TYPE_POINTS.hifz, reviewLog:TYPE_POINTS.review, recitationLog:TYPE_POINTS.recitation}[coll];
+  const sObj = SURAHS.find(x=>x.name===document.getElementById('wf-surah-0-input').value.trim());
+  if(!sObj){ showErr('اختر اسم السورة من القائمة'); return; }
+  const f = parseInt(normDigits(document.getElementById('wf-from-0').value.trim()),10), t = parseInt(normDigits(document.getElementById('wf-to-0').value.trim()),10);
+  if(!f || !t || f<1 || t<1 || f>sObj.ayat || t>sObj.ayat){ showErr('سورة '+sObj.name+' آياتها من 1 إلى '+sObj.ayat+' فقط'); return; }
+  if(f>t){ showErr('آية البداية لازم تكون أصغر من أو تساوي آية النهاية'); return; }
+  const full = parseInt(document.getElementById('wf-full-0').value,10), frac = Number(document.getElementById('wf-frac-0').value)||0;
+  if(isNaN(full) || full<0){ showErr('اكتب عدد الصفحات الكاملة (0 أو أكثر)'); return; }
+  if(full===0 && frac===0){ showErr('حدد صفحة كاملة أو جزءًا من صفحة'); return; }
+  const errors = document.querySelector('#wf-err-0 .active').textContent;
+  try{
+    const det = await ensureStudentDetail(sid), old = (det[coll]||[]).find(x=>x.id===id);
+    const oldPts = old ? recPts(table, old) : 0, newPts = full>0 ? wirdPts(table, errors, full) : 0;
+    await updateDoc(doc(db,'students',sid,coll,id), {date, from:sObj.name+' '+f, to:sObj.name+' '+t, errors, grade:gradeFromErrors(errors), pagesEst:+(full+frac).toFixed(2), pagesExact:true, fullPages:full, frac, pts:newPts, editedBy:state.personName});
+    if(newPts!==oldPts) await updateDoc(doc(db,'students',sid), {points: increment(newPts-oldPts)});
+    await loadStudentsForRole(); await ensureStudentDetail(sid, true);
+    document.getElementById('wf-alert').innerHTML = `<div class="alert success">${icon('check',16)} تم التعديل (${newPts-oldPts>=0?'+':''}${newPts-oldPts} نقطة)</div>`;
+    setTimeout(()=>goto('studentProfile',{id:sid, tab:'hifz', from}), 700);
+  }catch(e){ document.getElementById('wf-alert').innerHTML = `<div class="alert error">تعذّر الحفظ: ${e.message}</div>`; }
+}
+
+/* ===== تقرير النقاط ===== */
+function periodPred(period, from, to){
+  if(period==='all') return ()=>true;
+  if(period==='custom') return d => !!d && (!from || d>=from) && (!to || d<=to);
+  return d => inPeriod(d, period);
+}
+function pointsBreakdown(s, pred){
+  const det = cache.details[s.id]||{}, items = []; let att = 0, h = 0, r = 0, c = 0, adj = 0;
+  (det.attendance||[]).forEach(x=>{ if(pred(x.date)){ const v = ATT_POINTS[x.status]||0; att += v; items.push({date:x.date, type:'حضور', desc:x.status, pts:v}); } });
+  const wl = (log, tbl, type) => (log||[]).reduce((sum,x)=>{ if(!pred(x.date)) return sum; const v = recPts(tbl,x); items.push({date:x.date, type, desc:(x.from||'')+' ← '+(x.to||'')+' ('+(x.errors||0)+' أخطاء)', pts:v}); return sum+v; }, 0);
+  h = wl(det.hifzLog, TYPE_POINTS.hifz, 'حفظ'); r = wl(det.reviewLog, TYPE_POINTS.review, 'مراجعة'); c = wl(det.recitationLog, TYPE_POINTS.recitation, 'سرد');
+  (det.pointsAdjustments||[]).forEach(x=>{ if(pred(x.date)){ const v = x.delta||0; adj += v; items.push({date:x.date, type:'تعديل يدوي', desc:x.reason||'', pts:v}); } });
+  items.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  return {att, h, r, c, adj, total:att+h+r+c+adj, items};
+}
+const PR_LABEL = {week:'هذا الأسبوع', month:'هذا الشهر', custom:'فترة محددة', all:'كل الفترات'};
+function prSub(P){ return P.period==='custom' ? ('من '+(P.from||'البداية')+' إلى '+(P.to||'اليوم')) : PR_LABEL[P.period||'week']; }
+async function pointsReportView(){
+  const P = {bid:'', period:'week', from:'', to:'', ...state.params};
+  const back = `<div class="subheader"><div class="back-btn" onclick="history.back()">${icon('chevronR',16)}</div><h1>تقرير النقاط</h1></div>`;
+  await loadAllDetails();
+  const branches = cache.branches.filter(b=>canEditBranch(b.id));
+  const studs = cache.students.filter(x=>(!P.bid || x.branchId===P.bid) && canEditBranch(x.branchId));
+  const pred = periodPred(P.period, P.from, P.to);
+  const rows = studs.map(x=>({s:x, b:pointsBreakdown(x,pred)})).sort((a,b)=>b.b.total-a.b.total);
+  const T = rows.reduce((t,r)=>{ ['att','h','r','c','adj','total'].forEach(k=>t[k]+=r.b[k]); return t; }, {att:0,h:0,r:0,c:0,adj:0,total:0});
+  const bname = id => (cache.branches.find(x=>x.id===id)||{}).name||'';
+  const go = (o) => `window.goto('pointsReport',${JSON.stringify({...P,...o}).replace(/"/g,"'")})`;
+  const line = (l,v) => `<div class="row"><div class="row-title">${l}</div><div class="row-title" style="color:${v<0?'#B23A3A':'inherit'}">${v>0?'+':''}${v}</div></div>`;
+  const cards = rows.map(r=>`<details class="wk-card"><summary><div style="flex:1; min-width:0"><div class="row-title">${r.s.name}</div><div class="row-sub">شعبة ${bname(r.s.branchId)}</div></div><span class="badge green" style="font-size:14px">${r.b.total}</span></summary>
+    <div style="border-top:1px solid var(--border,#eee)">${line('الحضور',r.b.att)}${line('الحفظ',r.b.h)}${line('المراجعة',r.b.r)}${line('السرد',r.b.c)}${line('تعديلات يدوية',r.b.adj)}
+    <div class="section-title" style="margin:10px 14px 4px"><span class="bar"></span>تفاصيل البنود</div>
+    ${r.b.items.map(i=>`<div class="row" style="font-size:12px"><div style="flex:1; min-width:0"><div class="row-title" style="font-size:12.5px">${i.type}${i.desc?' · '+i.desc:''}</div><div class="row-sub">${i.date||''}</div></div><span style="font-weight:800; color:${i.pts<0?'#B23A3A':'#13804a'}">${i.pts>0?'+':''}${i.pts}</span></div>`).join('') || '<div class="row-sub" style="padding:10px 14px">لا توجد بنود بهذه الفترة</div>'}</div></details>`).join('');
+  return back + `
+  <div class="field" style="margin-top:12px"><label>الشعبة</label><select onchange="${go({bid:'__V__'}).replace("'__V__'","this.value")}"><option value="">كل الشعب</option>${branches.map(b=>`<option value="${b.id}" ${b.id===P.bid?'selected':''}>شعبة ${b.name}</option>`).join('')}</select></div>
+  <div class="seg" style="margin-top:10px">${['week','month','custom','all'].map(k=>`<button class="${P.period===k?'active':''}" onclick="${go({period:k})}">${PR_LABEL[k]}</button>`).join('')}</div>
+  ${P.period==='custom' ? `<div style="display:flex; gap:10px; margin-top:10px"><div class="field" style="flex:1"><label>من</label>${dateField('pr-from', P.from)}</div><div class="field" style="flex:1"><label>إلى</label>${dateField('pr-to', P.to)}</div></div><button class="btn btn-primary" style="margin-top:8px" onclick="window.prApply()">عرض</button>` : ''}
+  <div class="hm-card"><div class="hm-title">${prSub(P)} · ${P.bid ? 'شعبة '+bname(P.bid) : 'كل الشعب'}</div><div class="hm-big">إجمالي النقاط: <b>${T.total}</b> · ${rows.length} طالب</div>
+    <div class="list" style="margin-top:10px">${line('الحضور',T.att)}${line('الحفظ',T.h)}${line('المراجعة',T.r)}${line('السرد',T.c)}${line('تعديلات يدوية',T.adj)}</div></div>
+  ${state.role==='admin' ? `<button class="btn btn-outline" style="margin-top:10px" onclick="window.exportReport()">تنزيل التقرير (Excel)</button>` : ''}
+  <div class="section-title" style="margin-top:14px"><span class="bar"></span>تفصيل كل طالب</div>${cards || '<div class="empty">لا يوجد طلاب</div>'}`;
+}
+function prApply(){ const a = document.getElementById('pr-from'), b = document.getElementById('pr-to'); goto('pointsReport', {...state.params, period:'custom', from:a?a.value:'', to:b?b.value:''}); }
+
+/* ===== تصدير Excel (للأدمن) ===== */
+async function loadXLSX(){
+  if(window.__xlsx) return window.__xlsx;
+  const m = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
+  window.__xlsx = m.default || m; return window.__xlsx;
+}
+function csvDownload(name, rows){
+  if(!rows.length) return;
+  const keys = Object.keys(rows[0]), esc = v => '"'+String(v??'').replace(/"/g,'""')+'"';
+  const csv = '\ufeff'+[keys.map(esc).join(','), ...rows.map(r=>keys.map(k=>esc(r[k])).join(','))].join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download = name+'.csv'; a.click();
+}
+function reportSheets(studs, pred){
+  const bn = id => (cache.branches.find(x=>x.id===id)||{}).name||'';
+  const sum = [], det = [];
+  studs.forEach(st=>{ const b = pointsBreakdown(st,pred);
+    sum.push({'الاسم':st.name,'الشعبة':bn(st.branchId),'الحضور':b.att,'الحفظ':b.h,'المراجعة':b.r,'السرد':b.c,'تعديلات يدوية':b.adj,'المجموع':b.total});
+    b.items.forEach(i=>det.push({'الاسم':st.name,'الشعبة':bn(st.branchId),'التاريخ':i.date,'النوع':i.type,'التفصيل':i.desc,'النقاط':i.pts})); });
+  sum.sort((a,b)=>b['المجموع']-a['المجموع']);
+  return {'ملخص النقاط':sum, 'تفاصيل النقاط':det};
+}
+function fullSheets(bid, pred){
+  const studs = cache.students.filter(x=>!bid || x.branchId===bid), bn = id => (cache.branches.find(x=>x.id===id)||{}).name||'';
+  const sh = {};
+  sh['الطلاب'] = studs.map(x=>({'الاسم':x.name,'الشعبة':bn(x.branchId),'العمر':x.age||'','تاريخ الميلاد':x.birthDate||'','الهاتف':(x.phones||[]).map(q=>q.number||q).join('، '),'مقدار الحفظ':x.hifzAmount||'','ملاحظات':x.notes||'','النقاط الحالية':x.points||0}));
+  const w = [], a = [], pay = [];
+  studs.forEach(x=>{ const d = cache.details[x.id]||{};
+    [['hifzLog','حفظ'],['reviewLog','مراجعة'],['recitationLog','سرد']].forEach(([k,t])=>(d[k]||[]).forEach(r=>{ if(pred(r.date)) w.push({'الاسم':x.name,'الشعبة':bn(x.branchId),'النوع':t,'التاريخ':r.date,'من':r.from,'إلى':r.to,'الصفحات':pgTxt(r.pagesEst||0),'الأخطاء':r.errors,'التقدير':r.grade,'النقاط':recPts({hifzLog:TYPE_POINTS.hifz,reviewLog:TYPE_POINTS.review,recitationLog:TYPE_POINTS.recitation}[k], r),'سجّله':r.recordedBy||''}); }));
+    [['attendance','المواعيد'],['tajweedAtt','التجويد']].forEach(([k,t])=>(d[k]||[]).forEach(r=>{ if(pred(r.date)) a.push({'الاسم':x.name,'الشعبة':bn(x.branchId),'النوع':t,'التاريخ':r.date,'الحالة':r.status}); }));
+    payRecords(d).forEach(r=>pay.push({'الاسم':x.name,'الشعبة':bn(x.branchId),'الشهر':r.label,'المدفوع':r.paid,'من':PAY_PRICE,'الحالة': r.paid>=PAY_PRICE?'مدفوع':(r.paid>0?'جزئي':'غير مدفوع')})); });
+  sh['الأوراد'] = w; sh['الحضور'] = a; Object.assign(sh, reportSheets(studs, pred)); sh['الدفع'] = pay;
+  return sh;
+}
+async function downloadSheets(name, sheets){
+  const note = document.getElementById('ex-note');
+  try{
+    const X = await loadXLSX(), wb = X.utils.book_new();
+    Object.entries(sheets).forEach(([n,rows])=>{
+      const ws = X.utils.json_to_sheet(rows.length ? rows : [{'—':'لا توجد بيانات'}]);
+      const keys = Object.keys(rows[0]||{'—':1}); ws['!cols'] = keys.map(k=>({wch:Math.min(40, Math.max(k.length, ...rows.slice(0,200).map(r=>String(r[k]??'').length))+2)}));
+      X.utils.book_append_sheet(wb, ws, n.slice(0,31));
+    });
+    wb.Workbook = {Views:[{RTL:true}]};
+    X.writeFile(wb, name+'.xlsx');
+    if(note) note.innerHTML = `<div class="alert success">${icon('check',16)} تم تنزيل الملف</div>`;
+  }catch(e){
+    const first = Object.values(sheets)[0]; if(first && first.length) csvDownload(name, first);
+    if(note) note.innerHTML = `<div class="alert error">تعذّر تحميل مكتبة Excel، نزّلت ملف CSV (الورقة الأولى) بدلًا منها</div>`;
+  }
+}
+function exportReport(){
+  const P = {bid:'', period:'week', from:'', to:'', ...state.params};
+  const studs = cache.students.filter(x=>(!P.bid || x.branchId===P.bid) && canEditBranch(x.branchId));
+  downloadSheets('تقرير-النقاط-'+todayStr(), reportSheets(studs, periodPred(P.period, P.from, P.to)));
+}
+async function exportDataView(){
+  const back = `<div class="subheader"><div class="back-btn" onclick="history.back()">${icon('chevronR',16)}</div><h1>تصدير البيانات</h1></div>`;
+  if(state.role!=='admin') return back + `<div class="empty">هذه الصفحة للأدمن فقط</div>`;
+  return back + `<div class="row-sub" style="margin-top:12px">ملف Excel فيه أوراق: الطلاب، الأوراد، الحضور، ملخص النقاط، تفاصيل النقاط، والدفع. بتفتحه بـ Excel أو ترفعه على Google Sheets.</div>
+    <div class="field" style="margin-top:12px"><label>الشعبة</label><select id="ex-bid"><option value="">كل الشعب</option>${cache.branches.map(b=>`<option value="${b.id}">شعبة ${b.name}</option>`).join('')}</select></div>
+    <div class="field"><label>الفترة (للأوراد والحضور والنقاط)</label><select id="ex-per" onchange="document.getElementById('ex-cust').style.display = this.value==='custom' ? 'flex' : 'none'"><option value="all">كل الفترات</option><option value="week">هذا الأسبوع</option><option value="month">هذا الشهر</option><option value="custom">من تاريخ إلى تاريخ</option></select></div>
+    <div id="ex-cust" style="display:none; gap:10px"><div class="field" style="flex:1"><label>من</label>${dateField('ex-from','')}</div><div class="field" style="flex:1"><label>إلى</label>${dateField('ex-to','')}</div></div>
+    <button class="btn btn-primary" style="margin-top:12px" onclick="window.exportRun()">تنزيل ملف Excel</button><div id="ex-note"></div>`;
+}
+async function exportRun(){
+  const note = document.getElementById('ex-note'); note.innerHTML = '<div class="row-sub">جارٍ التجهيز...</div>';
+  await loadAllDetails();
+  const bid = document.getElementById('ex-bid').value, per = document.getElementById('ex-per').value;
+  const pred = periodPred(per, document.getElementById('ex-from').value, document.getElementById('ex-to').value);
+  await downloadSheets('شعبة-الحفاظ-'+todayStr(), fullSheets(bid, pred));
+}
+
 /* ================= وضع العرض ================= */
 let pres = null;
 const PRES_PERIODS = {week:'هذا الأسبوع', month:'هذا الشهر', all:'كل الفترات'};
@@ -1249,7 +1436,7 @@ async function render(){
   }
 }
 let navFromPop = false, backWarnAt = 0, skipSpin = false;
-const FORM_VIEWS = new Set(['wirdForm','addStudentForm','editStudentForm','adjustPointsForm','supervisorProfileForm','inviteForm','editContentForm']);
+const FORM_VIEWS = new Set(['wirdEdit','wirdForm','addStudentForm','editStudentForm','adjustPointsForm','supervisorProfileForm','inviteForm','editContentForm']);
 const homeView = () => state.role==='admin' ? 'adminHome' : state.role==='supervisor' ? 'supervisorHome' : 'studentHome';
 const curEntry = () => ({v:state.view, p:state.params});
 function navToast(msg){
@@ -1360,6 +1547,9 @@ async function renderView(){
     case 'branchAttendance': return branchAttendanceView();
     case 'branchPayments': return branchPaymentsView();
     case 'branchWeekly': return branchWeeklyView();
+    case 'wirdEdit': return wirdEditView();
+    case 'pointsReport': return pointsReportView();
+    case 'exportData': return exportDataView();
     case 'adminDirectory': return directory();
     case 'addStudentForm': return addStudentForm();
     case 'plansHome': return plansHome();
@@ -1898,6 +2088,7 @@ function branchDetail(){
   ${canPay() && editable ? `<button class="btn btn-outline" style="margin-top:10px" onclick="window.goto('branchPayments',{id:'${b.id}',fresh:1})">${icon('briefcase',16)} جدول الدفع للشعبة</button>` : ''}
   ${editable ? `<button class="btn btn-outline" style="margin-top:10px" onclick="window.openPresent('week','${b.id}')">${icon('trend',16)} وضع العرض للشعبة</button>` : ''}
   ${editable ? `<button class="btn btn-outline" style="margin-top:10px" onclick="window.goto('branchWeekly',{id:'${b.id}'})">${icon('chart',16)} التقييم الأسبوعي للشعبة</button>` : ''}
+  ${editable ? `<button class="btn btn-outline" style="margin-top:10px" onclick="window.goto('pointsReport',{bid:'${b.id}',period:'week'})">${icon('star',16)} تقرير النقاط للشعبة</button>` : ''}
   <div class="search-box">${icon('search',15)}<input placeholder="ابحث عن طالب بهذه الشعبة..." oninput="window.filterBranchStudents(this.value,'${b.id}')"></div>
   <div class="section-title"><span class="bar"></span>طلاب الشعبة</div>
   <div class="list" id="branch-student-list">${branchStudentRows(students)}</div>`;
@@ -1944,10 +2135,10 @@ function studentInsights(s, det){
   const inMonth = d => inPeriod(d,'month');
   const all = [...H.map(r=>({r,t:'حفظ'})), ...R.map(r=>({r,t:'مراجعة'})), ...C.map(r=>({r,t:'سرد'}))].filter(x=>x.r.date).sort((a,b)=>b.r.date.localeCompare(a.r.date));
   // خريطة الحفظ
-  const mem = new Set(), lastRev = {};
-  const mark = (sp, date) => { for(let p=sp[0]; p<=sp[1]; p++){ mem.add(p); if(!lastRev[p] || date>lastRev[p]) lastRev[p] = date; } };
+  const mem = new Set(), lastRev = {}, recSet = new Set(), prevSet = new Set();
+  const mark = (sp, date) => { for(let p=sp[0]; p<=sp[1]; p++){ mem.add(p); recSet.add(p); if(!lastRev[p] || date>lastRev[p]) lastRev[p] = date; } };
   [...H,...R,...C].forEach(r=>{ const sp = recPageSpan(r); if(sp) mark(sp, r.date||''); });
-  prevEntries(s).forEach(e=>{ const sp = prevSpan(e); if(sp) for(let p=sp[0]; p<=sp[1]; p++) mem.add(p); });
+  prevEntries(s).forEach(e=>{ const sp = prevSpan(e); if(sp) for(let p=sp[0]; p<=sp[1]; p++){ mem.add(p); prevSet.add(p); } });
   const cutoff = addDaysStr(today,-30);
   const juz = Array.from({length:30},(_,i)=>{ const [a,b] = juzRange(i+1); let g = 0, f = 0;
     for(let p=a;p<=b;p++){ if(mem.has(p)){ g++; if(lastRev[p] && lastRev[p]>=cutoff) f++; } }
@@ -1984,7 +2175,7 @@ function studentInsights(s, det){
     attPct: A.length ? Math.round(att/A.length*100) : 0, attTxt: A.length ? 'سجل '+att+' من '+A.length+' مواعيد' : 'لا يوجد سجل حضور بعد',
     exPct: max ? Math.min(100, Math.round(got/max*100)) : 0, exTxt: 'سجل '+n+' ورد (حفظ ومراجعة وسرد)',
     pagesTotal: Math.round(sumPages(H)+sumPages(R)), pagesMonth: Math.round(sumPages(H,inMonth)+sumPages(R,inMonth)),
-    last: all[0]||null, juz, mem, lastRev, cutoff, memCount: mem.size, fc, sel: curJuz||1, growth: pts
+    last: all[0]||null, juz, mem, lastRev, cutoff, prevPages: prevSet, wirdPages: recSet, memCount: mem.size, fc, sel: curJuz||1, growth: pts
   };
 }
 
@@ -1996,16 +2187,17 @@ function prevEntries(s){
   return (s.prevJuz||[]).map(j=>({id:'j'+j, kind:'juz', juz:j}));
 }
 function prevSpan(e){
+  if(e.kind==='pages') return [e.from, e.to];
   if(e.kind==='juz') return e.juz>=1 && e.juz<=30 ? juzRange(e.juz) : null;
   const idx = SURAHS.findIndex(x=>x.name===e.surah); if(idx<0) return null;
   try{ const a = findMushafPage(idx+1, Math.min(e.from,e.to)), b = findMushafPage(idx+1, Math.max(e.from,e.to)); return (a&&b) ? [Math.min(a,b), Math.max(a,b)] : null; }catch(err){ return null; }
 }
-const pmLabel = e => e.kind==='juz' ? 'جزء '+e.juz+' كامل' : e.surah+' ('+e.from+' – '+e.to+')';
+const pmLabel = e => e.kind==='juz' ? 'جزء '+e.juz+' كامل' : e.kind==='pages' ? (e.from===e.to ? 'صفحة '+e.from : 'الصفحات '+e.from+' – '+e.to) : e.surah+' ('+e.from+' – '+e.to+')';
 function pmPanel(I){
   if(!I.canEdit) return '';
   if(!pmOpen) return `<button class="btn btn-outline" style="margin-top:12px" onclick="window.pmToggle()">الحفظ المسبق (إضافة وتعديل)</button>`;
   const d = pmDraft, editing = d.idx>=0;
-  const list = I.prevList.map((e,i)=>`<div class="row"><div class="row-title">${pmLabel(e)}</div><div style="display:flex; gap:6px"><button class="pm-btn" style="background:#EAF4EE; color:#0f7a44" onclick="window.pmEditStart(${i})">تعديل</button><button class="pm-btn" style="background:#FADBD8; color:#B23A3A" onclick="window.pmDelete(${i})">حذف</button></div></div>`).join('') || `<div class="row-sub" style="padding:12px">لا يوجد حفظ مسبق مسجّل</div>`;
+  const list = I.prevList.map((e,i)=>`<div class="row"><div class="row-title">${pmLabel(e)}</div><div style="display:flex; gap:6px">${e.kind==='pages' ? '' : `<button class="pm-btn" style="background:#EAF4EE; color:#0f7a44" onclick="window.pmEditStart(${i})">تعديل</button>`}<button class="pm-btn" style="background:#FADBD8; color:#B23A3A" onclick="window.pmDelete(${i})">حذف</button></div></div>`).join('') || `<div class="row-sub" style="padding:12px">لا يوجد حفظ مسبق مسجّل</div>`;
   const form = d.kind==='juz'
     ? `<div class="field"><label>الجزء</label><select id="pm-juz">${Array.from({length:30},(_,i)=>`<option value="${i+1}" ${d.juz===i+1?'selected':''}>جزء ${i+1}</option>`).join('')}</select></div>`
     : `${surahPicker('pm-surah', d.surah)}<div style="display:flex; gap:10px"><div class="field" style="flex:1"><label>من الآية</label><input id="pm-from" type="number" inputmode="numeric" min="1" value="${d.from}"></div><div class="field" style="flex:1"><label>إلى الآية</label><input id="pm-to" type="number" inputmode="numeric" min="1" value="${d.to}"></div></div>`;
@@ -2041,6 +2233,47 @@ function pmSubmit(){
   const list = [...I.prevList]; if(d.idx>=0) list[d.idx] = e; else list.push(e);
   pmSave(list);
 }
+
+function pgAdd(list, p){
+  const out = list.map(e=>({...e}));
+  const adj = out.find(e=>e.kind==='pages' && e.to===p-1), nx = out.find(e=>e.kind==='pages' && e.from===p+1);
+  if(adj){ adj.to = p; if(nx && nx!==adj){ adj.to = nx.to; out.splice(out.indexOf(nx),1); } return out; }
+  if(nx){ nx.from = p; return out; }
+  out.push({id:pmId(), kind:'pages', from:p, to:p}); return out;
+}
+function pgRemove(list, p){
+  const out = [];
+  list.forEach(e=>{
+    const sp = prevSpan(e);
+    if(!sp || p<sp[0] || p>sp[1]){ out.push(e); return; }
+    if(sp[0]<=p-1) out.push({id:pmId(), kind:'pages', from:sp[0], to:p-1});
+    if(p+1<=sp[1]) out.push({id:pmId(), kind:'pages', from:p+1, to:sp[1]});
+  });
+  return out;
+}
+let pgBusy = false;
+async function pgTap(p){
+  const I = profIns; if(!I || !I.canEdit || pgBusy) return;
+  let list;
+  if(I.prevPages.has(p)){
+    if(!confirm('هذه الصفحة ('+p+') محسوبة كحفظ مسبق. هل تريد حذفها من الحفظ المسبق؟')) return;
+    list = pgRemove(I.prevList, p);
+  } else if(I.wirdPages.has(p)){
+    alert('هذه الصفحة محسوبة من ورد مسجّل، وتتعدّل من جدول الأوراد.'); return;
+  } else list = pgAdd(I.prevList, p);
+  pgBusy = true;
+  try{
+    await updateDoc(doc(db,'students',I.sid), {prevMem:list});
+    const s = findStudent(I.sid); s.prevMem = list;
+    const ni = studentInsights(s, cache.details[I.sid]||{}); ni.sel = I.sel; profIns = ni;
+    const card = document.querySelector('.hm-card'); if(card) card.outerHTML = hmCardHTML(profIns);
+  }catch(e){ alert('تعذّر الحفظ: '+e.message); }
+  pgBusy = false;
+}
+const dnum = (v,suf) => `<span data-cnt="${v}" data-suf="${suf||''}">${Number(v).toLocaleString('en')}${suf||''}</span>`;
+function hmCardHTML(I){
+  return `<div class="hm-card"><div style="display:flex; align-items:center; gap:14px">${juzRing(I.memCount)}<div><div class="hm-title">خريطة حفظ الطالب</div><div class="hm-big">حفظ <b>${dnum(I.memCount)}</b> صفحة من 604 (<b>${dnum(Math.round(I.memCount/604*100),'%')}</b>)</div></div></div><div id="hm-body">${hmapBody()}</div></div>`;
+}
 function hmapBody(){
   const I = profIns, j = I.sel, ji = I.juz[j-1];
   const cells = I.juz.map((x,k)=>{
@@ -2057,7 +2290,7 @@ function hmapBody(){
   for(let pg=pa; pg<=pb; pg++){
     let cls = '';
     if(I.mem.has(pg)) cls = (hmMode==='rev' && !(I.lastRev[pg] && I.lastRev[pg]>=I.cutoff)) ? 'old' : 'on';
-    strip += `<div class="pg ${cls}">${pg}</div>`;
+    strip += `<div class="pg ${cls} ${I.prevPages.has(pg)?'pv':''} ${I.canEdit?'tap':''}" ${I.canEdit?`onclick="window.pgTap(${pg})"`:''}>${pg}</div>`;
   }
   const legend = hmMode==='mem' ? 'التعبئة = نسبة الصفحات المنجزة · ذهبي: جزء مكتمل' : 'التعبئة = نسبة المنجز · أخضر: روجع مؤخرًا · أصفر: يحتاج مراجعة · برتقالي: مهمل (أكثر من شهر)';
   const edit = pmPanel(I);
@@ -2065,6 +2298,7 @@ function hmapBody(){
   <div class="hm-grid">${cells}</div>
   <div class="hm-detail">جزء ${j}: ${ji.total} صفحة · أُنجز ${ji.got} · متبقّي ${ji.total-ji.got}${hmMode==='rev' && ji.got ? ' · روجعت '+ji.fresh+' خلال آخر 30 يومًا' : ''}</div>
   <div class="pg-strip">${strip}</div>
+  ${I.canEdit ? `<div class="hm-legend">اضغط على أي صفحة لاعتمادها حفظًا مسبقًا · الإطار الذهبي = حفظ مسبق · ضغطة ثانية للحذف</div>` : ''}
   <div class="hm-legend">${legend}</div>
   <div class="hm-fc">${I.fc}</div>${edit}`;
 }
@@ -2125,7 +2359,7 @@ function studentDashboard(s, det){
     <div class="dc-mini blue" style="animation-delay:.24s"><div class="dc-l">الصفحات المسمّعة</div><div class="dc-n">${num(I.pagesTotal)}</div><div class="dc-s">+${I.pagesMonth} هذا الشهر</div></div>
     <div class="dc-mini rose" style="animation-delay:.32s"><div class="dc-l">آخر ورد</div>${lastHtml}</div>
   </div>
-  <div class="hm-card"><div style="display:flex; align-items:center; gap:14px">${juzRing(I.memCount)}<div><div class="hm-title">خريطة حفظ الطالب</div><div class="hm-big">حفظ <b>${num(I.memCount)}</b> صفحة من 604 (<b>${num(Math.round(I.memCount/604*100),'%')}</b>)</div></div></div><div id="hm-body">${hmapBody()}</div></div>
+  ${hmCardHTML(I)}
   <div class="gc-card"><div style="display:flex; align-items:center; justify-content:space-between; gap:8px"><div style="display:flex; align-items:center; gap:10px"><span class="dc-ic" style="width:40px; height:40px; border-radius:12px; background:#FFF4D6; color:#C98A0B">${icon('trend',20)}</span><b style="font-size:14px">مؤشر نمو النقاط والالتزام</b></div><div class="row-sub" style="white-space:nowrap">حتى الآن: <b>${I.points.toLocaleString('en')}</b> نقطة</div></div>
     ${growthSVG(g)}<div id="gc-tip" class="row-sub" style="text-align:center; margin-top:4px; min-height:18px">اضغط على أي نقطة لعرض التفاصيل</div>
     <div class="gc-axis"><span>${g[0].w ? (+g[0].w.slice(8))+' '+AR_MONTHS[+g[0].w.slice(5,7)-1] : 'بداية البرنامج'}</span><span>تقدّم تراكمي</span><span>الرصيد الحالي</span></div></div>
@@ -2183,7 +2417,7 @@ async function studentProfileView(mode){
       const pts = pointsFromRecords(det);
       const wirdTable = (log,label,collKey)=>`<div class="section-title"><span class="bar"></span>${label}</div>
       <div class="tbl-wrap"><table><thead><tr><th>التاريخ</th><th>الورد</th><th>الصفحات</th><th>أخطاء</th><th>التقدير</th>${canHifz?'<th></th>':''}</tr></thead>
-      <tbody>${log.map(r=>`<tr><td>${r.date.slice(5)}${recTimeLine(r)}<div style="font-size:9.5px; color:var(--text-muted)">${r.recordedBy||'—'}</div></td><td>${wirdRange(r)}</td><td>${r.pagesEst!=null? pgTxt(r.pagesEst)+(r.pagesExact===false?'~':'') : '—'}</td><td>${r.errors}</td><td>${r.grade}</td>${canHifz?`<td><span onclick="window.deleteWird('${s.id}','${collKey}','${r.id}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canHifz?8:7}">لا يوجد سجل</td></tr>`}</tbody></table></div>`;
+      <tbody>${log.map(r=>`<tr><td>${r.date.slice(5)}${recTimeLine(r)}<div style="font-size:9.5px; color:var(--text-muted)">${r.recordedBy||'—'}</div></td><td>${wirdRange(r)}</td><td>${r.pagesEst!=null? pgTxt(r.pagesEst)+(r.pagesExact===false?'~':'') : '—'}</td><td>${r.errors}</td><td>${r.grade}</td>${canHifz?`<td style="white-space:nowrap"><span onclick="window.goto('wirdEdit',{sid:'${s.id}',coll:'${collKey}',id:'${r.id}',from:'${from}'})" style="color:#0f7a44; cursor:pointer; margin-inline-end:10px">${icon('pencil',14)}</span><span onclick="window.deleteWird('${s.id}','${collKey}','${r.id}','${from}')" style="color:#B23A3A;cursor:pointer">${icon('trash',14)}</span></td>`:''}</tr>`).join('')||`<tr><td colspan="${canHifz?8:7}">لا يوجد سجل</td></tr>`}</tbody></table></div>`;
       body += `<div class="progress-wrap">
         ${latest? `<div class="ring">${ringSvg(latest.pct)}</div><div class="row-sub" style="margin-top:-4px">آخر تقييم أسبوعي</div>` : `<div class="row-sub">لم تكتمل أول دورة تسميع بعد (٤ جلسات)</div>`}
         <div class="bar-bg" style="margin-top:14px"><div class="bar-fill" style="width:${cyc.inProgress/4*100}%"></div></div>
@@ -2235,7 +2469,8 @@ function wfSegHTML(i){
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px"><b style="font-size:13px">السورة ${i+1}</b>${i>0 ? `<button class="btn btn-outline" style="width:auto; padding:4px 12px; font-size:12px; border-color:#B23A3A; color:#B23A3A" onclick="window.wfRemoveSeg(${i})">حذف</button>` : ''}</div>
     ${surahPicker('wf-surah-'+i,'')}
     <div style="display:flex; gap:10px">${ayahPicker('wf-from-'+i,'من الآية')}${ayahPicker('wf-to-'+i,'إلى الآية')}</div>
-    <div style="display:flex; gap:10px"><div class="field" style="flex:1"><label>صفحات كاملة</label><input type="number" inputmode="numeric" min="0" id="wf-full-${i}" oninput="this.dataset.edited=1"></div><div class="field" style="flex:1"><label>جزء من صفحة</label><select id="wf-frac-${i}"><option value="0">لا يوجد</option><option value="0.33">ثلث</option><option value="0.5">نصف</option><option value="0.67">ثلثين</option></select></div></div>
+    <div style="display:flex; gap:10px"><div class="field" style="flex:1"><label>صفحات كاملة</label><input type="number" inputmode="numeric" min="0" id="wf-full-${i}" oninput="this.dataset.edited=1"></div><div class="field" style="flex:1"><label>جزء من صفحة</label><select id="wf-frac-${i}" onchange="this.dataset.edited=1"><option value="0">لا يوجد</option><option value="0.33">ثلث</option><option value="0.5">نصف</option><option value="0.67">ثلثين</option></select></div></div>
+    <div class="row-sub" id="wf-hint-${i}" style="margin:-4px 0 6px"></div>
     <div class="field"><label>عدد الأخطاء</label><div class="seg" id="wf-err-${i}">${err}</div></div>
   </div>`;
 }
@@ -2268,7 +2503,7 @@ async function saveWird(sid, from){
   const typeTxt = document.querySelector('#wf-type .active').textContent;
   const collKey = {'حفظ':'hifzLog','مراجعة':'reviewLog','سرد':'recitationLog'}[typeTxt];
   const ptsTable = {'حفظ':TYPE_POINTS.hifz,'مراجعة':TYPE_POINTS.review,'سرد':TYPE_POINTS.recitation}[typeTxt];
-  const recordedBy = state.personName, items = [];
+  const recordedBy = state.personName, items = [], warns = [];
   const segs = [...document.querySelectorAll('.wf-seg')];
   for(let n=0; n<segs.length; n++){
     const i = segs[n].dataset.i, tag = segs.length>1 ? 'السورة '+(n+1)+': ' : '';
@@ -2283,9 +2518,12 @@ async function saveWird(sid, from){
     const full = parseInt(document.getElementById('wf-full-'+i).value,10), frac = Number(document.getElementById('wf-frac-'+i).value)||0;
     if(isNaN(full) || full<0){ showErr(tag+'اكتب عدد الصفحات الكاملة (0 أو أكثر)'); return; }
     if(full===0 && frac===0){ showErr(tag+'حدد صفحة كاملة أو جزءًا من صفحة'); return; }
+    const sg = rangeSuggest(sObj.name, f, t);
+    if(sg && Math.abs((full+frac)-sg.total)>0.5) warns.push(tag+sObj.name+': أدخلت '+pgTxt(full+frac)+' صفحة، والمتوقع من الآيات حوالي '+pgTxt(sg.total));
     items.push({surah:sObj.name, f, t, errors, grade:gradeFromErrors(errors), full, frac, pagesEst:+(full+frac).toFixed(2), pagesExact:true, pts: full>0 ? wirdPts(ptsTable, errors, full) : 0});
   }
   if(!items.length){ showErr('أضف سورة واحدة على الأقل'); return; }
+  if(warns.length && !confirm('عدد الصفحات ما بيتطابق مع الآيات:\n'+warns.join('\n')+'\n\nهل تريد الحفظ كما هو؟')) return;
   try{
     let total = 0, pages = 0, approx = false;
     for(const it of items){
@@ -2441,6 +2679,8 @@ async function achievementsHome(){
   const go = (o)=>`window.goto('achievementsHome',${JSON.stringify({tab,period,metric,...o}).replace(/"/g,"'")})`;
   let html = subheader('الإنجازات',homeRoute()) + `
   <button class="btn btn-primary" style="margin-top:12px" onclick="window.openPresent('${period}','')">${icon('trend',16)} وضع العرض</button>
+  <button class="btn btn-outline" style="margin-top:10px" onclick="window.goto('pointsReport',{bid:'',period:'week'})">${icon('star',16)} تقرير النقاط</button>
+  ${state.role==='admin' ? `<button class="btn btn-outline" style="margin-top:10px" onclick="window.goto('exportData')">${icon('list',16)} تصدير البيانات (Excel)</button>` : ''}
   <div class="tabs" style="margin-top:12px">
     <div class="tab ${tab==='branches'?'active':''}" onclick="${go({tab:'branches'})}">الشعب</div>
     <div class="tab ${tab==='students'?'active':''}" onclick="${go({tab:'students'})}">الطلاب</div>
@@ -2804,7 +3044,7 @@ async function accountView(){
   return html;
 }
 
-Object.assign(window, {pmToggle, pmKind, pmEditStart, pmDelete, pmSubmit, wfAddSeg, wfRemoveSeg, payAddToggle, payDown, payUp, payCancel, payAll, payAddMonth, payDelMonth, savePayGrid: savePayGrid, setBranchDay, hmapSetMode, hmapPick, hmapEditToggle, hmapPrev, hmapSaveBase, growthTip, dpChange, gridTap, gridAll, gridGo, gridAddMonth, gridAddDate, saveGrid, presAuto, presVs, openPresent, presSet, presRestart, presFull, presStep, presClose: closePresent, pickEntityPhoto, removeEntityPhoto, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
+Object.assign(window, {saveWirdEdit, prApply, exportReport, exportRun, pgTap, pmToggle, pmKind, pmEditStart, pmDelete, pmSubmit, wfAddSeg, wfRemoveSeg, payAddToggle, payDown, payUp, payCancel, payAll, payAddMonth, payDelMonth, savePayGrid: savePayGrid, setBranchDay, hmapSetMode, hmapPick, hmapEditToggle, hmapPrev, hmapSaveBase, growthTip, dpChange, gridTap, gridAll, gridGo, gridAddMonth, gridAddDate, saveGrid, presAuto, presVs, openPresent, presSet, presRestart, presFull, presStep, presClose: closePresent, pickEntityPhoto, removeEntityPhoto, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
 </script>
 </body>
 </html>
