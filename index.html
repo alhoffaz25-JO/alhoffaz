@@ -212,6 +212,13 @@ svg{display:block;}
 .pg-strip{display:grid; grid-template-columns:repeat(10,1fr); gap:4px; margin-top:8px}
 .pg{aspect-ratio:1; border-radius:6px; background:#EEF0F2; color:#7a8794; font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center}
 .pg.tap{cursor:pointer}
+.pg.pp{border:1.5px dashed #E0A81F; color:#14633b}
+.pg.sel{box-shadow:0 0 0 2px #06281c}
+.pgpanel{margin-top:10px; padding:10px 12px; border-radius:14px; background:#F6F8F7; border:1px solid var(--border,#e6ece8)}
+.pgopts{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
+.pgopts button{border:none; border-radius:10px; padding:8px 12px; font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; background:#EAF4EE; color:#0f7a44}
+.pgopts button.full{background:#E0B84B; color:#06281c}
+.pgopts button.del{background:#FADBD8; color:#B23A3A}
 .pg.pv{box-shadow:0 0 0 2px #E0B84B inset}
 .pg.on{background:#3FAE6F; color:#fff} .pg.old{background:#F08A4B; color:#fff}
 .hm-detail{margin-top:10px; font-size:13px; font-weight:700; text-align:center}
@@ -2170,7 +2177,7 @@ function studentInsights(s, det){
   }
   if(pts.length<2){ const c = pts[0] ? pts[0].cum : (s.points||0); pts = [{w:null, cum:pts[0] ? pts[0].cum-pts[0].d : 0, d:0}, pts[0] || {w:today, cum:c, d:0}]; }
   return {
-    sid:s.id, canEdit: canEditBranch(s.branchId) && canDo('editStudent'), prevSel:new Set(s.prevJuz||[]), prevList: prevEntries(s),
+    sid:s.id, canEdit: canEditBranch(s.branchId) && canDo('editStudent'), prevSel:new Set(s.prevJuz||[]), prevList: prevEntries(s), partial: s.prevPartial||{},
     points:s.points||0, rankTxt: mates.length>1 && ri>=0 ? 'المرتبة '+(ri+1)+' من '+mates.length+' بشعبته' : 'مجموع نقاطك الإجمالي',
     attPct: A.length ? Math.round(att/A.length*100) : 0, attTxt: A.length ? 'سجل '+att+' من '+A.length+' مواعيد' : 'لا يوجد سجل حضور بعد',
     exPct: max ? Math.min(100, Math.round(got/max*100)) : 0, exTxt: 'سجل '+n+' ورد (حفظ ومراجعة وسرد)',
@@ -2251,21 +2258,28 @@ function pgRemove(list, p){
   });
   return out;
 }
-let pgBusy = false;
-async function pgTap(p){
+let pgBusy = false, pgSel = 0;
+function pgTap(p){
   const I = profIns; if(!I || !I.canEdit || pgBusy) return;
-  let list;
-  if(I.prevPages.has(p)){
-    if(!confirm('هذه الصفحة ('+p+') محسوبة كحفظ مسبق. هل تريد حذفها من الحفظ المسبق؟')) return;
-    list = pgRemove(I.prevList, p);
-  } else if(I.wirdPages.has(p)){
-    alert('هذه الصفحة محسوبة من ورد مسجّل، وتتعدّل من جدول الأوراد.'); return;
-  } else list = pgAdd(I.prevList, p);
+  if(I.wirdPages.has(p) && !I.prevPages.has(p)){ alert('هذه الصفحة محسوبة من ورد مسجّل، وتتعدّل من جدول الأوراد.'); return; }
+  pgSel = pgSel===p ? 0 : p; hmapRefresh();
+}
+async function pgSet(p, v){
+  const I = profIns; if(!I || pgBusy) return;
+  const full = I.prevPages.has(p), part = {...(I.partial||{})}; let list = I.prevList;
+  if(v===1){ if(!full) list = pgAdd(list, p); delete part[p]; }
+  else if(v===0){
+    if(full){ if(!confirm('هذه الصفحة ('+p+') محسوبة كحفظ مسبق كامل. هل تريد حذفها؟')) return; list = pgRemove(list, p); }
+    delete part[p];
+  } else {
+    if(full){ if(!confirm('هذه الصفحة محسوبة كاملة. تحويلها لجزئية بيشيلها من الحساب. هل تريد المتابعة؟')) return; list = pgRemove(list, p); }
+    part[p] = v;
+  }
   pgBusy = true;
   try{
-    await updateDoc(doc(db,'students',I.sid), {prevMem:list});
-    const s = findStudent(I.sid); s.prevMem = list;
-    const ni = studentInsights(s, cache.details[I.sid]||{}); ni.sel = I.sel; profIns = ni;
+    await updateDoc(doc(db,'students',I.sid), {prevMem:list, prevPartial:part});
+    const st = findStudent(I.sid); st.prevMem = list; st.prevPartial = part;
+    const ni = studentInsights(st, cache.details[I.sid]||{}); ni.sel = I.sel; profIns = ni; pgSel = 0;
     const card = document.querySelector('.hm-card'); if(card) card.outerHTML = hmCardHTML(profIns);
   }catch(e){ alert('تعذّر الحفظ: '+e.message); }
   pgBusy = false;
@@ -2290,21 +2304,24 @@ function hmapBody(){
   for(let pg=pa; pg<=pb; pg++){
     let cls = '';
     if(I.mem.has(pg)) cls = (hmMode==='rev' && !(I.lastRev[pg] && I.lastRev[pg]>=I.cutoff)) ? 'old' : 'on';
-    strip += `<div class="pg ${cls} ${I.prevPages.has(pg)?'pv':''} ${I.canEdit?'tap':''}" ${I.canEdit?`onclick="window.pgTap(${pg})"`:''}>${pg}</div>`;
+    const pf = (!I.mem.has(pg) && I.partial[pg]) ? Number(I.partial[pg]) : 0;
+    const sty = pf ? `style="background:linear-gradient(to top,#8FD3A9 ${Math.round(pf*100)}%,#EEF0F2 ${Math.round(pf*100)}%)"` : '';
+    strip += `<div class="pg ${cls} ${pf?'pp':''} ${I.prevPages.has(pg)?'pv':''} ${pg===pgSel?'sel':''} ${I.canEdit?'tap':''}" ${sty} ${I.canEdit?`onclick="window.pgTap(${pg})"`:''}>${pg}</div>`;
   }
   const legend = hmMode==='mem' ? 'التعبئة = نسبة الصفحات المنجزة · ذهبي: جزء مكتمل' : 'التعبئة = نسبة المنجز · أخضر: روجع مؤخرًا · أصفر: يحتاج مراجعة · برتقالي: مهمل (أكثر من شهر)';
   const edit = pmPanel(I);
   return `<div class="seg" style="margin-top:12px"><button class="${hmMode==='mem'?'active':''}" onclick="window.hmapSetMode('mem')">المحفوظ</button><button class="${hmMode==='rev'?'active':''}" onclick="window.hmapSetMode('rev')">حداثة المراجعة</button></div>
   <div class="hm-grid">${cells}</div>
-  <div class="hm-detail">جزء ${j}: ${ji.total} صفحة · أُنجز ${ji.got} · متبقّي ${ji.total-ji.got}${hmMode==='rev' && ji.got ? ' · روجعت '+ji.fresh+' خلال آخر 30 يومًا' : ''}</div>
+  <div class="hm-detail">جزء ${j}: ${ji.total} صفحة · أُنجز ${ji.got} · متبقّي ${ji.total-ji.got}${hmMode==='rev' && ji.got ? ' · روجعت '+ji.fresh+' خلال آخر 30 يومًا' : ''}${(()=>{ const pc = Object.keys(I.partial||{}).filter(k=>+k>=pa && +k<=pb && !I.mem.has(+k)).length; return pc ? ' · '+pc+' صفحة ناقصة (غير محسوبة)' : ''; })()}</div>
   <div class="pg-strip">${strip}</div>
-  ${I.canEdit ? `<div class="hm-legend">اضغط على أي صفحة لاعتمادها حفظًا مسبقًا · الإطار الذهبي = حفظ مسبق · ضغطة ثانية للحذف</div>` : ''}
+  ${I.canEdit ? `<div class="hm-legend">اضغط على صفحة لتحديد مقدار حفظها · إطار ذهبي = حفظ مسبق كامل · إطار متقطع = ناقصة (غير محسوبة)</div>` : ''}
+  ${(I.canEdit && pgSel>=pa && pgSel<=pb) ? `<div class="pgpanel"><div class="row-title" style="font-size:13px">صفحة ${pgSel} — الحالة: ${I.prevPages.has(pgSel) ? 'كاملة (حفظ مسبق)' : I.partial[pgSel] ? 'ناقصة ('+({'0.33':'ثلث','0.5':'نصف','0.67':'ثلثين'}[String(I.partial[pgSel])]||'جزء')+') — غير محسوبة' : 'غير مسجّلة'}</div><div class="pgopts"><button onclick="window.pgSet(${pgSel},0.33)">ثلث</button><button onclick="window.pgSet(${pgSel},0.5)">نصف</button><button onclick="window.pgSet(${pgSel},0.67)">ثلثين</button><button class="full" onclick="window.pgSet(${pgSel},1)">كاملة</button><button class="del" onclick="window.pgSet(${pgSel},0)">مسح</button></div></div>` : ''}
   <div class="hm-legend">${legend}</div>
   <div class="hm-fc">${I.fc}</div>${edit}`;
 }
 function hmapRefresh(){ const el = document.getElementById('hm-body'); if(el) el.innerHTML = hmapBody(); }
 function hmapSetMode(m){ hmMode = m; hmapRefresh(); }
-function hmapPick(j){ profIns.sel = j; hmapRefresh(); }
+function hmapPick(j){ profIns.sel = j; pgSel = 0; hmapRefresh(); }
 function hmapEditToggle(){ hmEdit = !hmEdit; hmapRefresh(); }
 function hmapPrev(j){ const S = profIns.prevSel; if(S.has(j)) S.delete(j); else S.add(j); hmapRefresh(); }
 async function hmapSaveBase(){
@@ -2345,7 +2362,7 @@ function juzRing(memPages){
   return `<svg viewBox="0 0 100 100" width="96" height="96" style="flex-shrink:0"><circle cx="50" cy="50" r="40" fill="none" stroke="#EEF0F2" stroke-width="10"/><circle class="jr" cx="50" cy="50" r="40" fill="none" stroke="#E0B84B" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-frac)}" style="--c:${C}" transform="rotate(-90 50 50)"/><text x="50" y="47" text-anchor="middle" dominant-baseline="central" font-size="22" font-weight="900" fill="#0f7a44">${jz}</text><text x="50" y="66" text-anchor="middle" font-size="8.5" fill="#7a8794">من 30 جزء</text></svg>`;
 }
 function studentDashboard(s, det){
-  if(!profIns || profIns.sid!==s.id) pmOpen = false;
+  if(!profIns || profIns.sid!==s.id){ pmOpen = false; pgSel = 0; }
   const I = studentInsights(s, det); profIns = I; hmMode = 'mem'; hmEdit = false;
   const num = (v,suf) => `<span data-cnt="${v}" data-suf="${suf||''}">${Number(v).toLocaleString('en')}${suf||''}</span>`;
   const L = I.last;
@@ -3044,7 +3061,7 @@ async function accountView(){
   return html;
 }
 
-Object.assign(window, {saveWirdEdit, prApply, exportReport, exportRun, pgTap, pmToggle, pmKind, pmEditStart, pmDelete, pmSubmit, wfAddSeg, wfRemoveSeg, payAddToggle, payDown, payUp, payCancel, payAll, payAddMonth, payDelMonth, savePayGrid: savePayGrid, setBranchDay, hmapSetMode, hmapPick, hmapEditToggle, hmapPrev, hmapSaveBase, growthTip, dpChange, gridTap, gridAll, gridGo, gridAddMonth, gridAddDate, saveGrid, presAuto, presVs, openPresent, presSet, presRestart, presFull, presStep, presClose: closePresent, pickEntityPhoto, removeEntityPhoto, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
+Object.assign(window, {pgSet, saveWirdEdit, prApply, exportReport, exportRun, pgTap, pmToggle, pmKind, pmEditStart, pmDelete, pmSubmit, wfAddSeg, wfRemoveSeg, payAddToggle, payDown, payUp, payCancel, payAll, payAddMonth, payDelMonth, savePayGrid: savePayGrid, setBranchDay, hmapSetMode, hmapPick, hmapEditToggle, hmapPrev, hmapSaveBase, growthTip, dpChange, gridTap, gridAll, gridGo, gridAddMonth, gridAddDate, saveGrid, presAuto, presVs, openPresent, presSet, presRestart, presFull, presStep, presClose: closePresent, pickEntityPhoto, removeEntityPhoto, capGroupToggle, goto, logout, doSignIn, doActivate, doForgotPassword, setLoginMode, selectSeg, filterDirectory, filterBranchStudents, quickAddBranch, deleteBranch, submitAddStudent, toggleInviteExtra, submitInvite, saveWird, recordAttendance, recordTajweed, deleteAttRecord, toggleSupBranch, toggleSupCapability, deleteSupervisor, toggleEditMode, openEdit, cancelEdit, saveEditContent, handleAvatarFile, addPlanLevel, submitEditStudent, deleteStudentFully, savePayment, submitPointsAdjust, addPhoneRow, filterSurah, pickSurah, filterAyah, pickAyah, deleteWird, toggleTajweedLevel, filterQuickStudents, saveSupProfile, toggleSupTajweed});
 </script>
 </body>
 </html>
