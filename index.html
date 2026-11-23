@@ -719,6 +719,35 @@ html[data-theme=dark] .rp-sheet table,html[data-theme=dark] .rp-t{background:#ff
 .pr-prog-track i{display:block;height:100%;width:0;border-radius:4px;background:linear-gradient(90deg,var(--p-acc,#E4C690),color-mix(in srgb,var(--p-acc,#E4C690) 55%,#fff));box-shadow:0 0 10px var(--p-acc,#E4C690);margin-inline-start:0}
 #pr-prog-t{font-size:12px;opacity:.65;letter-spacing:.2px;font-variant-numeric:tabular-nums}
 </style>
+<style>
+.pr-top{flex-wrap:nowrap!important;padding:calc(8px + env(safe-area-inset-top)) 14px 6px!important}
+.pr-title{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.pr-ctrls{flex-wrap:nowrap!important;gap:6px!important}
+.pr-ib{position:relative;width:40px;height:40px;padding:0!important;border-radius:12px!important;display:inline-flex!important;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;background:rgba(var(--p-ov,255,255,255),.12);color:var(--p-fg,#fff);border:1px solid rgba(var(--p-ov,255,255,255),.25)}
+.pr-ib svg{display:block}
+.pr-ib select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px}
+.pr-ib:focus-within{outline:2px solid var(--p-acc,#E4C690);outline-offset:2px}
+.pr-stage{justify-content:flex-start!important}
+.pr-slide{margin-block:auto}
+@media (max-width:430px){.pr-title{display:none}.pr-ctrls{width:100%;justify-content:space-between}}
+@media (max-width:600px){
+  .pr-stage{padding:6px 14px 10px!important}
+  .pr-cards{grid-template-columns:repeat(2,1fr)!important;gap:10px!important}
+  .pr-card{padding:14px 8px!important;border-radius:16px!important}
+  .pr-num{font-size:clamp(28px,9vw,42px)!important}
+  .pr-h{font-size:clamp(22px,6.5vw,30px)!important}
+  .pr-sub{margin:4px 0 14px!important}
+}
+</style>
+<style>
+.br-save{position:sticky;top:calc(env(safe-area-inset-top) + 66px);z-index:20;margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:14px;background:var(--card);border:1.5px solid var(--green);box-shadow:0 8px 20px -12px rgba(0,0,0,.35);animation:prIn .3s ease both}
+.br-save>span{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13.5px;color:var(--text)}
+.br-save>div{display:flex;gap:8px}
+.br-save button{display:inline-flex;align-items:center;gap:5px;border-radius:10px;padding:8px 14px;font-family:inherit;font-weight:800;font-size:14px;cursor:pointer;border:1px solid var(--border)}
+.br-save-x{background:var(--card);color:var(--text-muted)}
+.br-save-ok{background:var(--green);color:#fff;border-color:var(--green)!important}
+.br-save.ok{border-color:#2e9e5b;color:#2e9e5b}.br-save.ok>span{color:#1f7a45}
+</style>
 </head>
 <body>
 <div id="app"><div class="spin"></div></div>
@@ -1860,14 +1889,14 @@ async function openPresent(period, bid){
   pres = {period: period||'week', bid: bid || presDefaultBranch(), slide:0, data:null, gen:0, auto:false, autoT:null, vsA:null, vsB:null};
   const el = document.createElement('div'); el.id = 'present'; el.dir = 'rtl';
   el.innerHTML = `<div class="pr-top">
-    <b style="font-size:16px">شعبة الحفاظ</b>
+    <b class="pr-title">شعبة الحفاظ</b>
     <div class="pr-ctrls">
-      <select id="pr-scope" onchange="window.presSet()">${cache.branches.filter(b=>canEditBranch(b.id)).map(b=>`<option value="${b.id}" ${b.id===pres.bid?'selected':''}>شعبة ${b.name}</option>`).join('')}${cache.branches.length>1?`<option value="cmp" ${pres.bid==='cmp'?'selected':''}>مقارنة الشعب</option>`:''}</select>
-      <select id="pr-period" onchange="window.presSet()">${Object.entries(PRES_PERIODS).map(([k,v])=>`<option value="${k}" ${k===pres.period?'selected':''}>${v}</option>`).join('')}</select>
-      <button id="pr-auto" class="pr-auto" onclick="window.presAuto()"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M7 4.5v15l12.5-7.5z"/></svg><span>تشغيل تلقائي</span></button>
-      <button onclick="window.presRestart()">إعادة الحركة</button>
-      <button onclick="window.presFull()">ملء الشاشة</button>
-      <button onclick="window.presClose()">✕</button>
+      <label class="pr-ib" title="اختيار الشعبة" aria-label="اختيار الشعبة">${icon('building',19)}<select id="pr-scope" onchange="window.presSet()">${cache.branches.filter(b=>canEditBranch(b.id)).map(b=>`<option value="${b.id}" ${b.id===pres.bid?'selected':''}>شعبة ${b.name}</option>`).join('')}${cache.branches.length>1?`<option value="cmp" ${pres.bid==='cmp'?'selected':''}>مقارنة الشعب</option>`:''}</select></label>
+      <label class="pr-ib" title="الفترة" aria-label="الفترة"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><select id="pr-period" onchange="window.presSet()">${Object.entries(PRES_PERIODS).map(([k,v])=>`<option value="${k}" ${k===pres.period?'selected':''}>${v}</option>`).join('')}</select></label>
+      <button id="pr-auto" class="pr-ib pr-auto" title="تشغيل تلقائي" aria-label="تشغيل تلقائي" onclick="window.presAuto()">${PR_PLAY}</button>
+      <button class="pr-ib" title="إعادة الحركة" aria-label="إعادة الحركة" onclick="window.presRestart()"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
+      <button class="pr-ib" title="ملء الشاشة" aria-label="ملء الشاشة" onclick="window.presFull()"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      <button class="pr-ib" title="إغلاق" aria-label="إغلاق" onclick="window.presClose()"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div></div>
     <div class="pr-stage" id="pr-stage"><div class="pr-sub">جارٍ التحميل...</div></div>
     <div class="pr-prog" id="pr-prog"><div class="pr-prog-track"><i id="pr-prog-bar"></i></div><span id="pr-prog-t"></span></div>
@@ -1897,12 +1926,12 @@ function presRestart(){ if(pres && pres.data) presRender(); }
 function presVs(){ if(!pres) return; pres.vsA = document.getElementById('vs-a').value; pres.vsB = document.getElementById('vs-b').value; presRender(); }
 function presFull(){ const el = document.getElementById('present'); if(!el) return; if(document.fullscreenElement) document.exitFullscreen(); else if(el.requestFullscreen) el.requestFullscreen(); }
 const PRES_AUTO_MS = 9000;
-const PR_PLAY = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M7 4.5v15l12.5-7.5z"/></svg>', PR_PAUSE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1.2"/><rect x="14" y="4.5" width="4" height="15" rx="1.2"/></svg>';
+const PR_PLAY = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M7 4.5v15l12.5-7.5z"/></svg>', PR_PAUSE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1.2"/><rect x="14" y="4.5" width="4" height="15" rx="1.2"/></svg>';
 function presAuto(){
   if(!pres) return;
   pres.auto = !pres.auto;
   const b = document.getElementById('pr-auto');
-  b.innerHTML = pres.auto ? PR_PAUSE+'<span>إيقاف مؤقت</span>' : PR_PLAY+'<span>تشغيل تلقائي</span>';
+  b.innerHTML = pres.auto ? PR_PAUSE : PR_PLAY; b.title = b.ariaLabel = pres.auto ? 'إيقاف مؤقت' : 'تشغيل تلقائي';
   b.classList.toggle('on', pres.auto);
   presAutoArm();
 }
@@ -2137,7 +2166,10 @@ function presRender(){
 
 /* ===== ثيم الشعبة: كل الواجهة (الترويسة، الأزرار، الأيقونات) بلون الشعبة المفتوحة ===== */
 let BR_CSS_SRC = null;
-const BR_GREENS = /rgba?\((?:15, 123, 62|9, 128, 70|23, 132, 63|37, 168, 98|20, 101, 58|10, 59, 34|11, 94, 47|6, 83, 46)[,)]/;
+// كل درجات الأخضر المستخدمة في الوضع الفاتح والداكن (بصيغة rgb كما يكتبها المتصفح)
+const BR_KEYS = ['15, 123, 62','9, 128, 70','23, 132, 63','37, 168, 98','20, 101, 58','10, 59, 34','11, 94, 47','6, 83, 46',
+  '127, 214, 160','139, 224, 177','61, 190, 122','46, 122, 82','31, 107, 69','26, 143, 75','22, 53, 31','23, 48, 31','19, 51, 35','17, 42, 27','11, 61, 34','4, 24, 13'];
+const BR_GREENS = new RegExp('rgba?\\((?:'+BR_KEYS.join('|')+')[,)]');
 function brThemeSrc(){
   if(BR_CSS_SRC!==null) return BR_CSS_SRC;
   const out = [];
@@ -2168,11 +2200,16 @@ function brApplyTheme(){
   let pr = c, t = 0; while(brContrast(pr)<4.5 && t<.8){ t += .04; pr = rgbMix(c,[0,0,0],t); }
   const dk = rgbMix(pr,[0,0,0],.3), tint = rgbMix(c,[255,255,255],.85), h1 = light ? rgbMix(c,[0,0,0],.06) : rgbMix(c,[255,255,255],.1), h2 = light ? rgbMix(c,[0,0,0],.32) : rgbMix(c,[0,0,0],.45);
   const dm = rgbMix(c,[255,255,255],.3), dmt = rgbMix(c,[14,19,17],.8), R = x=>x.join(', ');
-  const map = {'15, 123, 62':pr, '9, 128, 70':pr, '23, 132, 63':rgbMix(pr,[255,255,255],.1), '37, 168, 98':h1, '20, 101, 58':h1, '10, 59, 34':h2, '11, 94, 47':dk, '6, 83, 46':dk};
-  const css = brThemeSrc().replace(/rgb(a?)\((15, 123, 62|9, 128, 70|23, 132, 63|37, 168, 98|20, 101, 58|10, 59, 34|11, 94, 47|6, 83, 46)([,)])/g, (m,a,k,e)=>'rgb'+a+'('+R(map[k])+e);
+  const BG = [14,19,17], la = rgbMix(c,[255,255,255], light ? .25 : .5), dh1 = rgbMix(c,[0,0,0],.35), dh2 = rgbMix(c,[0,0,0],.72);
+  const map = {'15, 123, 62':pr, '9, 128, 70':pr, '23, 132, 63':rgbMix(pr,[255,255,255],.1), '37, 168, 98':h1, '20, 101, 58':h1, '10, 59, 34':h2, '11, 94, 47':dk, '6, 83, 46':dk,
+    // الوضع الداكن
+    '127, 214, 160':la, '139, 224, 177':la, '61, 190, 122':la, '46, 122, 82':rgbMix(c,BG,.35), '31, 107, 69':rgbMix(c,BG,.4), '26, 143, 75':pr,
+    '22, 53, 31':rgbMix(c,BG,.78), '23, 48, 31':rgbMix(c,BG,.8), '19, 51, 35':rgbMix(c,BG,.8), '17, 42, 27':rgbMix(c,BG,.84), '11, 61, 34':rgbMix(c,[0,0,0],.68), '4, 24, 13':rgbMix(c,[0,0,0],.88)};
+  const css = brThemeSrc().replace(new RegExp('rgb(a?)\\(('+BR_KEYS.join('|')+')([,)])','g'), (m,a,k,e)=>'rgb'+a+'('+R(map[k])+e);
   el.textContent = css + `
 :root{--green:${rgbCss(pr)};--green-dark:${rgbCss(dk)};--green-tint:${rgbCss(tint)}}
-[data-theme=dark]{--green:${rgbCss(dm)};--green-tint:${rgbCss(dmt)}}
+html[data-theme=dark],html[data-theme=dark] body{--green:${rgbCss(la)}!important;--green-tint:${rgbCss(dmt)}!important}
+html[data-theme=dark] .topbar{background:linear-gradient(145deg,${rgbCss(dh1)},${rgbCss(dh2)})!important}
 .topbar{background:linear-gradient(145deg,${rgbCss(h1)},${rgbCss(h2)})!important;box-shadow:0 8px 18px -10px rgba(${R(h2)},.5)!important}
 .topbar img{filter:drop-shadow(0 1px 2px rgba(0,0,0,${light?'.35':'.15'}))}`;
   document.documentElement.setAttribute('data-br', id);
@@ -2186,6 +2223,7 @@ async function render(){
   document.body.classList.remove('login-bg');
   const rk = state.view+'|'+JSON.stringify(state.params||{}), same = rk===window.__rk, y0 = same ? window.scrollY : 0; window.__rk = rk; const sp = skipSpin || same; skipSpin = false;
   if(!sp) app.innerHTML = renderTopbar() + `<div class="page"><div class="spin"></div></div>` + renderBottomNav();
+  if(!BR_DRAFT_VIEWS.includes(state.view) || (brDraft && state.params && brDraft.id!==state.params.id)) brDraft = null;
   const html = await renderView();
   try{ brApplyTheme(); }catch(e){}
   app.innerHTML = renderTopbar() + `<div class="${state.editMode?'edit-mode':''}"><div class="page">${html}</div></div>` + renderBottomNav();
@@ -2628,6 +2666,47 @@ async function deleteBranch(bid){
   const bak=cache.branches;
   undoDelete('تم حذف الشعبة', ()=>{ cache.branches=bak.filter(x=>x.id!==bid); goto('adminBranches'); }, ()=>{ cache.branches=bak; goto('adminBranches'); }, async()=>{ await deleteDoc(doc(db,'branches',bid)); await loadBranches(); });
 }
+let brDraft = null;
+const BR_DRAFT_VIEWS = ['branchDetail','branchAttendance'];
+function brSaveBar(b){
+  const dirty = state.role==='admin' && brDraft && brDraft.id===b.id && Object.keys(brDraft).length>1;
+  const saved = window.__brSaved && Date.now()-window.__brSaved<3500;
+  return dirty ? `<div class="br-save"><span>${icon('pencil',15)} تغييرات غير محفوظة</span><div><button class="br-save-x" onclick="window.brDraftCancel()">إلغاء</button><button class="br-save-ok" onclick="window.brDraftSave()">${icon('check',15)} حفظ</button></div></div>`
+    : saved ? `<div class="br-save ok"><span>${icon('check',15)} تم حفظ التغييرات</span></div>` : '';
+}
+const brKey = k => k==='attendance' ? 'att' : k==='tajweed' ? 'taj' : k;
+function brVal(b, k){
+  const d = brDraft && brDraft.id===b.id ? brDraft : {}, kk = brKey(k);
+  if(kk==='color') return d.color || colorOfBranch(b.id);
+  return d[kk]!=null ? Number(d[kk]) : dayOn(b, k, todayStr());
+}
+function brDraftSet(id, k, v){
+  const b = getBranch(id); if(!b) return;
+  if(!brDraft || brDraft.id!==id) brDraft = {id};
+  const kk = brKey(k), cur = kk==='color' ? colorOfBranch(id).toUpperCase() : dayOn(b, k, todayStr());
+  const val = kk==='color' ? String(v).toUpperCase() : Number(v);
+  if(kk==='color' && !isHex(val)) return;
+  if(val===cur) delete brDraft[kk]; else brDraft[kk] = val;
+  render();
+}
+function brDraftCancel(){ brDraft = null; render(); }
+async function brDraftSave(){
+  if(!brDraft) return;
+  const d = brDraft, b = getBranch(d.id), today = todayStr(), upd = {};
+  if(d.color) upd.color = d.color;
+  const hd = b.dayHistory || {}, hist = {attendance:[...(hd.attendance||[])], tajweed:[...(hd.tajweed||[])]};
+  let dayCh = false;
+  [['att','attendance'],['taj','tajweed']].forEach(([k,kind])=>{
+    if(d[k]==null) return; const n = Number(d[k]); if(n===dayOn(b,kind,today)) return;
+    const h = hist[kind]; if(!h.length) h.push({from:'0000-00-00', day:branchDefaultDay(b)});
+    const last = h[h.length-1]; if(last.from===today) last.day = n; else h.push({from:today, day:n}); dayCh = true;
+  });
+  if(dayCh){ if(!await uiConfirm('تغيير يوم الدوام يسري من اليوم، ولا يؤثر على الأيام والأشهر السابقة. حفظ التغييرات؟')) return; upd.dayHistory = hist; }
+  if(!Object.keys(upd).length){ brDraft = null; render(); return; }
+  try{ await updateDoc(doc(db,'branches',d.id), upd); await loadBranches(); brDraft = null; window.__brSaved = Date.now(); render(); setTimeout(()=>{ if(BR_DRAFT_VIEWS.includes(state.view) && !brDraft) render(); }, 3600); }
+  catch(e){ alert('تعذّر الحفظ: '+e.message); }
+}
+Object.assign(window, {brDraftSet, brDraftCancel, brDraftSave});
 async function setBranchColor(id, c){
   if(!isHex(c)) return;
   try{ await updateDoc(doc(db,'branches',id), {color:c.toUpperCase()}); await loadBranches(); render(); }
@@ -2798,7 +2877,7 @@ async function branchAttendanceView(){
   setTimeout(()=>{ const el = document.querySelector('.ag-mb.on'); if(el && el.scrollIntoView) el.scrollIntoView({inline:'center', block:'nearest'}); }, 120);
   return back + `
   ${kinds.length>1? `<div class="seg" style="margin-top:14px">${kinds.map(k=>`<button class="${k[0]===kind?'active':''}" onclick="window.gridGo('${k[0]}','${month}')">${k[1]}</button>`).join('')}</div>` : ''}
-  ${state.role==='admin' ? `<div class="field" style="margin-top:12px"><label>يوم دوام ${kind==='attendance'?'المواعيد':'التجويد'} للشعبة (يسري من اليوم)</label><select onchange="window.setBranchDay('${b.id}','${kind}',this.value)">${AR_DAYS.map((n,i)=>`<option value="${i}" ${dayOn(b,kind,today)===i?'selected':''}>${n}</option>`).join('')}</select></div>` : ''}
+  ${state.role==='admin' ? `${brSaveBar(b)}<div class="field" style="margin-top:12px"><label>يوم دوام ${kind==='attendance'?'المواعيد':'التجويد'} للشعبة (يسري من اليوم)</label><select onchange="window.brDraftSet('${b.id}','${kind}',this.value)">${AR_DAYS.map((n,i)=>`<option value="${i}" ${brVal(b,kind)===i?'selected':''}>${n}</option>`).join('')}</select></div>` : ''}
   <div class="ag-months">${years.map(y=>`<button class="ag-mb ${y===selYear?'on':''}" onclick="window.gridGo('${kind}','${pickMonth(y)}')">${y}</button>`).join('')}</div>
   <div class="ag-months" style="margin-top:2px">${months.filter(m=>m.startsWith(selYear)).map(m=>`<button class="ag-mb ${m===month?'on':''}" onclick="window.gridGo('${kind}','${m}')"><div>${monthLabel(m,false)}</div><div style="font-size:12px; opacity:.75; margin-top:2px">${hijriMonthLabel(m)}</div></button>`).join('')}${selYear===lastYear ? `<button class="ag-mb" onclick="window.gridAddMonth()">+ شهر</button>` : ''}</div>
   <div class="ag-add">${dateField('g-extra','')}<button class="btn btn-outline" onclick="window.gridAddDate()">+ موعد استثنائي</button></div>
@@ -2840,13 +2919,13 @@ function branchDetail(){
   const b = getBranch(state.params.id);
   const students = cache.students.filter(s=>s.branchId===state.params.id);
   const editable = canEditBranch(b.id);
-  return subheader('شعبة '+b.name, 'adminBranches') +
+  return subheader('شعبة '+b.name, 'adminBranches') + brSaveBar(b) +
   (!editable && state.role==='supervisor' ? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:14px">${icon('eye',14)} عرض فقط — لا تملك صلاحية تعديل هذه الشعبة</div>` : '') + `
   <div style="display:flex; flex-direction:column; align-items:center; margin-top:14px">${entityAvatar(72, b.photo, b.name, 'branch', b.id, state.role==='admin')}${b.photo && state.role==='admin' ? `<div class="row-sub" style="cursor:pointer; margin-top:6px; color:#B23A3A" onclick="window.removeEntityPhoto('branch','${b.id}')">إزالة الصورة</div>` : ''}</div>
-  ${state.role==='admin' ? [['attendance','المواعيد'],['tajweed','التجويد']].map(([k,l])=>`<div class="field" style="margin-top:12px"><label>يوم دوام ${l} (يسري من اليوم)</label><select onchange="window.setBranchDay('${b.id}','${k}',this.value)">${AR_DAYS.map((n,i)=>`<option value="${i}" ${dayOn(b,k,todayStr())===i?'selected':''}>${n}</option>`).join('')}</select></div>`).join('') : ''}
+  ${state.role==='admin' ? [['attendance','المواعيد'],['tajweed','التجويد']].map(([k,l])=>`<div class="field" style="margin-top:12px"><label>يوم دوام ${l} (يسري من اليوم)</label><select onchange="window.brDraftSet('${b.id}','${k}',this.value)">${AR_DAYS.map((n,i)=>`<option value="${i}" ${brVal(b,k)===i?'selected':''}>${n}</option>`).join('')}</select></div>`).join('') : ''}
   ${state.role==='admin' ? `<div class="field" style="margin-top:12px"><label>لون الشعبة (يُستخدم في النقاط والإنجازات والعرض، والتدرّج يُصنع تلقائيًا)</label>
-    <div class="br-sw">${BRANCH_COLORS.map(c=>`<button type="button" aria-label="${c}" class="${c.toLowerCase()===colorOfBranch(b.id).toLowerCase()?'on':''}" style="background:${c}" onclick="window.setBranchColor('${b.id}','${c}')"></button>`).join('')}<label class="br-custom" title="لون آخر">${icon('plus',16)}<input type="color" value="${colorOfBranch(b.id)}" onchange="window.setBranchColor('${b.id}',this.value)"></label></div>
-    <div class="br-prev">${[0,1,2,3,4].map(i=>{ const t = ptsTone(b.id,i,5); return `<span style="background:${t[0]};color:${t[1]}">${i+1}</span>`; }).join('')}</div></div>` : ''}
+    <div class="br-sw">${BRANCH_COLORS.map(c=>`<button type="button" aria-label="${c}" class="${c.toLowerCase()===brVal(b,'color').toLowerCase()?'on':''}" style="background:${c}" onclick="window.brDraftSet('${b.id}','color','${c}')"></button>`).join('')}<label class="br-custom" title="لون آخر">${icon('plus',16)}<input type="color" value="${brVal(b,'color')}" onchange="window.brDraftSet('${b.id}','color',this.value)"></label></div>
+    <div class="br-prev">${[0,1,2,3,4].map(i=>{ const t = ptsTone(b.id,i,5,brVal(b,'color')); return `<span style="background:${t[0]};color:${t[1]}">${i+1}</span>`; }).join('')}</div></div>` : ''}
   <div class="stat-card" style="margin-top:16px; text-align:center"><div class="stat-num">${students.length}</div><div class="stat-label">عدد الطلاب</div></div>
   ${editable && (canDo('attendance')||canDo('tajweed')) ? `<button class="btn btn-primary" style="margin-top:12px" onclick="window.goto('branchAttendance',{id:'${b.id}',fresh:1})">${icon('check',16)} تسجيل الحضور للشعبة</button>` : ''}
   ${canPay() && editable ? `<button class="btn btn-outline" style="margin-top:10px" onclick="window.goto('branchPayments',{id:'${b.id}',fresh:1})">${icon('briefcase',16)} جدول الدفع للشعبة</button>` : ''}
@@ -3572,8 +3651,8 @@ const rgbMix = (a,b,t) => a.map((v,k)=>Math.round(v+(b[k]-v)*t));
 const rgbLum = c => (0.299*c[0]+0.587*c[1]+0.114*c[2])/255;
 const rgbCss = c => 'rgb('+c.join(',')+')';
 // تدرّج تلقائي من لون الشعبة: اللون نفسه للأول ← فاتح جدًا للأخير، ولون النص يُختار حسب الخلفية
-function branchRamp(id){
-  const c = hexRgb(colorOfBranch(id));
+function branchRamp(id, hex){
+  const c = hexRgb(hex && isHex(hex) ? hex : colorOfBranch(id));
   return {a:c, m:rgbMix(c,[255,255,255],.45), b:rgbMix(c,[255,255,255],.9), dk:rgbCss(rgbMix(c,[0,0,0],.72))};
 }
 function inPeriod(date, period){
@@ -3791,8 +3870,8 @@ async function achievementsHome(){
 
 let ptsBranch = null;
 const ptsMix = (R,u)=>{ u=Math.min(1,Math.max(0,u)); const [x,y,t] = u<.5 ? [R.a,R.m,u*2] : [R.m,R.b,(u-.5)*2]; return x.map((v,k)=>v+(y[k]-v)*t); };
-function ptsTone(bid, i, n){
-  const R = branchRamp(bid), span = Math.max(n,2);
+function ptsTone(bid, i, n, hex){
+  const R = branchRamp(bid, hex), span = Math.max(n,2);
   const col = u => 'rgb('+ptsMix(R,u).map(Math.round).join(',')+')';
   const u0 = i/span, u1 = (i+1)/span, um = (i+0.5)/span;
   const m = ptsMix(R,um);
