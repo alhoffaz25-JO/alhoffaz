@@ -708,6 +708,17 @@ html[data-theme=dark] .rp-sheet table,html[data-theme=dark] .rp-t{background:#ff
 #present.pth .pr-pod-col{color:var(--p-accfg)}
 </style>
 <style>#present .tbl-wrap,#present .pr-tbl,#present .pr-tbl thead,#present .pr-tbl tr{background:transparent!important;border:0!important;box-shadow:none!important}</style>
+<style>
+.pr-auto{display:inline-flex;align-items:center;gap:7px}
+.pr-auto svg{flex-shrink:0}
+.pr-auto.on{background:rgba(var(--p-ov,255,255,255),.22)!important;border-color:var(--p-acc,#E4C690)!important}
+.pr-auto.on svg{color:var(--p-acc,#E4C690)}
+.pr-prog{display:flex;flex-direction:column;align-items:center;gap:6px;padding:0 20px;height:0;opacity:0;overflow:hidden;transition:opacity .5s ease,height .5s ease}
+.pr-prog.on{height:30px;opacity:1}
+.pr-prog-track{width:min(420px,70vw);height:4px;border-radius:4px;background:rgba(var(--p-ov,255,255,255),.15);overflow:hidden}
+.pr-prog-track i{display:block;height:100%;width:0;border-radius:4px;background:linear-gradient(90deg,var(--p-acc,#E4C690),color-mix(in srgb,var(--p-acc,#E4C690) 55%,#fff));box-shadow:0 0 10px var(--p-acc,#E4C690);margin-inline-start:0}
+#pr-prog-t{font-size:12px;opacity:.65;letter-spacing:.2px;font-variant-numeric:tabular-nums}
+</style>
 </head>
 <body>
 <div id="app"><div class="spin"></div></div>
@@ -1853,12 +1864,13 @@ async function openPresent(period, bid){
     <div class="pr-ctrls">
       <select id="pr-scope" onchange="window.presSet()">${cache.branches.filter(b=>canEditBranch(b.id)).map(b=>`<option value="${b.id}" ${b.id===pres.bid?'selected':''}>شعبة ${b.name}</option>`).join('')}${cache.branches.length>1?`<option value="cmp" ${pres.bid==='cmp'?'selected':''}>مقارنة الشعب</option>`:''}</select>
       <select id="pr-period" onchange="window.presSet()">${Object.entries(PRES_PERIODS).map(([k,v])=>`<option value="${k}" ${k===pres.period?'selected':''}>${v}</option>`).join('')}</select>
-      <button id="pr-auto" onclick="window.presAuto()">تشغيل تلقائي</button>
+      <button id="pr-auto" class="pr-auto" onclick="window.presAuto()"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M7 4.5v15l12.5-7.5z"/></svg><span>تشغيل تلقائي</span></button>
       <button onclick="window.presRestart()">إعادة الحركة</button>
       <button onclick="window.presFull()">ملء الشاشة</button>
       <button onclick="window.presClose()">✕</button>
     </div></div>
     <div class="pr-stage" id="pr-stage"><div class="pr-sub">جارٍ التحميل...</div></div>
+    <div class="pr-prog" id="pr-prog"><div class="pr-prog-track"><i id="pr-prog-bar"></i></div><span id="pr-prog-t"></span></div>
     <div class="pr-nav"><button onclick="window.presStep(-1)">${icon('chevronR',18)}</button><div id="pr-dots" style="display:flex; gap:6px"></div><button onclick="window.presStep(1)">${icon('chevronL',18)}</button></div>
     <canvas id="pr-confetti" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:2"></canvas>`;
   document.body.appendChild(el);
@@ -1868,7 +1880,7 @@ async function openPresent(period, bid){
   pres.data = presData(); presRender();
 }
 function closePresent(){
-  if(pres && pres.autoT) clearInterval(pres.autoT);
+  if(pres && pres.autoT) clearTimeout(pres.autoT); if(pres && pres.tickT) clearInterval(pres.tickT);
   const el = document.getElementById('present'); if(el) el.remove();
   if(document.fullscreenElement) document.exitFullscreen().catch(()=>{});
   document.removeEventListener('keydown', presKey); pres = null;
@@ -1884,12 +1896,31 @@ function presSet(){ if(!pres) return; pres.bid = document.getElementById('pr-sco
 function presRestart(){ if(pres && pres.data) presRender(); }
 function presVs(){ if(!pres) return; pres.vsA = document.getElementById('vs-a').value; pres.vsB = document.getElementById('vs-b').value; presRender(); }
 function presFull(){ const el = document.getElementById('present'); if(!el) return; if(document.fullscreenElement) document.exitFullscreen(); else if(el.requestFullscreen) el.requestFullscreen(); }
+const PRES_AUTO_MS = 9000;
+const PR_PLAY = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M7 4.5v15l12.5-7.5z"/></svg>', PR_PAUSE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1.2"/><rect x="14" y="4.5" width="4" height="15" rx="1.2"/></svg>';
 function presAuto(){
   if(!pres) return;
   pres.auto = !pres.auto;
-  document.getElementById('pr-auto').textContent = pres.auto ? 'إيقاف التلقائي' : 'تشغيل تلقائي';
-  if(pres.autoT){ clearInterval(pres.autoT); pres.autoT = null; }
-  if(pres.auto) pres.autoT = setInterval(()=>{ if(pres && pres.data){ pres.slide = (pres.slide+1)%PRES_SLIDES; presRender(); } }, 9000);
+  const b = document.getElementById('pr-auto');
+  b.innerHTML = pres.auto ? PR_PAUSE+'<span>إيقاف مؤقت</span>' : PR_PLAY+'<span>تشغيل تلقائي</span>';
+  b.classList.toggle('on', pres.auto);
+  presAutoArm();
+}
+// عدّاد الانتقال للشريحة التالية: شريط هادئ يمتلئ، وثوانٍ متبقية
+function presAutoArm(){
+  if(!pres) return;
+  if(pres.autoT){ clearTimeout(pres.autoT); pres.autoT = null; }
+  if(pres.tickT){ clearInterval(pres.tickT); pres.tickT = null; }
+  const box = document.getElementById('pr-prog'), bar = document.getElementById('pr-prog-bar'), tx = document.getElementById('pr-prog-t');
+  if(!box) return;
+  box.classList.toggle('on', !!pres.auto);
+  if(!pres.auto){ bar.style.transition = 'none'; bar.style.width = '0'; return; }
+  const ms = PRES_AUTO_MS, end = Date.now()+ms;
+  bar.style.transition = 'none'; bar.style.width = '0'; void bar.offsetWidth;
+  bar.style.transition = 'width '+ms+'ms linear'; bar.style.width = '100%';
+  const upd = () => { const left = Math.max(0, Math.ceil((end-Date.now())/1000)); tx.textContent = (pres.slide===PRES_SLIDES-1 ? 'العودة للبداية بعد ' : 'الشريحة التالية بعد ')+left+' ث'; };
+  upd(); pres.tickT = setInterval(upd, 250);
+  pres.autoT = setTimeout(()=>{ if(pres && pres.auto && pres.data){ pres.slide = (pres.slide+1)%PRES_SLIDES; presRender(); } }, ms);
 }
 function addDaysStr(str, n){
   const d = new Date(str+'T00:00:00'); d.setDate(d.getDate()+n);
@@ -2100,8 +2131,53 @@ function presRender(){
   document.getElementById('pr-dots').innerHTML = Array.from({length:PRES_SLIDES},(_,k)=>`<div class="pr-dot ${k===i?'on':''}"></div>`).join('');
   presAnimate(stage, gen);
   if(hook) hook();
+  if(pres.auto) presAutoArm();
 }
 
+
+/* ===== ثيم الشعبة: كل الواجهة (الترويسة، الأزرار، الأيقونات) بلون الشعبة المفتوحة ===== */
+let BR_CSS_SRC = null;
+const BR_GREENS = /rgba?\((?:15, 123, 62|9, 128, 70|23, 132, 63|37, 168, 98|20, 101, 58|10, 59, 34|11, 94, 47|6, 83, 46)[,)]/;
+function brThemeSrc(){
+  if(BR_CSS_SRC!==null) return BR_CSS_SRC;
+  const out = [];
+  for(const sh of document.styleSheets){ let rules; try{ rules = sh.cssRules; }catch(e){ continue; }
+    for(const r of rules){ const t = r.cssText; if(BR_GREENS.test(t) && !/#present|\.pr-|\.ac-br|\.hon/.test(t)) out.push(t); } }
+  return (BR_CSS_SRC = out.join('\n'));
+}
+function brCtxId(){
+  const v = state.view, P = state.params||{}, first = (cache.branches[0]||{}).id;
+  let id = null;
+  if(['branchDetail','branchAttendance','branchPayments','branchWeekly'].includes(v)) id = P.id;
+  else if(['studentProfile','wirdForm','editStudentForm','adjustPointsForm'].includes(v)){ const x = findStudent(P.id); id = x && x.branchId; }
+  else if(v==='wirdEdit'){ const x = findStudent(P.sid); id = x && x.branchId; }
+  else if(v==='achievementsHome'){ const b = P.bid!==undefined ? P.bid : first; id = b==='cmp' ? null : b; }
+  else if(v==='adminPoints') id = ptsBranch || first;
+  else if(v==='pointsReport') id = P.bid || null;
+  if(!id && state.role==='student'){ const x = findStudent(state.studentId); id = x && x.branchId; }
+  if(!id && state.role==='supervisor' && (state.branchIds||[]).length===1) id = state.branchIds[0];
+  return id && cache.branches.some(b=>b.id===id) ? id : null;
+}
+function brContrast(c){ const f = v=>{ v/=255; return v<=.03928 ? v/12.92 : Math.pow((v+.055)/1.055,2.4); }; return 1.05/(.2126*f(c[0])+.7152*f(c[1])+.0722*f(c[2])+.05); }
+function brApplyTheme(){
+  let el = document.getElementById('br-theme');
+  if(!el){ el = document.createElement('style'); el.id = 'br-theme'; document.head.appendChild(el); }
+  const id = brCtxId(), meta = document.querySelector('meta[name="theme-color"]');
+  if(!id){ el.textContent = ''; document.documentElement.removeAttribute('data-br'); if(meta) meta.setAttribute('content','#0F7B3E'); return; }
+  const c = hexRgb(colorOfBranch(id)), light = rgbLum(c)>0.6;
+  let pr = c, t = 0; while(brContrast(pr)<4.5 && t<.8){ t += .04; pr = rgbMix(c,[0,0,0],t); }
+  const dk = rgbMix(pr,[0,0,0],.3), tint = rgbMix(c,[255,255,255],.85), h1 = light ? rgbMix(c,[0,0,0],.06) : rgbMix(c,[255,255,255],.1), h2 = light ? rgbMix(c,[0,0,0],.32) : rgbMix(c,[0,0,0],.45);
+  const dm = rgbMix(c,[255,255,255],.3), dmt = rgbMix(c,[14,19,17],.8), R = x=>x.join(', ');
+  const map = {'15, 123, 62':pr, '9, 128, 70':pr, '23, 132, 63':rgbMix(pr,[255,255,255],.1), '37, 168, 98':h1, '20, 101, 58':h1, '10, 59, 34':h2, '11, 94, 47':dk, '6, 83, 46':dk};
+  const css = brThemeSrc().replace(/rgb(a?)\((15, 123, 62|9, 128, 70|23, 132, 63|37, 168, 98|20, 101, 58|10, 59, 34|11, 94, 47|6, 83, 46)([,)])/g, (m,a,k,e)=>'rgb'+a+'('+R(map[k])+e);
+  el.textContent = css + `
+:root{--green:${rgbCss(pr)};--green-dark:${rgbCss(dk)};--green-tint:${rgbCss(tint)}}
+[data-theme=dark]{--green:${rgbCss(dm)};--green-tint:${rgbCss(dmt)}}
+.topbar{background:linear-gradient(145deg,${rgbCss(h1)},${rgbCss(h2)})!important;box-shadow:0 8px 18px -10px rgba(${R(h2)},.5)!important}
+.topbar img{filter:drop-shadow(0 1px 2px rgba(0,0,0,${light?'.35':'.15'}))}`;
+  document.documentElement.setAttribute('data-br', id);
+  if(meta) meta.setAttribute('content', rgbCss(h2));
+}
 /* ================= Renderers ================= */
 async function render(){
   if(presenceInterval){ clearInterval(presenceInterval); presenceInterval=null; }
@@ -2111,6 +2187,7 @@ async function render(){
   const rk = state.view+'|'+JSON.stringify(state.params||{}), same = rk===window.__rk, y0 = same ? window.scrollY : 0; window.__rk = rk; const sp = skipSpin || same; skipSpin = false;
   if(!sp) app.innerHTML = renderTopbar() + `<div class="page"><div class="spin"></div></div>` + renderBottomNav();
   const html = await renderView();
+  try{ brApplyTheme(); }catch(e){}
   app.innerHTML = renderTopbar() + `<div class="${state.editMode?'edit-mode':''}"><div class="page">${html}</div></div>` + renderBottomNav();
   if(same) window.scrollTo(0,y0);
   if(state.view==='accountAdmin' && state.role==='admin'){
