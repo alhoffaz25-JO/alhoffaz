@@ -633,6 +633,81 @@ html[data-theme=dark] .rp-sheet table,html[data-theme=dark] .rp-t{background:#ff
 .ac-pr .ac-ring-v{height:62px;font-size:13.5px;left:0;right:0}
 .ac-star{position:absolute;top:-4px;inset-inline-start:-2px;color:#E0B84B;font-size:15px}
 </style>
+<style>
+.ac-val{margin-inline-start:auto;font-weight:900;animation:acPop .5s calc(var(--d) + .9s) both}
+.ac-track{position:relative;height:34px;margin:10px 16px 0 22px}
+.ac-lane{position:absolute;top:14px;right:0;left:0;height:6px;border-radius:6px;background:repeating-linear-gradient(90deg,var(--green-tint) 0 10px,transparent 10px 16px)}
+.ac-fill{position:absolute;top:14px;right:0;height:6px;border-radius:6px;width:var(--p);background:var(--c);animation:acFill 1.3s cubic-bezier(.25,.9,.3,1) var(--d) both}
+.ac-runner{position:absolute;top:0;right:var(--p);transform:translateX(50%);width:34px;height:34px;border-radius:50%;background:var(--c);color:#fff;font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2.5px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.25);overflow:hidden;animation:acRun 1.3s cubic-bezier(.25,.9,.3,1) var(--d) both, acHop .32s ease-in-out var(--d) 4 alternate}
+.ac-runner img{width:100%;height:100%;object-fit:cover}
+.ac-runner.lead{box-shadow:0 0 0 3px #E0B84B,0 3px 10px rgba(224,184,75,.6)}
+.ac-goal{position:absolute;top:6px;left:-22px;color:#E0B84B;animation:acPulse 1.6s ease-in-out infinite}
+@keyframes acFill{from{width:0}to{width:var(--p)}}
+@keyframes acRun{from{right:0}to{right:var(--p)}}
+@keyframes acHop{from{margin-top:0}to{margin-top:-6px}}
+@keyframes acPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.25)}}
+@keyframes acPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.ac-fill,.ac-runner,.ac-goal,.ac-val{animation:none}}
+.hon.beige{color:#3D2E17;background:linear-gradient(270deg,#BFA176,#E2D0B2)}
+.hon.beige .hon-ic{color:#7A5B30}
+.hon.beige .hon-pill{color:#3D2E17}
+</style>
+<style>
+.hon{background:linear-gradient(270deg,var(--hc,#0B5E2F),color-mix(in srgb,var(--hc,#0B5E2F) 70%,#fff))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 10px 22px -14px var(--hc,#0B5E2F)!important}
+.hon .hon-ic{color:var(--hc,#0B5E2F)}
+.hon.light{color:var(--hd)}
+.hon.light .hon-pill{color:var(--hd);background:rgba(255,255,255,.35);border-color:rgba(0,0,0,.18)}
+.br-sw{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
+.br-sw button,.br-custom{width:38px;height:38px;border-radius:50%;border:3px solid var(--card);box-shadow:0 0 0 1.5px var(--border);cursor:pointer;padding:0}
+.br-sw button.on{box-shadow:0 0 0 3px var(--text)}
+.br-custom{display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:conic-gradient(#e76f51,#e9c46a,#2a9d8f,#3d8bfd,#6c5ce7,#c2185b,#e76f51);position:relative;overflow:hidden}
+.br-custom svg{background:var(--card);border-radius:50%;padding:3px;width:22px;height:22px}
+.br-custom input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.br-prev{display:flex;margin-top:10px;border-radius:12px;overflow:hidden}
+.br-prev span{flex:1;text-align:center;padding:8px 0;font-weight:800;font-size:13px}
+</style>
+<style>
+#present.pth{background:linear-gradient(160deg,var(--p-bg1),var(--p-bg2));color:var(--p-fg)}
+#present.pth .pr-ctrls select,#present.pth .pr-ctrls button,#present.pth .pr-nav button{background:rgba(var(--p-ov),.12);color:var(--p-fg);border-color:rgba(var(--p-ov),.25)}
+#present.pth .pr-card{background:rgba(var(--p-ov),.1);border-color:rgba(var(--p-ov),.18)}
+#present.pth .pr-num,#present.pth .pr-val,#present.pth .pr-countdown,#present.pth .pr-pod-pts,#present.pth .pr-ch-v,#present.pth .pr-tbl th,#present.pth .pr-tbl td.best .pr-cv{color:var(--p-acc)!important}
+#present.pth .pr-lbl[style*="gold-light"]{color:var(--p-acc)!important}
+#present.pth .pr-rank,#present.pth .pr-vsbadge{background:var(--p-acc);color:var(--p-accfg)}
+#present.pth .pr-track,#present.pth .pr-mini{background:rgba(var(--p-ov),.14)}
+#present.pth .pr-dot{background:rgba(var(--p-ov),.3)}#present.pth .pr-dot.on{background:var(--p-acc)}
+#present.pth .pr-tbl{color:var(--p-fg)}#present.pth .pr-tbl td{background:rgba(var(--p-ov),.08)}#present.pth .pr-tbl td.pr-tn{background:rgba(var(--p-ov),.12)}
+#present.pth .pr-pod-col{background:linear-gradient(180deg,color-mix(in srgb,var(--p-acc) 70%,#fff),var(--p-acc2))}
+#present.pth .pr-val.win{color:var(--p-fg)!important}
+#present.pth .pr-delta.up{color:var(--p-up)}#present.pth .pr-delta.down{color:var(--p-dn)}
+.prc-board{display:flex;justify-content:center;align-items:center;gap:clamp(12px,5vw,56px);flex-wrap:wrap}
+.prc-team{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:130px;animation:prIn .6s ease both}
+.prc-team .pr-crown{font-size:clamp(28px,5vw,48px)}
+.prc-ic{width:clamp(84px,14vw,130px);height:clamp(84px,14vw,130px);border-radius:50%;background:var(--bc);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 7px rgba(255,255,255,.14),0 0 40px -6px var(--bc)}
+.prc-n{font-weight:900;font-size:clamp(18px,3vw,30px);margin-top:12px}
+.prc-s{opacity:.8;font-size:clamp(12px,1.8vw,18px)}
+.prc-score{font-size:clamp(54px,11vw,120px);font-weight:900;line-height:1.05;color:var(--p-acc,#E4C690)}
+.prc-cols{display:flex;justify-content:center;align-items:flex-end;gap:clamp(18px,7vw,80px);height:clamp(260px,52vh,460px)}
+.prc-col{display:flex;flex-direction:column;align-items:center;height:100%;width:clamp(72px,14vw,140px)}
+.prc-v{font-weight:900;font-size:clamp(24px,5vw,52px);color:var(--p-acc,#E4C690);white-space:nowrap}
+.prc-v.win{text-shadow:0 0 18px var(--p-acc,#E4C690)}.prc-star{margin-inline-end:6px}
+.prc-track{flex:1;width:100%;display:flex;align-items:flex-end;margin-top:8px;background:rgba(255,255,255,.08);border-radius:18px 18px 6px 6px;overflow:hidden}
+.prc-fill{width:100%;height:0;border-radius:18px 18px 6px 6px;transition:height 1.5s cubic-bezier(.2,.8,.2,1)}
+.prc-l{display:flex;align-items:center;gap:6px;margin-top:10px;font-weight:800;font-size:clamp(15px,2.4vw,24px)}.prc-l i{width:13px;height:13px;border-radius:50%}
+.prc-rings{display:grid;gap:clamp(10px,2vh,22px)}
+.prc-rr{display:flex;align-items:center;justify-content:center;gap:clamp(14px,4vw,48px);flex-wrap:wrap}
+.prc-rl{min-width:clamp(120px,22vw,220px);font-weight:900;font-size:clamp(16px,2.8vw,28px)}
+.prc-ring{position:relative;width:clamp(86px,13vw,128px)}.prc-ring svg{display:block;width:100%;height:auto}
+.prc-ring b{position:absolute;top:0;left:0;right:0;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:clamp(16px,2.8vw,28px)}
+.prc-ring small{display:block;text-align:center;font-weight:800;font-size:clamp(12px,1.9vw,18px);margin-top:4px}
+.prc-arc{transition:stroke-dashoffset 1.5s cubic-bezier(.2,.8,.2,1)}
+@media (prefers-reduced-motion:reduce){.prc-fill,.prc-arc{transition:none}.prc-team{animation:none}}
+</style>
+<style>
+.pr-cards{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))!important}
+.pr-num{font-size:clamp(30px,5.2vw,66px)!important;white-space:nowrap}
+#present.pth .pr-pod-col{color:var(--p-accfg)}
+</style>
+<style>#present .tbl-wrap,#present .pr-tbl,#present .pr-tbl thead,#present .pr-tbl tr{background:transparent!important;border:0!important;box-shadow:none!important}</style>
 </head>
 <body>
 <div id="app"><div class="spin"></div></div>
@@ -1776,7 +1851,7 @@ async function openPresent(period, bid){
   el.innerHTML = `<div class="pr-top">
     <b style="font-size:16px">شعبة الحفاظ</b>
     <div class="pr-ctrls">
-      <select id="pr-scope" onchange="window.presSet()">${cache.branches.filter(b=>canEditBranch(b.id)).map(b=>`<option value="${b.id}" ${b.id===pres.bid?'selected':''}>شعبة ${b.name}</option>`).join('')}</select>
+      <select id="pr-scope" onchange="window.presSet()">${cache.branches.filter(b=>canEditBranch(b.id)).map(b=>`<option value="${b.id}" ${b.id===pres.bid?'selected':''}>شعبة ${b.name}</option>`).join('')}${cache.branches.length>1?`<option value="cmp" ${pres.bid==='cmp'?'selected':''}>مقارنة الشعب</option>`:''}</select>
       <select id="pr-period" onchange="window.presSet()">${Object.entries(PRES_PERIODS).map(([k,v])=>`<option value="${k}" ${k===pres.period?'selected':''}>${v}</option>`).join('')}</select>
       <button id="pr-auto" onclick="window.presAuto()">تشغيل تلقائي</button>
       <button onclick="window.presRestart()">إعادة الحركة</button>
@@ -1837,6 +1912,7 @@ function presCalc(s, pred){
   return {pts, ph, pr, pages:ph+pr, c, got, max};
 }
 function presData(){
+  if(pres.bid==='cmp') return {n:0, rows:[], cur:{}, prev:null, hasPrev:false};
   const {period, bid} = pres, prevP = presPrevPred(period), curP = dt => inPeriod(dt, period);
   const rows = cache.students.filter(s=>s.branchId===bid).map(s=>{
     const cur = presCalc(s, curP); if(period==='all') cur.pts = s.points||0;
@@ -1915,7 +1991,7 @@ function presAnimate(stage, gen){
   const reduce = presReduce();
   stage.querySelectorAll('[data-count]').forEach(el=>{
     const to = Number(el.dataset.count)||0, suf = el.dataset.suffix||'', pre = el.dataset.prefix||'', delay = Number(el.dataset.delay)||0, t0 = performance.now()+delay, dur = 1400;
-    const fmt = v => pre+Math.round(v).toLocaleString('en')+suf;
+    const fmt = v => pre+(el.dataset.dec ? (Math.round(v*10)/10).toLocaleString('en') : Math.round(v).toLocaleString('en'))+suf;
     if(reduce){ el.textContent = fmt(to); return; }
     const tick = now=>{
       if(!pres || pres.gen!==gen) return;
@@ -1927,14 +2003,64 @@ function presAnimate(stage, gen){
   });
   requestAnimationFrame(()=>requestAnimationFrame(()=>{ stage.querySelectorAll('[data-w]').forEach(el=>{ el.style.width = el.dataset.w+'%'; }); }));
 }
+function presTheme(){
+  const el = document.getElementById('present'); if(!el || !pres) return;
+  let v;
+  if(pres.bid==='cmp') v = {bg1:'#3A4350', bg2:'#15191F', fg:'#ffffff', ov:'255,255,255', acc:'#E4C690', accfg:'#1C1F24', acc2:'#a8842a', up:'#5fe0a0', dn:'#ff8a80'};
+  else {
+    const c = hexRgb(colorOfBranch(pres.bid));
+    if(rgbLum(c)>0.6) v = {bg1:rgbCss(rgbMix(c,[255,255,255],.75)), bg2:rgbCss(rgbMix(c,[255,255,255],.1)), fg:rgbCss(rgbMix(c,[0,0,0],.8)), ov:'0,0,0', acc:rgbCss(rgbMix(c,[0,0,0],.5)), accfg:'#ffffff', acc2:rgbCss(rgbMix(c,[0,0,0],.66)), up:'#13804a', dn:'#B23A3A'};
+    else v = {bg1:rgbCss(rgbMix(c,[0,0,0],.28)), bg2:rgbCss(rgbMix(c,[0,0,0],.76)), fg:'#ffffff', ov:'255,255,255', acc:'#E4C690', accfg:rgbCss(rgbMix(c,[0,0,0],.76)), acc2:'#a8842a', up:'#5fe0a0', dn:'#ff8a80'};
+  }
+  pres.barC = pres.bid==='cmp' ? null : (v.ov==='0,0,0' ? v.acc : colorOfBranch(pres.bid));
+  Object.entries(v).forEach(([k,x])=>el.style.setProperty('--p-'+k, x)); el.classList.add('pth');
+}
+const PR_CROWN = '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="#E4C690"><path d="M3 18h18l1-11-5 4-5-7-5 7-5-4z"/><rect x="3" y="19.5" width="18" height="2" rx="1"/></svg>';
+// شرائح «مقارنة الشعب»
+function presCmpSlide(i, gen, per){
+  const pred = d => inPeriod(d, pres.period), prevP = presPrevPred(pres.period), isAll = pres.period==='all';
+  const rows = cache.branches.map(b=>{ const st = cache.students.filter(s=>s.branchId===b.id); const x = acStats(st, pred, isAll); x.active = x.n ? Math.round(x.reciters/x.n*100) : null; const p = prevP ? acStats(st, prevP, false) : null; return {b, color:colorOfBranch(b.id), x, p}; }).filter(r=>r.x.n);
+  const head = (t, sub) => `<div class="pr-h">${t}</div><div class="pr-sub">${sub || 'بالمعدّل لكل طالب · '+per}</div>`;
+  if(i===0) return [`<div style="text-align:center"><div class="pr-h" style="font-size:clamp(28px,6vw,64px)">مواجهة الشعب</div><div class="pr-sub">${rows.map(r=>'شعبة '+r.b.name).join(' × ')} · ${per}</div><div class="pr-countdown" id="pr-count"></div></div>`, ()=>presIntro(gen)];
+  if(rows.length<2) return [head('مواجهة الشعب','تحتاج شعبتين على الأقل فيهما طلاب'), null];
+  const ALL = [['ptsAvg','نقاط لكل طالب'],['pagesAvg','صفحات لكل طالب'],['attPct','نسبة الحضور'],['grade','متوسط التقدير'],['active','نسبة من سمّع']];
+  const wins = rows.map(()=>0);
+  ALL.forEach(([k])=>{ const mx = Math.max(...rows.map(r=>r.x[k]??-1)); if(mx>0 && rows.filter(r=>r.x[k]===mx).length===1) wins[rows.findIndex(r=>r.x[k]===mx)]++; });
+  const grow = () => presLater(gen, 80, ()=>{ document.querySelectorAll('#pr-stage [data-hh]').forEach(e=>{ e.style.height = e.dataset.hh+'%'; }); document.querySelectorAll('#pr-stage [data-o]').forEach(e=>{ e.style.strokeDashoffset = e.dataset.o; }); });
+  const cols = (k, unit) => { const mx = Math.max(...rows.map(r=>r.x[k]||0), .0001);
+    return `<div class="prc-cols">${rows.map((r,j)=>{ const v = r.x[k]||0, lead = v>0 && v===mx && rows.filter(q=>(q.x[k]||0)===mx).length===1;
+      return `<div class="prc-col"><div class="prc-v ${lead?'win':''}">${lead?'<span class="prc-star">★</span>':''}<span data-count="${v}" data-dec="1" data-delay="${j*250}">0</span></div><div class="prc-track"><div class="prc-fill" data-hh="${Math.max(3,Math.round(v/mx*100))}" style="background:linear-gradient(to top, ${r.color}, color-mix(in srgb, ${r.color} 60%, #fff)); transition-delay:${j*.25}s"></div></div><div class="prc-l"><i style="background:${r.color}"></i>${r.b.name}</div></div>`; }).join('')}</div><div class="pr-sub" style="margin:10px 0 0">${unit} في المتوسط لكل طالب</div>`; };
+  if(i===1){
+    const top = Math.max(...wins), solo = top>0 && wins.filter(w=>w===top).length===1;
+    return [head('لوحة النتيجة','عدد المقاييس التي تتصدّرها كل شعبة من '+ALL.length+' · '+per) + `<div class="prc-board">${rows.map((r,j)=>`<div class="prc-team" style="--bc:${r.color}; animation-delay:${j*.2}s"><div class="pr-crown" style="${solo && wins[j]===top ? '' : 'visibility:hidden'}">${PR_CROWN}</div><div class="prc-ic">${icon('building',44)}</div><div class="prc-n">شعبة ${r.b.name}</div><div class="prc-s">${stuCnt(r.x.n)}</div><div class="prc-score" data-count="${wins[j]}" data-delay="${700+j*300}">0</div></div>`).join(rows.length===2 ? '<div class="pr-vsbadge">VS</div>' : '')}</div>`, null];
+  }
+  if(i===2) return [head('النقاط لكل طالب') + cols('ptsAvg','نقطة'), grow];
+  if(i===3) return [head('الصفحات لكل طالب') + cols('pagesAvg','صفحة'), grow];
+  if(i===4){
+    const R = 40, C = 2*Math.PI*R;
+    return [head('النسب المئوية') + `<div class="prc-rings">${ALL.slice(2).map(([k,l],mi)=>{ const mx = Math.max(...rows.map(r=>r.x[k]??-1));
+      return `<div class="prc-rr" style="animation:prIn .6s ease ${mi*.2}s both"><div class="prc-rl">${l}</div>${rows.map((r,j)=>{ const v = r.x[k], pct = v==null ? 0 : Math.min(100,v), lead = v!=null && v>0 && v===mx && rows.filter(q=>q.x[k]===mx).length===1;
+        return `<div class="prc-ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="${R}" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="11"/><circle class="prc-arc" data-o="${C*(1-pct/100)}" cx="50" cy="50" r="${R}" fill="none" stroke="${r.color}" stroke-width="11" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C}" transform="rotate(-90 50 50)" style="transition-delay:${mi*.2+j*.15}s"/></svg><b>${v==null ? '—' : `<span data-count="${v}" data-suffix="%" data-delay="${mi*200+j*150}">0</span>`}</b><small>${lead?'★ ':''}${r.b.name}</small></div>`; }).join('')}</div>`; }).join('')}</div>`, grow];
+  }
+  if(i===5){
+    if(!prevP) return [head('الأكثر تحسّنًا','اختر «هذا الأسبوع» أو «هذا الشهر» لعرض التحسّن'), null];
+    const imp = rows.map(r=>({r, diff:Math.round((r.x.ptsAvg-r.p.ptsAvg)*10)/10})).sort((a,b)=>b.diff-a.diff), pos = imp.filter(x=>x.diff>0), mx = pos[0] ? pos[0].diff : 0;
+    return [head('الشعبة الأكثر تحسّنًا','زيادة معدّل النقاط لكل طالب عن '+PRES_PREV[pres.period]) + (pos.length ? pos.map((x,k)=>presBar(k, 'شعبة '+x.r.b.name, 'كان '+x.r.p.ptsAvg+' نقطة لكل طالب', x.diff, mx, x.r.color, ' نقطة', k+1, '+')).join('') : `<div class="pr-sub">لم تتحسّن أي شعبة عن الفترة السابقة</div>`), null];
+  }
+  const order = rows.map((r,j)=>({r, w:wins[j]})).sort((a,b)=>b.w-a.w || b.r.x.ptsAvg-a.r.x.ptsAvg).slice(0,3), H = [72,56,42], D = [2.0,1.2,0.4];
+  return [head('منصة تتويج الشعب','حسب عدد المقاييس المتصدّرة · '+per) + `<div class="pr-podium">${[1,0,2].filter(k=>order[k]).map(k=>{ const o = order[k];
+    return `<div class="pr-pod" style="--h:${H[k]}%; --d:${D[k]}s"><div class="pr-pod-top">${k===0?`<div class="pr-crown">${PR_CROWN}</div>`:''}<div class="pr-pod-name">شعبة ${o.r.b.name}</div><div class="pr-pod-pts" data-count="${o.w}" data-delay="${Math.round(D[k]*1000+600)}" data-suffix=" مقاييس">0</div></div><div class="pr-pod-col" style="background:linear-gradient(180deg, color-mix(in srgb, ${o.r.color} 55%, #fff), ${o.r.color})"><span>${k+1}</span></div></div>`; }).join('')}</div>`, ()=>presLater(gen,3000,()=>presConfetti(gen))];
+}
 function presRender(){
   const d = pres.data, stage = document.getElementById('pr-stage'), bid = pres.bid, gen = ++pres.gen, i = pres.slide;
-  const br = bid ? getBranch(bid) : null;
-  const scope = br ? 'شعبة '+br.name : '—', per = PRES_PERIODS[pres.period], sc = scope+' · '+per, lab = PRES_PREV[pres.period];
+  presTheme();
+  const br = bid && bid!=='cmp' ? getBranch(bid) : null;
+  const scope = bid==='cmp' ? 'مواجهة الشعب' : br ? 'شعبة '+br.name : '—', per = PRES_PERIODS[pres.period], sc = scope+' · '+per, lab = PRES_PREV[pres.period];
   const head = (t, sub) => `<div class="pr-h">${t}</div><div class="pr-sub">${sub||sc}</div>`;
   const MET = [['النقاط', r=>r.cur.pts, ''], ['الصفحات', r=>r.cur.pages, ''], ['نسبة الحضور', r=>r.cur.rate, '%'], ['التميّز والتقييم', r=>r.cur.ex, '%']];
   let html = '', hook = null;
-  if(i===0){
+  if(bid==='cmp'){ const r = presCmpSlide(i, gen, per); html = r[0]; hook = r[1]; }
+  else if(i===0){
     html = `<div style="text-align:center"><div class="pr-h" style="font-size:clamp(28px,6vw,64px)">نتائج ${scope}</div><div class="pr-sub">${per}</div><div class="pr-countdown" id="pr-count"></div></div>`;
     hook = ()=>presIntro(gen);
   } else if(!br || !d.n){ html = head('لا توجد بيانات');
@@ -1943,7 +2069,7 @@ function presRender(){
     const card = (v,l,suf,dl)=>`<div class="pr-card"><div class="pr-num" data-count="${v}" data-suffix="${suf||''}">0</div><div class="pr-lbl">${l}</div>${dl||''}</div>`;
     html = head('ملخص الشعبة') + `<div class="pr-cards">${card(d.n,stuWord(d.n))}${card(C.pages,'صفحة مسمّعة','',P?presDelta(C.pages,P.pages):'')}${card(C.pts,'نقطة','',P?presDelta(C.pts,P.pts):'')}${card(C.rate,'نسبة الحضور','%',P?presDelta(C.rate,P.rate,true):'')}${card(C.ex,'التميّز والتقييم','%',P?presDelta(C.ex,P.ex,true):'')}</div>`;
   } else if(i===2){
-    const items = d.rows.map(r=>({label:r.s.name, v:r.cur.pts, color:colorOfBranch(bid)})), rowH = items.length>14 ? 44 : 58;
+    const items = d.rows.map(r=>({label:r.s.name, v:r.cur.pts, color:pres.barC || colorOfBranch(bid)})), rowH = items.length>14 ? 44 : 58;
     html = head('سباق النقاط','من سيتصدّر؟ · '+sc) + `<div id="pr-race" data-h="${rowH}" style="position:relative; height:${items.length*rowH}px">${items.map(x=>`<div class="pr-race-row" data-v="${x.v}" style="height:${rowH-8}px"><div class="pr-rank">1</div><div class="pr-name">${x.label}</div><div class="pr-track"><div class="pr-bar-fill" style="background:${x.color}"></div></div><div class="pr-val">0</div></div>`).join('')}</div>`;
     hook = ()=>presRace(gen);
   } else if(i===3){
@@ -2409,7 +2535,7 @@ function adminBranches(){
   <div class="list">
     ${cache.branches.map(b=>`
       <div class="row">
-        <div class="row-left" style="cursor:pointer" onclick="window.goto('branchDetail',{id:'${b.id}'})"><div class="avatar">${icon('building',16)}</div><div class="row-title">شعبة ${b.name}</div></div>
+        <div class="row-left" style="cursor:pointer" onclick="window.goto('branchDetail',{id:'${b.id}'})"><div class="avatar" style="background:${colorOfBranch(b.id)};color:#fff">${icon('building',16)}</div><div class="row-title">شعبة ${b.name}</div></div>
         <div style="display:flex; align-items:center; gap:10px">
           <span class="badge gold">${stuCnt(cache.students.filter(s=>s.branchId===b.id).length)}</span>
           ${state.role==='admin'? `<span onclick="window.deleteBranch('${b.id}')" style="color:#B23A3A;cursor:pointer">${icon('trash',15)}</span>`:''}
@@ -2425,10 +2551,17 @@ async function deleteBranch(bid){
   const bak=cache.branches;
   undoDelete('تم حذف الشعبة', ()=>{ cache.branches=bak.filter(x=>x.id!==bid); goto('adminBranches'); }, ()=>{ cache.branches=bak; goto('adminBranches'); }, async()=>{ await deleteDoc(doc(db,'branches',bid)); await loadBranches(); });
 }
+async function setBranchColor(id, c){
+  if(!isHex(c)) return;
+  try{ await updateDoc(doc(db,'branches',id), {color:c.toUpperCase()}); await loadBranches(); render(); }
+  catch(e){ alert('تعذّر حفظ اللون: '+e.message); }
+}
+window.setBranchColor = setBranchColor;
 async function quickAddBranch(){
   const name = prompt('اسم الشعبة الجديدة:');
   if(!name) return;
-  try{ await addDoc(collection(db,'branches'), {name}); await loadBranches(); goto('adminBranches'); }
+  const used = cache.branches.map(b=>colorOfBranch(b.id).toUpperCase()), color = (BRANCH_COLORS.find(c=>!used.includes(c.toUpperCase())) || BRANCH_COLORS[cache.branches.length%BRANCH_COLORS.length]).toUpperCase();
+  try{ await addDoc(collection(db,'branches'), {name: name.trim(), color}); await loadBranches(); goto('adminBranches'); }
   catch(e){ alert('تعذّر إضافة الشعبة: '+e.message); }
 }
 function wirdRange(r){
@@ -2634,6 +2767,9 @@ function branchDetail(){
   (!editable && state.role==='supervisor' ? `<div class="alert" style="background:#EFEFEF;color:#888;margin-top:14px">${icon('eye',14)} عرض فقط — لا تملك صلاحية تعديل هذه الشعبة</div>` : '') + `
   <div style="display:flex; flex-direction:column; align-items:center; margin-top:14px">${entityAvatar(72, b.photo, b.name, 'branch', b.id, state.role==='admin')}${b.photo && state.role==='admin' ? `<div class="row-sub" style="cursor:pointer; margin-top:6px; color:#B23A3A" onclick="window.removeEntityPhoto('branch','${b.id}')">إزالة الصورة</div>` : ''}</div>
   ${state.role==='admin' ? [['attendance','المواعيد'],['tajweed','التجويد']].map(([k,l])=>`<div class="field" style="margin-top:12px"><label>يوم دوام ${l} (يسري من اليوم)</label><select onchange="window.setBranchDay('${b.id}','${k}',this.value)">${AR_DAYS.map((n,i)=>`<option value="${i}" ${dayOn(b,k,todayStr())===i?'selected':''}>${n}</option>`).join('')}</select></div>`).join('') : ''}
+  ${state.role==='admin' ? `<div class="field" style="margin-top:12px"><label>لون الشعبة (يُستخدم في النقاط والإنجازات والعرض، والتدرّج يُصنع تلقائيًا)</label>
+    <div class="br-sw">${BRANCH_COLORS.map(c=>`<button type="button" aria-label="${c}" class="${c.toLowerCase()===colorOfBranch(b.id).toLowerCase()?'on':''}" style="background:${c}" onclick="window.setBranchColor('${b.id}','${c}')"></button>`).join('')}<label class="br-custom" title="لون آخر">${icon('plus',16)}<input type="color" value="${colorOfBranch(b.id)}" onchange="window.setBranchColor('${b.id}',this.value)"></label></div>
+    <div class="br-prev">${[0,1,2,3,4].map(i=>{ const t = ptsTone(b.id,i,5); return `<span style="background:${t[0]};color:${t[1]}">${i+1}</span>`; }).join('')}</div></div>` : ''}
   <div class="stat-card" style="margin-top:16px; text-align:center"><div class="stat-num">${students.length}</div><div class="stat-label">عدد الطلاب</div></div>
   ${editable && (canDo('attendance')||canDo('tajweed')) ? `<button class="btn btn-primary" style="margin-top:12px" onclick="window.goto('branchAttendance',{id:'${b.id}',fresh:1})">${icon('check',16)} تسجيل الحضور للشعبة</button>` : ''}
   ${canPay() && editable ? `<button class="btn btn-outline" style="margin-top:10px" onclick="window.goto('branchPayments',{id:'${b.id}',fresh:1})">${icon('briefcase',16)} جدول الدفع للشعبة</button>` : ''}
@@ -3138,6 +3274,7 @@ function wfAddSeg(){
   wfInit(i, prev!=null && wfSt[prev] ? wfSt[prev].j : wfDefaultJuz(state.params.id));
 }
 function wfRemoveSeg(i){ const el = document.getElementById('wf-seg-'+i); if(el) el.remove(); delete wfSt[i]; }
+window.acReplay = () => render();
 Object.assign(window, {wfJuz, wfSurah, wfPage, wfAyah});
 
 /* ===== تسجيل سريع للورد ===== */
@@ -3344,8 +3481,24 @@ async function notificationsView(){
   <div class="section-title"><span class="bar"></span>طلاب بدون أي سجل دفع (${noPayRecord.length})</div>
   <div class="list">${noPayRecord.length? noPayRecord.map(s=>`<div class="row" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'pay',from:'notificationsView'})"><div class="row-title">${s.name}</div><span class="badge gray">لا يوجد سجل</span></div>`).join('') : `<div class="empty">لا يوجد</div>`}</div>`;
 }
-const BRANCH_COLORS = ['#098046','#D6A755','#2A9D8F','#E76F51','#6C5CE7','#3D8BFD','#C2185B','#8D6E63'];
-function colorOfBranch(id){ const i = cache.branches.findIndex(b=>b.id===id); return BRANCH_COLORS[(i<0?0:i)%BRANCH_COLORS.length]; }
+const BRANCH_COLORS = ['#098046','#BFA176','#2A9D8F','#E76F51','#6C5CE7','#3D8BFD','#C2185B','#8D6E63','#D6A755','#455A64'];
+const isHex = c => /^#[0-9a-f]{6}$/i.test(c||'');
+function colorOfBranch(id){
+  const b = cache.branches.find(x=>x.id===id); if(b && isHex(b.color)) return b.color;
+  const nm = String(b && b.name || '');
+  if(/البشائر/.test(nm)) return '#BFA176';
+  if(/الفتح/.test(nm)) return '#098046';
+  const i = cache.branches.findIndex(x=>x.id===id); return BRANCH_COLORS[(i<0?0:i)%BRANCH_COLORS.length];
+}
+const hexRgb = h => [1,3,5].map(k=>parseInt(h.slice(k,k+2),16));
+const rgbMix = (a,b,t) => a.map((v,k)=>Math.round(v+(b[k]-v)*t));
+const rgbLum = c => (0.299*c[0]+0.587*c[1]+0.114*c[2])/255;
+const rgbCss = c => 'rgb('+c.join(',')+')';
+// تدرّج تلقائي من لون الشعبة: اللون نفسه للأول ← فاتح جدًا للأخير، ولون النص يُختار حسب الخلفية
+function branchRamp(id){
+  const c = hexRgb(colorOfBranch(id));
+  return {a:c, m:rgbMix(c,[255,255,255],.45), b:rgbMix(c,[255,255,255],.9), dk:rgbCss(rgbMix(c,[0,0,0],.72))};
+}
 function inPeriod(date, period){
   if(period==='all') return true;
   if(!date) return false;
@@ -3475,7 +3628,7 @@ async function achievementsHome(){
   const pred = d => inPeriod(d, period), prevPred = presPrevPred(period);
   let html = subheader('الإنجازات', homeRoute()) + `
   <div class="ac-tools">
-    <button onclick="window.openPresent('${period}','${bid==='cmp'?'':bid}')">${icon('trend',15)} وضع العرض</button>
+    <button onclick="window.openPresent('${period}','${bid}')">${icon('trend',15)} وضع العرض</button>
     <button onclick="window.goto('pointsReport',{bid:'${bid==='cmp'?'':bid}',period:'${period==='all'?'all':period}'})">${icon('star',15)} تقرير النقاط</button>
     ${(state.role==='admin'||state.role==='supervisor') ? `<button onclick="window.goto('exportData')">${icon('list',15)} تصدير</button>` : ''}
   </div>
@@ -3548,26 +3701,27 @@ async function achievementsHome(){
   const stats = studs.map(s=>studentStats(s, period)).map(x=>({...x, g:(L=>L.length?Math.round(L.reduce((a,y)=>a+gradeToPct(y.r.grade),0)/L.length):null)(acLogs(x.s,pred))}));
   const valOf = x => metric==='points' ? x.pts : x.pages;
   const list = stats.sort((a,c)=>valOf(c)-valOf(a) || a.s.name.localeCompare(c.s.name,'ar')), maxV = Math.max(1, valOf(list[0]));
-  html += `<div class="section-title"><span class="bar"></span>ترتيب طلاب الشعبة</div>
+  html += `<div class="section-title"><span class="bar"></span>مضمار ${metric==='points'?'النقاط':'الصفحات'} · طلاب الشعبة</div>
   <div class="seg">${[['points','بالنقاط'],['pages','بالصفحات']].map(([k,l])=>`<button class="${metric===k?'active':''}" onclick="${go({metric:k})}">${l}</button>`).join('')}</div>
-  ${list.map((x,i)=>{ const pct = valOf(x)/maxV*100; return `<div class="ac-st" onclick="window.goto('studentProfile',{id:'${x.s.id}',tab:'hifz',from:'achievementsHome'})">
-    <div style="display:flex; align-items:center; gap:8px"><div class="ac-rk" style="background:${color}">${i+1}</div><div class="row-title">${x.s.name}</div><div style="margin-inline-start:auto; font-weight:900; color:${color}">${valOf(x)} ${metric==='points'?'نقطة':'صفحة'}</div></div>
-    <div class="ac-bar"><i style="width:${pct}%; background:${color}"></i></div>
-    <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px"><span class="badge gold">نقاط ${x.pts}</span><span class="badge green">حفظ ${Math.round(x.ph*10)/10} ص</span><span class="badge green">مراجعة ${Math.round(x.pr*10)/10} ص</span><span class="badge gray">التقدير ${x.g!=null?x.g+'%':'—'}</span></div></div>`; }).join('')}`;
+  ${list.map((x,i)=>{ const pct = Math.round(valOf(x)/maxV*1000)/10, d = (i*.12).toFixed(2)+'s';
+    return `<div class="ac-st" style="--c:${color}; --p:${pct}%; --d:${d}" onclick="window.goto('studentProfile',{id:'${x.s.id}',tab:'hifz',from:'achievementsHome'})">
+    <div style="display:flex; align-items:center; gap:8px"><div class="ac-rk" style="background:${color}">${i===0&&valOf(x)>0?icon('crown',15):i+1}</div><div class="row-title">${x.s.name}</div><div class="ac-val" style="color:${color}">${valOf(x)} ${metric==='points'?'نقطة':'صفحة'}</div></div>
+    <div class="ac-track"><div class="ac-lane"></div><div class="ac-fill"></div><div class="ac-runner ${i===0&&valOf(x)>0?'lead':''}">${x.s.photo?`<img src="${x.s.photo}" alt="">`:initials(x.s.name)}</div><div class="ac-goal">${icon('star',16)}</div></div>
+    <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px"><span class="badge gold">نقاط ${x.pts}</span><span class="badge green">حفظ ${Math.round(x.ph*10)/10} ص</span><span class="badge green">مراجعة ${Math.round(x.pr*10)/10} ص</span><span class="badge gray">التقدير ${x.g!=null?x.g+'%':'—'}</span></div></div>`; }).join('')}
+  <button class="btn btn-outline" style="margin-top:12px" onclick="window.acReplay()">${icon('trend',16)} إعادة حركة المضمار</button>`;
   return html;
 }
 
 let ptsBranch = null;
-const PTS_RAMP = {'الفتح':{a:[9,79,39],m:[72,176,120],b:[255,255,255],dk:'#0B3D22'},'البشائر':{a:[181,134,48],m:[222,184,103],b:[255,255,255],dk:'#2B2100'}};
 const ptsMix = (R,u)=>{ u=Math.min(1,Math.max(0,u)); const [x,y,t] = u<.5 ? [R.a,R.m,u*2] : [R.m,R.b,(u-.5)*2]; return x.map((v,k)=>v+(y[k]-v)*t); };
-function ptsTone(name, i, n){
-  const R = PTS_RAMP[name] || PTS_RAMP['الفتح'], span = Math.max(n,2);
+function ptsTone(bid, i, n){
+  const R = branchRamp(bid), span = Math.max(n,2);
   const col = u => 'rgb('+ptsMix(R,u).map(Math.round).join(',')+')';
   const u0 = i/span, u1 = (i+1)/span, um = (i+0.5)/span;
   const m = ptsMix(R,um);
   const lum = (0.299*m[0]+0.587*m[1]+0.114*m[2])/255;
   const gl = 'linear-gradient(180deg,rgba(255,255,255,.26) 0%,rgba(255,255,255,0) 52%,rgba(0,0,0,.06) 100%)';
-  return [gl+',linear-gradient(270deg,'+col(u0)+','+col(u1)+')', (name==='الفتح' && lum<0.55) ? '#fff' : R.dk];
+  return [gl+',linear-gradient(270deg,'+col(u0)+','+col(u1)+')', lum<0.6 ? '#fff' : R.dk];
 }
 window.setPtsBranch = id => { ptsBranch = id; render(); };
 let ptsPeriod = 'all';
@@ -3580,10 +3734,10 @@ async function pointsHome(){
   const perLbl = {week:'هذا الأسبوع', month:'هذا الشهر', all:'الإجمالي'}[ptsPeriod];
   const ranked = cache.students.filter(s=>s.branchId===ptsBranch).map(s=>({s, v:pv(s)})).sort((a,b)=>b.v-a.v||(a.s.name||'').localeCompare(b.s.name||'','ar')).map(x=>(x.s._pv=x.v, x.s));
   const perSeg = `<div class="seg" style="margin-top:10px">${[['week','الأسبوع'],['month','الشهر'],['all','الكل']].map(([k,l])=>`<button class="${ptsPeriod===k?'active':''}" onclick="window.setPtsPeriod('${k}')">${l}</button>`).join('')}</div>`;
-  const chips = `<div class="seg" style="margin-top:14px">${brs.map(b=>`<button class="${b.id===ptsBranch?'active':''}" onclick="window.setPtsBranch('${b.id}')">شعبة ${b.name}</button>`).join('')}</div>`;
-  const rows = ranked.map((s,i)=>{ const t = ptsTone(cur.name, i, ranked.length);
+  const chips = `<div class="ac-br" style="margin-top:14px">${brs.map(b=>`<button class="${b.id===ptsBranch?'on':''}" style="--bc:${colorOfBranch(b.id)}" onclick="window.setPtsBranch('${b.id}')">شعبة ${b.name}</button>`).join('')}</div>`;
+  const rows = ranked.map((s,i)=>{ const t = ptsTone(cur.id, i, ranked.length);
     const st = t ? `background:${t[0]};color:${t[1]}` : '', av = t ? 'background:rgba(255,255,255,.28);color:inherit;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.55)' : '';
-    return `<div class="row" style="${st}" onclick="window.goto('studentProfile',{id:'${s.id}',from:'adminPoints'})"><div class="row-left"><div class="avatar" style="${av}">${i===0?icon('crown',20):i+1}</div><div><div class="row-title">${s.name}</div><div class="row-sub" style="${t?'color:inherit;opacity:.78':''}">المركز ${i+1}</div></div></div><span class="badge" style="${t?'background:rgba(255,255,255,.4);color:inherit':'background:#F6EBD0;color:#7A5A12'}">${s._pv} نقطة</span></div>`; }).join('');
+    return `<div class="row" style="${st}" onclick="window.goto('studentProfile',{id:'${s.id}',from:'adminPoints'})"><div class="row-left"><div class="avatar" style="${av}">${i===0?icon('crown',20):i+1}</div><div><div class="row-title">${s.name}</div></div></div><span class="badge" style="${t?'background:rgba(255,255,255,.4);color:inherit':'background:#F6EBD0;color:#7A5A12'}">${s._pv} نقطة</span></div>`; }).join('');
   return subheader('النقاط',homeRoute()) + `
   <div class="section-title" style="margin-top:0"><span class="bar"></span>آلية احتساب النقاط</div>
   <div class="list">${POINT_RULES.map(r=>`<div class="row"><div class="row-title">${r.label}</div><div class="row-sub" style="text-align:left">${r.items.map(i=>i[0]+' '+i[1]).join(' · ')}</div></div>`).join('')}
@@ -3591,7 +3745,7 @@ async function pointsHome(){
   <div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('star',15)} نظام النقاط للتحفيز والمنافسة، منفصل عن تقييم الورد التلقائي بالإنجازات</div>
   ${chips}
   ${perSeg}
-  <div class="hon ${cur.name==='البشائر'?'beige':''}"><div class="hon-t"><span class="hon-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3 H17 V9 A 5 5 0 0 1 7 9 Z"/><path d="M7 5 H4 V7 C4 8.7 5.3 10 7 10"/><path d="M17 5 H20 V7 C20 8.7 18.7 10 17 10"/><path d="M12 14 V18"/><path d="M8.5 21 H15.5"/><path d="M9.5 18 H14.5"/></svg></span><div><b>لوحة الشرف</b><small>ترتيب شعبة ${cur.name} · ${perLbl}</small></div></div><span class="hon-pill">${stuCnt(ranked.length)}</span></div>
+  <div class="hon ${rgbLum(hexRgb(colorOfBranch(cur.id)))>0.6?'light':''}" style="--hc:${colorOfBranch(cur.id)}; --hd:${branchRamp(cur.id).dk}"><div class="hon-t"><span class="hon-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3 H17 V9 A 5 5 0 0 1 7 9 Z"/><path d="M7 5 H4 V7 C4 8.7 5.3 10 7 10"/><path d="M17 5 H20 V7 C20 8.7 18.7 10 17 10"/><path d="M12 14 V18"/><path d="M8.5 21 H15.5"/><path d="M9.5 18 H14.5"/></svg></span><div><b>لوحة الشرف</b><small>ترتيب شعبة ${cur.name} · ${perLbl}</small></div></div><span class="hon-pill">${stuCnt(ranked.length)}</span></div>
   <div class="list">${rows||`<div class="empty">لا يوجد طلاب بهذه الشعبة</div>`}</div>`;
 }
 
