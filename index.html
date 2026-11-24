@@ -1132,6 +1132,16 @@ html[data-theme=dark] .gs-o.sel i{border-color:#3DBE7A;background:#3DBE7A}
 .wl-ul{margin:6px 0 0;padding-inline-start:20px}.wl-ul li{margin:2px 0}
 .wl-dots{display:flex;justify-content:center;gap:6px;margin:18px 0 14px}.wl-dots i{width:8px;height:8px;border-radius:99px;background:var(--border);transition:width .2s}.wl-dots i.on{width:22px;background:var(--green)}
 .wl-nav{display:flex;gap:8px}
+
+/* ===== خانة كتابة كود اللون (HEX) بجانب كل منتقي لون ===== */
+.hx,.field .hx{margin:0!important;font-size:14px!important;width:auto!important;display:inline-flex!important;align-items:center;gap:6px;height:36px;padding:0 10px 0 6px;border:1.5px solid var(--border);border-radius:99px;background:var(--card);direction:ltr;vertical-align:middle}
+.hx:focus-within{border-color:var(--green);box-shadow:0 0 0 3px rgba(15,123,62,.15)}
+.hx i{display:block!important;width:22px;height:22px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.hx b{font-weight:700;color:var(--text-muted);font-size:14px}
+.hx input,.field .hx input{width:72px!important;min-width:0!important;height:auto!important;border:0!important;outline:0;background:none!important;box-shadow:none!important;border-radius:0!important;font-size:14px!important;font-weight:700;letter-spacing:.5px;color:var(--text);padding:0!important;margin:0!important;text-transform:uppercase;font-family:ui-monospace,Menlo,Consolas,monospace}
+.hx.bad{border-color:#C0392B}
+.hx-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.hx-row small{color:var(--text-muted);font-size:12px}
 </style>
 </head>
 <body>
@@ -1551,7 +1561,7 @@ function homeRoute(){ return state.role==='admin'?'adminHome':'supervisorHome'; 
 function canDo(cap){ return state.role==='admin' || (state.capabilities && state.capabilities[cap] !== false); }
 function canEditContentPerm(){ return state.role==='admin' || (state.capabilities && state.capabilities.editContent === true); }
 async function loadSupervisors(){ const snap = await getDocs(query(collection(db,'people'), where('role','==','supervisor'))); cache.supervisors = snap.docs.map(xdoc); }
-async function loadContent(){ const snap = await getDocs(collection(db,'siteContent')); cache.content = {}; snap.docs.forEach(d=>{ const t = d.data().text; cache.content[d.id] = (typeof t==='string' && /^(cert_|library_json$|holidays$)/.test(d.id)) ? t : xclean(t); }); }
+async function loadContent(){ const snap = await getDocs(collection(db,'siteContent')); cache.content = {}; snap.docs.forEach(d=>{ const t = d.data().text; cache.content[d.id] = (typeof t==='string' && /^(cert_|library_json$|holidays$|tracks_json$|role_names$)/.test(d.id)) ? t : xclean(t); }); trLoad(); }
 const _detailInflight = {};
 async function ensureStudentDetail(sid, force){
   if(cache.details[sid] && !force) return cache.details[sid];
@@ -2949,6 +2959,36 @@ const TRACKS = {
   p2:{name:'خطة السنتين', short:'سنتان', years:2, terms:4, termJuz:7.5, yearJuz:15, monthTxt:'جزء ونصف (3 أحزاب)', monthPages:30, weekTxt:'ثلاثة أرباع', weekPages:7.5, dayPages:1.5, studyMonths:5, reciteMonth:true,
     note:'المسار المكثّف للطلاب المتمكّنين وأصحاب الحفظ السابق.'}
 };
+const TRACKS_DEF = JSON.parse(JSON.stringify(TRACKS));
+// المسارات قابلة للتعديل: تُخزَّن في siteContent/tracks_json ويُشتق الباقي من الأرقام الأساسية
+const trClean = v => String(v??'').replace(/[<>"'`\\]/g,'').trim();
+function trBuild(o){
+  const years = Math.max(1, Math.min(10, Math.round(Number(o.years)||3))), tpy = Math.max(1, Math.min(4, Math.round(Number(o.tpy)||2)));
+  const yearJuz = Math.max(0.5, Math.min(30, Number(o.yearJuz)||10)), studyMonths = Math.max(1, Math.min(12, Math.round(Number(o.studyMonths)||5)));
+  const terms = years*tpy, termJuz = Math.round(yearJuz/tpy*100)/100, monthPages = Math.round(termJuz*20/studyMonths*100)/100, weekPages = Math.round(monthPages/4*100)/100;
+  return {name:trClean(o.name)||'مسار', short:trClean(o.short)||(years+' سنوات'), years, tpy, terms, termJuz, yearJuz, studyMonths, reciteMonth:!!o.reciteMonth,
+    monthPages, weekPages, dayPages:Math.round(weekPages/PLAN_DAYS*100)/100, monthTxt:hizbTxt(monthPages), weekTxt:hizbTxt(weekPages), note:trClean(o.note)};
+}
+function trRaw(){ try{ const o = JSON.parse(cache.content.tracks_json||''); return (o && typeof o==='object' && Object.keys(o).length) ? o : null; }catch(e){ return null; } }
+function trLoad(){
+  const o = trRaw(); Object.keys(TRACKS).forEach(k=>delete TRACKS[k]);
+  if(!o){ Object.assign(TRACKS, JSON.parse(JSON.stringify(TRACKS_DEF))); Object.values(TRACKS).forEach(t=>t.tpy = t.terms/t.years); return; }
+  Object.entries(o).forEach(([k,v])=>{ if(!/^[a-z0-9_]{1,20}$/i.test(k)) return; const t = trBuild(v), d = TRACKS_DEF[k];
+    if(d && Math.abs(d.monthPages-t.monthPages)<0.01) t.monthTxt = d.monthTxt; if(d && Math.abs(d.weekPages-t.weekPages)<0.01) t.weekTxt = d.weekTxt;
+    TRACKS[k] = t; });
+}
+// المقدار بالأحزاب والأجزاء إذا كان من مضاعفات ربع الحزب، وإلا بالصفحات
+function hizbTxt(p){
+  const q = Math.round(p/2.5*1000)/1000; if(Math.abs(q-Math.round(q))>0.001 || q<=0) return pagesTxt(p);
+  const Q = Math.round(q), n = Math.floor(Q/4), r = Q%4, fr = ['','ربع حزب','نصف حزب','ثلاثة أرباع حزب'][r];
+  const H = n===0 ? '' : n===1 ? 'حزب (نصف جزء)' : n===2 ? 'جزء كامل (حزبان)' : n===3 ? 'جزء ونصف (3 أحزاب)' : (n%2 ? (n/2)+' جزء' : (n/2)+' أجزاء')+' ('+n+' أحزاب)';
+  return !H ? fr : r ? H.replace(/ \(.*\)$/,'')+' و'+fr : H;
+}
+function trSnapshot(){ const o = {}; Object.entries(TRACKS).forEach(([k,t])=>o[k] = {name:t.name, short:t.short, note:t.note, years:t.years, tpy:t.tpy||t.terms/t.years, yearJuz:t.yearJuz, studyMonths:t.studyMonths, reciteMonth:!!t.reciteMonth}); return o; }
+async function trWrite(o){
+  const text = o ? JSON.stringify(o) : '';
+  await setDoc(doc(db,'siteContent','tracks_json'), {text}, {merge:true}); cache.content.tracks_json = text; trLoad();
+}
 const PLAN_DAYS = 5;
 const fmtNum = n => (Math.round(n*100)/100).toString();
 function pagesTxt(p){
@@ -3003,7 +3043,7 @@ function studentPlanForm(){
   if(!s) return `<div class="empty">تعذّر إيجاد الطالب</div>`;
   setTimeout(()=>window.pfLbl && window.pfLbl(), 30);
   if(!canEditPlan(s)) return subheader('خطة الطالب','adminDirectory') + `<div class="empty">لا تملك صلاحية تعديل الخطط. يمنحها المدير من صلاحيات المشرف.</div>`;
-  const p = s.plan || {}, cur = p.id || 'p5';
+  const p = s.plan || {}, cur = (p.id && TRACKS[p.id]) ? p.id : Object.keys(TRACKS)[0];
   return `<div class="subheader"><div class="back-btn" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'data',from:'${from}'})">${icon('chevronR',16)}</div><h1>خطة ${rpEsc(s.name)}</h1></div>
   <div class="field"><label>المسار</label><div class="pl-pick">${Object.entries(TRACKS).map(([k,t])=>`<label class="pl-opt"><input type="radio" name="pf-track" value="${k}" ${k===cur?'checked':''} onchange="window.pfTrack(this.value)"><div><b>${t.name}</b><small>${t.yearJuz} أجزاء سنويًا · أسبوعيًا ${t.weekTxt} (${pagesTxt(t.weekPages)})</small></div></label>`).join('')}</div></div>
   <div class="field"><label>تاريخ بدء الخطة</label>${dateField('pf-start', p.start || todayStr())}</div>
@@ -3018,7 +3058,7 @@ function studentPlanForm(){
 }
 function pfTrack(k){ const d = document.getElementById('pf-def'), i = document.getElementById('pf-daily'); if(d) d.textContent = pagesTxt(TRACKS[k].dayPages); if(i) i.value = TRACKS[k].dayPages; pfLbl(); }
 function pfStep(v){ const i = document.getElementById('pf-daily'); i.value = Math.max(0.25, Math.min(20, (Number(i.value)||0)+v)); pfLbl(); }
-function pfReset(){ const k = (document.querySelector('input[name=pf-track]:checked')||{}).value||'p5'; pfTrack(k); }
+function pfReset(){ const k = (document.querySelector('input[name=pf-track]:checked')||{}).value||Object.keys(TRACKS)[0]; pfTrack(k); }
 function pfLbl(){ const i = document.getElementById('pf-daily'), l = document.getElementById('pf-lbl'); if(i && l){ const d = (document.querySelector('#pf-days .active')||{textContent:'5'}).textContent; l.textContent = 'يوميًا '+pagesTxt(Number(i.value)||0)+' · أسبوعيًا '+pagesTxt((Number(i.value)||0)*parseInt(d)); } }
 async function pfSave(sid, from){
   const s = findStudent(sid); if(!s || !canEditPlan(s)) return;
@@ -3038,20 +3078,22 @@ async function pfRemove(sid, from){
 
 /* ---------- صفحة المسار (مستوحاة من مسارات أكاديمية الصفوة) ---------- */
 function tracksSectionHTML(){
-  return `<div class="section-title"><span class="bar"></span>مسارات الحفظ</div>
+  const ed = canEditContentPerm();
+  return `<div class="section-title"><span class="bar"></span>مسارات الحفظ</div>${ed?`<div class="row-sub" style="margin:-4px 2px 10px">اكبس على أي مسار لتشوفه أو تعدّله.</div>`:''}
   <div class="tr-list">${Object.entries(TRACKS).map(([k,t])=>`<div class="tr-card" onclick="window.goto('trackDetail',{key:'${k}'})">
     <div class="tr-years"><b>${t.years}</b><small>${t.years===2?'سنتان':'سنوات'}</small></div>
     <div class="tr-body"><b>${t.name}</b><small>${t.yearJuz} أجزاء سنويًا · ${t.terms} فصول</small>
       <div class="tr-chips"><span>شهريًا ${t.monthTxt}</span><span>أسبوعيًا ${t.weekTxt}</span></div></div>
-    <div class="chevron">${icon('chevronL',14)}</div></div>`).join('')}</div>`;
+    <div class="chevron">${icon('chevronL',14)}</div></div>`).join('')}</div>${ed?`<button class="btn btn-outline" style="margin-top:10px" onclick="window.goto('trackEdit',{key:''})">${icon('plus',15)} إضافة مسار جديد</button>`:''}`;
 }
 function trackDetail(){
-  const k = state.params.key, t = TRACKS[k]; if(!t) return subheader('المسار','plansHome') + `<div class="empty">غير موجود</div>`;
+  const k = state.params.key, t = TRACKS[k]; if(!t) return subheader('المسار',"planDetail',{key:'hifz'}") + `<div class="empty">غير موجود</div>`;
   const terms = trackTerms(t), studs = cache.students.filter(s=>s.plan && s.plan.id===k && canEditBranch(s.branchId));
   const sum = [['سنويًا', t.yearJuz+' أجزاء', pagesTxt(t.yearJuz*20)], ['بالفصل', (t.termJuz%1?'سبعة أجزاء ونصف':t.termJuz+' أجزاء'), t.studyMonths+' أشهر حفظ'+(t.reciteMonth?' + شهر تسميع':'')], ['شهريًا', t.monthTxt, pagesTxt(t.monthPages)], ['أسبوعيًا', t.weekTxt, pagesTxt(t.weekPages)], ['يوميًا', pagesTxt(t.dayPages), PLAN_DAYS+' أيام بالأسبوع']];
   const yrs = [...new Set(terms.map(x=>x.year))];
-  return subheader(t.name,'plansHome') + `
-  <div class="tr-hero"><div class="tr-hero-n">${t.years}<small>${t.years===2?'سنتان':'سنوات'}</small></div><div><b>${t.name}</b><p>${t.note}</p></div></div>
+  return subheader(t.name,"planDetail',{key:'hifz'}") + `
+  ${canEditContentPerm() ? `<button class="btn btn-outline" style="margin:4px 0 12px" onclick="window.goto('trackEdit',{key:'${k}'})">${icon('pencil',15)} تعديل المسار</button>` : ''}
+  <div class="tr-hero"><div class="tr-hero-n">${t.years}<small>${t.years===2?'سنتان':'سنوات'}</small></div><div><b>${t.name}</b><p>${rpEsc(t.note||'')}</p></div></div>
   <div class="tr-sum">${sum.map(([a,b,c])=>`<div><small>${a}</small><b>${b}</b><span>${c}</span></div>`).join('')}</div>
   <div class="section-title"><span class="bar"></span>الفصول والأجزاء</div>
   ${yrs.map(y=>`<div class="tr-year"><div class="tr-year-h">السنة ${YEAR_TXT[y]}</div>${terms.filter(x=>x.year===y).map(x=>`<div class="tr-term"><div class="tr-term-n">${x.n}</div><div style="flex:1"><b>الفصل ${TERM_TXT(x.n)}</b><small>الأجزاء ${juzRangeTxt(x.from, x.to)}</small></div><span class="tr-term-m">${t.studyMonths} أشهر${t.reciteMonth?' + تسميع':''}</span></div>`).join('')}</div>`).join('')}
@@ -3066,6 +3108,64 @@ function trackDetail(){
     return `<div class="row" style="cursor:pointer" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'data',from:'trackDetail'})"><div class="row-left"><div class="avatar">${initials(s.name)}</div><div><div class="row-title">${s.name}</div><div class="row-sub">شعبة ${getBranch(s.branchId).name} · ${fmtNum(pp.actual)} من ${fmtNum(pp.expected)} ص</div></div></div><span class="badge ${st[1]==='red'?'':st[1]}" ${st[1]==='red'?'style="background:#FADBD8;color:#B23A3A"':''}>${st[0]}</span></div>`; }).join('')}</div>` : ''}
   <div class="row-sub" style="margin-top:10px">لتعيين المسار لطالب: افتح ملفه ← «تعيين خطة».</div>`;
 }
+
+function trackEdit(){
+  if(!canEditContentPerm()) return subheader('تعديل المسار',"planDetail',{key:'hifz'}") + `<div class="empty">ما عندك صلاحية تعديل الخطط</div>`;
+  const k = state.params.key, isNew = !k || !TRACKS[k];
+  const t = isNew ? {name:'', short:'', note:'', years:4, tpy:2, yearJuz:7.5, studyMonths:5, reciteMonth:true} : {...TRACKS[k], tpy:TRACKS[k].tpy||TRACKS[k].terms/TRACKS[k].years};
+  const used = isNew ? 0 : cache.students.filter(s=>s.plan && s.plan.id===k).length;
+  const num = (id,l,v,step,min,max,hint) => `<div class="field"><label>${l}</label><input id="te-${id}" type="number" inputmode="decimal" step="${step}" min="${min}" max="${max}" value="${v}" oninput="window.tePrev()">${hint?`<div class="row-sub" style="margin-top:4px">${hint}</div>`:''}</div>`;
+  setTimeout(()=>window.tePrev && window.tePrev(), 30);
+  return subheader(isNew?'مسار جديد':'تعديل '+rpEsc(t.name), isNew ? "planDetail',{key:'hifz'}" : "trackDetail',{key:'"+k+"'}") + `
+  <div class="field" style="margin-top:12px"><label>اسم المسار</label><input id="te-name" type="text" maxlength="40" value="${rpEsc(t.name)}" placeholder="مثلًا: خطة الأربع سنوات"></div>
+  <div class="field"><label>اسم مختصر</label><input id="te-short" type="text" maxlength="16" value="${rpEsc(t.short)}" placeholder="مثلًا: 4 سنوات"></div>
+  <div class="field"><label>وصف قصير</label><textarea id="te-note" rows="2" maxlength="200">${rpEsc(t.note||'')}</textarea></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    ${num('years','عدد السنوات',t.years,1,1,10)}
+    ${num('yearJuz','أجزاء سنويًا',t.yearJuz,0.5,0.5,30)}
+    ${num('tpy','فصول بالسنة',t.tpy,1,1,4)}
+    ${num('studyMonths','أشهر الحفظ بالفصل',t.studyMonths,1,1,12)}
+  </div>
+  <label class="pl-opt" style="margin-top:4px"><input id="te-recite" type="checkbox" ${t.reciteMonth?'checked':''} onchange="window.tePrev()"><div><b>شهر تسميع بآخر كل فصل</b><small>شهر كامل لتسميع أجزاء الفصل بعد أشهر الحفظ</small></div></label>
+  <div class="tr-sum" id="te-prev" style="margin-top:12px"></div>
+  <div class="row-sub" id="te-tot" style="margin:8px 4px 0"></div>
+  ${used ? `<div class="row-sub" style="margin:10px 4px 0">${icon('alert',13)} ${used} طالب على هالمسار. تغيير الأرقام بيغيّر وردهم اليومي الافتراضي (إلا اللي ورده مخصّص) وحساب تقدّمهم.</div>` : ''}
+  <button class="btn btn-primary" style="margin-top:14px" onclick="window.teSave('${isNew?'':k}')">${icon('check',16)} ${isNew?'إضافة المسار':'حفظ التعديلات'}</button>
+  ${!isNew ? `<button class="btn btn-outline" style="margin-top:10px;color:#B23A3A" onclick="window.teDel('${k}')">حذف المسار</button>` : ''}
+  ${trRaw() ? `<div class="row-sub" style="margin:14px 4px 0;text-align:center"><span style="color:var(--green);font-weight:700;cursor:pointer" onclick="window.teReset()">إرجاع كل المسارات للأصل (5 سنوات، 3 سنوات، سنتان)</span></div>` : ''}
+  <div id="te-alert"></div>`;
+}
+function teRead(){
+  const g = id => document.getElementById('te-'+id);
+  return {name:g('name').value, short:g('short').value, note:g('note').value, years:g('years').value, yearJuz:g('yearJuz').value, tpy:g('tpy').value, studyMonths:g('studyMonths').value, reciteMonth:g('recite').checked};
+}
+function tePrev(){
+  const box = document.getElementById('te-prev'); if(!box) return; const t = trBuild(teRead()), tot = Math.round(t.years*t.yearJuz*10)/10;
+  box.innerHTML = [['بالفصل', fmtNum(t.termJuz)+' جزء', t.studyMonths+' أشهر حفظ'+(t.reciteMonth?' + شهر تسميع':'')], ['شهريًا', t.monthTxt, fmtNum(t.monthPages)+' ص'], ['أسبوعيًا', t.weekTxt, fmtNum(t.weekPages)+' ص'], ['يوميًا', pagesTxt(t.dayPages), PLAN_DAYS+' أيام بالأسبوع']].map(([a,b,c])=>`<div><small>${a}</small><b>${b}</b><span>${c}</span></div>`).join('');
+  const el = document.getElementById('te-tot'); if(el) el.innerHTML = tot===30 ? `<span style="color:var(--green);font-weight:700">${icon('check',13)} المجموع ${t.years} × ${fmtNum(t.yearJuz)} = 30 جزء (ختمة كاملة)</span>` : `<span style="color:#B07A12;font-weight:700">${icon('alert',13)} المجموع ${fmtNum(tot)} جزء — ${tot<30?'أقل':'أكثر'} من ختمة (30)</span>`;
+}
+async function teSave(k){
+  const v = teRead(), al = document.getElementById('te-alert');
+  if(!trClean(v.name)) return al.innerHTML = `<div class="alert error">اكتب اسم المسار</div>`;
+  const o = trSnapshot(), key = k || ('t'+Date.now().toString(36));
+  const b = trBuild(v); o[key] = {name:b.name, short:b.short, note:b.note, years:b.years, tpy:b.tpy, yearJuz:b.yearJuz, studyMonths:b.studyMonths, reciteMonth:b.reciteMonth};
+  try{ await trWrite(o); auditLog(k?'تعديل مسار حفظ':'إضافة مسار حفظ', b.name, b.years+' سنوات · '+b.yearJuz+' جزء سنويًا'); goto('trackDetail',{key}); }
+  catch(e){ al.innerHTML = `<div class="alert error">تعذّر الحفظ: ${rpEsc(e.message)}</div>`; }
+}
+async function teDel(k){
+  const used = cache.students.filter(s=>s.plan && s.plan.id===k).length, al = document.getElementById('te-alert');
+  if(used) return al.innerHTML = `<div class="alert error">ما بينحذف: في ${used} طالب على هالمسار. غيّر خطتهم أول.</div>`;
+  if(Object.keys(TRACKS).length<=1) return al.innerHTML = `<div class="alert error">لازم يضل مسار واحد على الأقل</div>`;
+  if(!await uiConfirm('حذف المسار «'+TRACKS[k].name+'»؟')) return;
+  const o = trSnapshot(), nm = TRACKS[k].name; delete o[k];
+  try{ await trWrite(o); auditLog('حذف مسار حفظ', nm, ''); goto('planDetail',{key:'hifz'}); }catch(e){ al.innerHTML = `<div class="alert error">تعذّر الحذف: ${rpEsc(e.message)}</div>`; }
+}
+async function teReset(){
+  const extra = cache.students.filter(s=>s.plan && !TRACKS_DEF[s.plan.id] && TRACKS[s.plan.id]).length;
+  if(!await uiConfirm('ترجع المسارات الثلاثة الأصلية وتنحذف التعديلات والمسارات المضافة؟'+(extra?' ('+extra+' طالب على مسارات مضافة رح تنلغى خطتهم)':''))) return;
+  try{ await trWrite(null); auditLog('إرجاع مسارات الحفظ للأصل','',''); goto('planDetail',{key:'hifz'}); }catch(e){ alert('تعذّر: '+e.message); }
+}
+Object.assign(window, {tePrev, teSave, teDel, teReset});
 
 /* ---------- نظرة اليوم ---------- */
 function lastSessionDate(b, kind){ const today = todayStr(); for(let i=0;i<60;i++){ const d = addDaysStr(today,-i), dt = new Date(d+'T00:00:00'); if(dt.getDay()===dayOn(b,kind,d) && !holidayOn(b.id,d)) return d; } return null; }
@@ -4057,6 +4157,7 @@ async function renderView(){
     case 'todayView': return await todayView();
     case 'studentPlanForm': return studentPlanForm();
     case 'trackDetail': return trackDetail();
+    case 'trackEdit': return trackEdit();
     case 'certHome': return certHome();
     case 'certIssue': return await certIssue();
     case 'certDesigner': return certDesigner();
@@ -4308,7 +4409,7 @@ async function submitPointsAdjust(sid, from){
 
 function plansHome(){
   const keys = Object.keys(PLAN_KEYS);
-  return subheader('الخطط',homeRoute()) + tracksSectionHTML() + `<div class="section-title"><span class="bar"></span>خطط ومستويات أخرى</div>
+  return subheader('الخطط',homeRoute()) + `<div class="section-title"><span class="bar"></span>خطط الحفظ والمستويات</div>
   <div class="khana-grid">
     ${keys.map(k=>`<div class="khana" onclick="${state.editMode?'':`window.goto('planDetail',{key:'${k}'})`}"><div class="khana-icon">${icon(PLAN_KEYS[k].icon,21)}</div><div class="khana-label">${editable('plan_'+k+'_title','عنوان '+C('plan_'+k+'_title'))}</div><div class="khana-sub">${(parseInt(C('plan_'+k+'_levelCount'))||0)>0 ? (parseInt(C('plan_'+k+'_levelCount')))+' مستويات' : 'لم تُحدَّد بعد'}</div></div>`).join('')}
   </div>`;
@@ -4319,6 +4420,7 @@ function planDetail(){
   const title = C('plan_'+key+'_title');
   const count = parseInt(C('plan_'+key+'_levelCount'))||0;
   let html = subheader(title,'plansHome');
+  if(key==='hifz'){ html += tracksSectionHTML(); if(count) html += `<div class="section-title"><span class="bar"></span>المستويات</div>`; else if(!(canEditContentPerm() && state.editMode)) return html; }
   if(!count){
     html += `<div class="empty"><div class="e-icon">${icon(def.icon,30)}</div>لم تتم إضافة محتوى ${title} بعد</div>`;
   } else {
@@ -6222,6 +6324,35 @@ document.addEventListener('keydown',function(e){var t=e.target;if((e.key==='Ente
     e.preventDefault(); open(s);
   }, true);
   window.gsOpen = open;
+})();
+</script>
+
+<script>
+/* خانة كود اللون: تنضاف تلقائيًا جنب كل input[type=color] */
+(function(){
+  const norm = v => { v = String(v||'').trim().replace(/^#/,''); if(/^[0-9a-f]{3}$/i.test(v)) v = v.split('').map(c=>c+c).join(''); return /^[0-9a-f]{6}$/i.test(v) ? '#'+v.toLowerCase() : null; };
+  function enhance(inp){
+    if(inp.dataset.hx) return; inp.dataset.hx = '1';
+    const box = document.createElement('label'); box.className = 'hx'; box.title = 'اكتب كود اللون واضغط Enter';
+    box.innerHTML = '<i></i><b>#</b><input type="text" inputmode="text" maxlength="7" autocomplete="off" spellcheck="false" aria-label="كود اللون">';
+    const dot = box.querySelector('i'), tx = box.querySelector('input');
+    const show = v => { const n = norm(v) || '#000000'; tx.value = n.slice(1).toUpperCase(); dot.style.background = n; box.classList.remove('bad'); };
+    show(inp.value);
+    const apply = () => { const n = norm(tx.value); if(!n){ box.classList.add('bad'); return; } box.classList.remove('bad'); dot.style.background = n;
+      if(n !== (inp.value||'').toLowerCase()){ inp.value = n; inp.dispatchEvent(new Event('input',{bubbles:true})); inp.dispatchEvent(new Event('change',{bubbles:true})); } };
+    tx.addEventListener('input', ()=>{ const n = norm(tx.value); box.classList.toggle('bad', !!tx.value && !n && tx.value.replace('#','').length>=6); if(n) dot.style.background = n; });
+    tx.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); apply(); } });
+    tx.addEventListener('blur', ()=>{ if(norm(tx.value) && norm(tx.value)!==(inp.value||'').toLowerCase()) apply(); });
+    tx.addEventListener('paste', ()=>setTimeout(()=>{ if(norm(tx.value)) apply(); },0));
+    inp.addEventListener('input', ()=>show(inp.value));
+    const host = inp.closest('label') || inp, row = host.parentElement;
+    if(row && (row.classList.contains('br-sw') || row.classList.contains('cx-cols'))){
+      const w = document.createElement('div'); w.className = 'hx-row'; w.appendChild(box); w.insertAdjacentHTML('beforeend','<small>أو اكتب كود اللون</small>'); row.after(w);
+    } else { const w = document.createElement('div'); w.className = 'hx-row'; w.appendChild(box); host.after(w); }
+  }
+  const scan = () => document.querySelectorAll('input[type=color]:not([data-hx])').forEach(enhance);
+  new MutationObserver(scan).observe(document.documentElement, {childList:true, subtree:true});
+  document.addEventListener('DOMContentLoaded', scan); scan();
 })();
 </script>
 </body>
