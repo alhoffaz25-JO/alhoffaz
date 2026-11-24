@@ -1142,6 +1142,59 @@ html[data-theme=dark] .gs-o.sel i{border-color:#3DBE7A;background:#3DBE7A}
 .hx.bad{border-color:#C0392B}
 .hx-row{display:flex;align-items:center;gap:8px;margin-top:8px}
 .hx-row small{color:var(--text-muted);font-size:12px}
+.wa-btns{display:inline-flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.td-btn.wa-b{background:#1E9150!important;border-color:#1E9150!important;color:#fff!important;gap:5px}
+.td-btn.wa-call{padding:7px 9px;margin-inline-start:6px}
+.mt-vars{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.mt-vars button{border:1px dashed var(--green);background:var(--green-tint);color:var(--green);border-radius:99px;padding:4px 10px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.mt-prev{margin-top:10px;padding:10px 12px;border-radius:12px;background:#E7F6EC;color:#14361F;font-size:13px;line-height:1.7}
+.mt-prev small{display:block;font-weight:700;color:#1A8F4B;margin-bottom:2px}
+html[data-theme=dark] .mt-prev{background:rgba(26,143,75,.18);color:#DDEFE3}
+
+/* ===== الرئيسية المختصرة ===== */
+.hm-today{margin-top:12px;padding:14px;border-radius:20px;color:#fff;cursor:pointer;background:linear-gradient(135deg,var(--green),var(--green-dark))}
+.hm-today-h{display:flex;align-items:center;gap:10px;margin-bottom:12px}.hm-today-h b{flex:1;font-size:17px}.hm-today-h .td-tile-ic{width:36px;height:36px;border-radius:12px}
+.hm-sts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hm-st{background:rgba(255,255,255,.17);border-radius:14px;padding:9px 12px;display:flex;flex-direction:column;gap:1px}
+.hm-st b{font-size:20px;font-weight:800;line-height:1.2}.hm-st b small{font-size:12px;opacity:.8}.hm-st span{font-size:12px;opacity:.92}
+.hm-st.warn{background:rgba(255,255,255,.28);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.5)}
+.hm-acts{display:flex;gap:8px;margin-top:12px}
+.hm-acts button{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:11px 6px;border-radius:16px;border:1px solid var(--border);background:var(--card);color:var(--green);font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.hm-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hm-tile{display:flex;align-items:center;gap:10px;padding:12px;border-radius:18px;background:var(--card);border:1px solid var(--border);cursor:pointer;min-height:64px}
+.hm-tile .khana-icon{width:40px!important;height:40px!important;flex:none;margin:0!important}
+.hm-tile .khana-label{font-size:14.5px;font-weight:800}.hm-tile .khana-sub{font-size:11.5px;color:var(--text-muted);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.edit-mode .hm-tile{outline:1.5px dashed var(--gold)}
+.hm-vision{display:flex;align-items:center;gap:8px;margin-top:14px;padding:12px 14px;border-radius:14px;background:var(--green-tint);color:var(--green);font-weight:700;font-size:14px;cursor:pointer}.hm-vision span{flex:1}
+/* ===== القائمة الجانبية ===== */
+.sd-ov{position:fixed;inset:0;z-index:9200;background:rgba(8,20,14,.32);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);opacity:0;transition:opacity .2s}
+.sd-ov.on{opacity:1}
+.sd-panel{position:absolute;top:0;bottom:0;right:0;width:84%;max-width:320px;background:var(--card);overflow-y:auto;padding:calc(14px + env(safe-area-inset-top)) 12px 24px;box-shadow:-10px 0 40px rgba(0,0,0,.2);transform:translateX(100%);transition:transform .24s cubic-bezier(.2,.8,.3,1)}
+.sd-ov.on .sd-panel{transform:none}
+.sd-x{position:absolute;top:calc(12px + env(safe-area-inset-top));left:12px;width:32px;height:32px;border-radius:50%;border:0;background:var(--bg,#f2f4f3);color:var(--text);font-size:14px;cursor:pointer}
+.sd-head{display:flex;align-items:center;gap:10px;padding:6px 6px 14px;border-bottom:1px solid var(--border);margin-bottom:6px}
+.sd-head b{display:block;font-size:15px}.sd-head small{color:var(--text-muted);font-size:12px}
+.sd-av{width:42px;height:42px;border-radius:50%;background:var(--green-tint);color:var(--green);display:grid;place-items:center;font-weight:800;overflow:hidden;flex:none}.sd-av img{width:100%;height:100%;object-fit:cover}
+.sd-g{padding:8px 0;border-bottom:1px solid var(--border)}
+.sd-gt{font-size:11.5px;font-weight:800;color:var(--text-muted);padding:4px 8px 6px}
+.sd-i{display:flex;align-items:center;gap:12px;width:100%;padding:10px 10px;border:0;background:none;border-radius:12px;font:inherit;font-size:14.5px;font-weight:600;color:var(--text);cursor:pointer;text-align:start}
+.sd-i svg{color:var(--green);flex:none}.sd-i:active,.sd-i:hover{background:var(--green-tint)}
+.sd-i.on{background:var(--green-tint);color:var(--green);font-weight:800}
+.sd-out{margin-top:8px;color:#B23A3A}.sd-out svg{color:#B23A3A}
+.sd-side{display:none}
+@media (min-width:1100px){
+  body.has-sd .sd-side{display:block;position:fixed;top:0;bottom:0;right:0;width:270px;overflow-y:auto;background:var(--card);border-left:1px solid var(--border);padding:16px 12px 30px;z-index:40}
+  body.has-sd #app{padding-right:270px}
+  body.has-sd .topbar-actions .sd-open{display:none!important}
+  body.has-sd .bottomnav{right:270px}
+}
+.sd-hint{display:flex;align-items:center;gap:10px;margin-top:16px;padding:13px 14px;border-radius:16px;background:var(--green-tint);color:var(--green);font-weight:700;font-size:13.5px;cursor:pointer}.sd-hint span{flex:1}
+.wp-card{display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:16px;background:var(--card);border:1px solid var(--border);cursor:pointer}
+.wp-card b{display:block;font-size:14.5px}.wp-card small{color:var(--text-muted);font-size:12.5px;line-height:1.5}
+.wp-ic{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--green-tint);color:var(--green);flex:none}
+.wp-home{margin-top:12px;border-color:var(--green);background:var(--green-tint)}.wp-home .wp-ic{background:var(--green);color:#fff}
+.wp-note{display:flex;gap:10px;padding:12px 14px;border-radius:14px;background:#FBF3DE;color:#5E4510;margin-bottom:12px;line-height:1.7;font-size:14px}
+html[data-theme=dark] .wp-note{background:rgba(201,162,75,.16);color:#F1E2BC}
 </style>
 </head>
 <body>
@@ -1235,6 +1288,8 @@ const ICONS = {
   chart:'<path d="M4.5 20V11"/><path d="M12 20V4.5"/><path d="M19.5 20v-8"/>',
   user:'<circle cx="12" cy="8.3" r="3.6"/><path d="M4.8 20c1.5-4.2 4.1-6 7.2-6s5.7 1.8 7.2 6"/>',
   bell:'<path d="M6.2 9.3a5.8 5.8 0 0 1 11.6 0c0 4.8 1.9 5.9 1.9 5.9H4.3s1.9-1.1 1.9-5.9Z"/><path d="M9.7 18.7a2.3 2.3 0 0 0 4.6 0"/>',
+  menu:'<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>',
+  calendar:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M16 3v4"/><path d="M8 3v4"/><path d="M4 11h16"/>',
   power:'<path d="M12 3.5v8.5"/><path d="M6.7 6.7a7.2 7.2 0 1 0 10.6 0"/>',
   crown:'<path d="M4.5 17.5h15l-1.6-8.3-4.3 3.3-2.6-5.3-2.6 5.3-4.3-3.3-1.6 8.3Z"/><path d="M4.5 20h15"/>',
   briefcase:'<rect x="3.2" y="7.2" width="17.6" height="12" rx="1.6"/><path d="M8.3 7.2V5.6a1.6 1.6 0 0 1 1.6-1.6h4.2a1.6 1.6 0 0 1 1.6 1.6v1.6"/><path d="M3.2 12.4h17.6"/>',
@@ -1518,8 +1573,9 @@ async function toggleTajweedLevel(sid, key, from){
   try{ await updateDoc(doc(db,'students',sid), {['tajweedLevels.'+key]: next}); }
   catch(e){ alert('تعذّر تحديث المستوى: '+e.message); }
 }
-function getBranch(id){ return cache.branches.find(b=>b.id===id) || {name:'—'}; }
-function findStudent(id){ return cache.students.find(s=>s.id===id) || (cache.allStudents||[]).find(s=>s.id===id); }
+const STAFF_BR = {id:'__staff', name:'المشرفين', color:'#2F5B9A'};
+function getBranch(id){ return id==='__staff' ? STAFF_BR : (cache.branches.find(b=>b.id===id) || {name:'—'}); }
+function findStudent(id){ return cache.students.find(s=>s.id===id) || (cache.allStudents||[]).find(s=>s.id===id) || (cache.staff||[]).find(s=>s.id===id); }
 let heartbeatInterval = null;
 let presenceInterval = null;
 async function sendHeartbeat(){
@@ -1554,6 +1610,9 @@ async function loadStudentsForRole(){
     const ids = (state.branchIds||[]).filter(Boolean);
     for(let i=0; i<ids.length; i+=30){ const snap = await getDocs(query(collection(db,'students'), where('branchId','in',ids.slice(i,i+30)))); all.push(...snap.docs.map(xdoc)); }
   }
+  // ملفات حفظ المشرفين منفصلة تمامًا عن الطلاب (ما بتدخل بالقوائم والترتيب والتقارير)
+  cache.staff = all.filter(x=>x.isStaff); all = all.filter(x=>!x.isStaff);
+  if(state.role==='supervisor'){ try{ const sn = await getDocs(query(collection(db,'students'), where('staffOf','==',state.personEmail))); cache.staff = sn.docs.map(xdoc); }catch(e){ cache.staff = []; } }
   cache.allStudents = all; cache.students = all.filter(x=>x.status!=='left');
 }
 function canEditBranch(branchId){ return state.role==='admin' || (state.role==='supervisor' && (state.branchIds||[]).includes(branchId)); }
@@ -1561,7 +1620,7 @@ function homeRoute(){ return state.role==='admin'?'adminHome':'supervisorHome'; 
 function canDo(cap){ return state.role==='admin' || (state.capabilities && state.capabilities[cap] !== false); }
 function canEditContentPerm(){ return state.role==='admin' || (state.capabilities && state.capabilities.editContent === true); }
 async function loadSupervisors(){ const snap = await getDocs(query(collection(db,'people'), where('role','==','supervisor'))); cache.supervisors = snap.docs.map(xdoc); }
-async function loadContent(){ const snap = await getDocs(collection(db,'siteContent')); cache.content = {}; snap.docs.forEach(d=>{ const t = d.data().text; cache.content[d.id] = (typeof t==='string' && /^(cert_|library_json$|holidays$|tracks_json$|role_names$)/.test(d.id)) ? t : xclean(t); }); trLoad(); }
+async function loadContent(){ const snap = await getDocs(collection(db,'siteContent')); cache.content = {}; snap.docs.forEach(d=>{ const t = d.data().text; cache.content[d.id] = (typeof t==='string' && /^(cert_|library_json$|holidays$|tracks_json$|role_names$|msg_tpl$)/.test(d.id)) ? t : xclean(t); }); trLoad(); }
 const _detailInflight = {};
 async function ensureStudentDetail(sid, force){
   if(cache.details[sid] && !force) return cache.details[sid];
@@ -1596,7 +1655,7 @@ async function bootSession(user){
   }
   const p = xclean(pdoc.data());
   state.role = p.role; state.personEmail = email; state.personName = p.name || email; state.personPhoto = p.photo || null;
-  state.branchIds = p.branchIds || []; state.studentId = p.studentId || null; state.capabilities = p.capabilities || {}; state.supKind = p.kind || 'halaqa'; state.profile = p.profile || {};
+  state.branchIds = p.branchIds || []; state.studentId = p.studentId || null; state.capabilities = p.capabilities || {}; state.supKind = p.kind || 'halaqa'; state.workPlan = p.workPlan || null; state.profile = p.profile || {};
   await loadBranches();
   await loadContent();
   if(state.role==='student'){
@@ -2339,7 +2398,7 @@ async function rpMakePdf(sheet, name){
   } finally { off.remove(); }
 }
 async function rpSend(btn, file, x, per, first){
-  const text = btn.dataset.msg || ('السلام عليكم، تقرير الطالب '+x.name+(per?' ('+per+')':'')+' من شعبة الحفاظ.');
+  const text = btn.dataset.msg || msgFill('report', {'الطالب':x.name, 'الفترة':per?'('+per+')':'', 'الشعبة':(getBranch(x.branchId)||{}).name||''});
   try{ if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], text, title:file.name}); return; } }
   catch(e){ if(e && e.name==='AbortError') return; if(first){ btn.textContent='اضغط مرة ثانية للإرسال'; return; } }
   const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
@@ -2837,10 +2896,11 @@ async function render(){
   if(!BR_DRAFT_VIEWS.includes(state.view) || (brDraft && state.params && brDraft.id!==state.params.id)) brDraft = null;
   const html = rhWrap(await renderView());
   try{ brApplyTheme(); }catch(e){ console.warn('theme',e); }
-  app.innerHTML = renderTopbar() + `<div class="${state.editMode?'edit-mode':''}"><div class="page">${html}</div></div>` + renderBottomNav();
+  app.innerHTML = renderTopbar() + `<div class="${state.editMode?'edit-mode':''}"><div class="page">${html}</div></div>` + renderBottomNav() + sdSideHTML();
+  document.body.classList.toggle('has-sd', state.role==='admin'||state.role==='supervisor');
   if(same) window.scrollTo(0,y0);
   if(state.role==='supervisor' && state.view==='supervisorHome' && !state.preview && !wlSeen()) setTimeout(()=>wlOpen(), 400);
-  if(state.view==='accountAdmin' && state.role==='admin'){
+  if(state.view==='accounts' && state.role==='admin'){
     presenceInterval = setInterval(async()=>{ if(document.hidden) return; const ae = document.activeElement; if(ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName)) return; const sig = ()=>JSON.stringify((cache.supervisors||[]).map(v=>[v.id,isOnline(v)])), b4 = sig(); await loadSupervisors(); if(sig()!==b4) render(); }, 20000);
   }
 }
@@ -2926,6 +2986,7 @@ function renderTopbar(){
     <div class="topbar-row">
       <div class="brand"><img src="${LOGO_EMBLEM}" alt="شعار شعبة الحفاظ" style="height:46px; display:block;"><img src="${LOGO_WORD}" alt="شعبة الحفاظ" style="height:24px; display:block; margin-inline-start:4px;"></div>
       <div class="topbar-actions">
+        ${(state.role==='admin'||state.role==='supervisor') ? `<div class="icon-btn sd-open" title="القائمة" aria-label="القائمة" onclick="window.sdOpen()">${icon('menu',17)}</div>` : ''}
         ${editBtn}
         <div class="icon-btn" title="التنبيهات" aria-label="التنبيهات" onclick="window.goto('notificationsView')">${icon('bell',16)}</div>
         <div class="icon-btn tb-out" title="تسجيل الخروج" aria-label="تسجيل الخروج" onclick="window.logoutAsk()">${icon('power',16)}</div>
@@ -3192,6 +3253,7 @@ async function todayView(){
   const multi = scope.length>1;
   const sessions = scope.map(b=>{ const hol = holidayOn(b.id, today), isToday = !hol && new Date().getDay()===dayOn(b,'attendance',today), cnt = cache.students.filter(s=>s.branchId===b.id), done = cnt.filter(s=>((cache.details[s.id]||{}).attendance||[]).some(r=>r.date===today)).length, nx = nextSessionDate(b,'attendance');
     return `<div class="td-ses" style="--bc:${colorOfBranch(b.id)}"><div><b>شعبة ${b.name}</b><small>${hol ? '🌙 اليوم عطلة: '+rpEsc(hol.label)+' · الموعد القادم: '+fmtD(nx) : isToday ? `اليوم يوم دوام · الحضور مسجّل لـ ${done} من ${cnt.length}` : 'الموعد القادم: '+fmtD(nx)}</small></div>${isToday && canEditBranch(b.id) && canDo('attendance') ? `<button class="td-btn solid" onclick="window.goto('branchAttendance',{id:'${b.id}',fresh:1})">${done<cnt.length?'سجّل الحضور':'مراجعة'}</button>` : ''}</div>`; }).join('');
+  if(state.params.jump) setTimeout(()=>tdJump(state.params.jump), 120);
   return subheader('نظرة اليوم', homeRoute()) + `
   <div class="td-date">${AR_DAYS[new Date().getDay()]} ${today}${hijri(today)?' · '+hijri(today).day+' '+hijri(today).name:''}</div>
   <div class="td-week">${icon('list',14)} الأسبوع: من <b>${fmtD(ws)}</b> إلى <b>${fmtD(addDaysStr(ws,6))}</b></div>
@@ -3207,7 +3269,7 @@ async function todayView(){
   ${repeat.length ? sec('r','غياب متكرر','#8E1B1B', repeat.length, repeat.map(x=>row(x.s, (multi?'شعبة '+getBranch(x.s.branchId).name+' · ':'')+'غاب '+x.n+' مواعيد متتالية', absWaBtn(x.s, x.n))).join(''), true) : ''}
   ${sec('n','لم يسمّعوا هذا الأسبوع <small class="td-rng">('+(+ws.slice(8))+'/'+(+ws.slice(5,7))+' – '+(+addDaysStr(ws,6).slice(8))+'/'+(+addDaysStr(ws,6).slice(5,7))+')</small>','#E08A2E', notYet.length, notYet.map(s=>row(s, (multi?'شعبة '+getBranch(s.branchId).name+' · ':'')+lastW(s), recBtn(s))).join(''), true)}
   ${sec('d','سمّعوا هذا الأسبوع','#2E9E5B', studs.length-notYet.length, studs.filter(s=>!notYet.includes(s)).map(s=>{ const w = anyW(s).filter(r=>r.date>=ws && r.date<=today); return row(s, (multi?'شعبة '+getBranch(s.branchId).name+' · ':'')+w.length+' تسجيل · '+lastW(s)); }).join(''), false)}
-  ${sec('a','غابوا عن آخر موعد','#B23A3A', absent.length, absent.map(x=>row(x.s, (multi?'شعبة '+getBranch(x.s.branchId).name+' · ':'')+'غياب '+fmtD(x.d), (x.s.phones||[]).length ? `<a class="td-btn" href="tel:${rpEsc((x.s.phones[0].number||x.s.phones[0]))}">${icon('user',14)} اتصال</a>` : '')).join(''), absent.length>0)}
+  ${sec('a','غابوا عن آخر موعد','#B23A3A', absent.length, absent.map(x=>row(x.s, (multi?'شعبة '+getBranch(x.s.branchId).name+' · ':'')+'غياب '+fmtD(x.d), absOneBtn(x.s, x.d))).join(''), absent.length>0)}
   ${unrec.length ? sec('u','حضور آخر موعد غير مسجّل','#8E8E93', unrec.length, unrec.map(x=>row(x.s, 'موعد '+fmtD(x.d)+' بدون تسجيل')).join(''), false) : ''}
   ${sec('b','متأخرون عن خطة الحفظ','#C9A24B', behind.length, behind.map(x=>row(x.s, x.pp.t.short+' · متأخر '+fmtNum(-x.pp.diff)+' ص · ورد اليوم '+pagesTxt(x.pp.t.daily), recBtn(x.s))).join(''), false)}
   ${sec('w','يحتاجون متابعة','#6C5CE7', watch.length, watch.map(w=>row(w.s, w.why.join(' · '))).join(''), false)}
@@ -3231,7 +3293,8 @@ function certFill(txt, s, juz, date){ const h = hijri(date); return String(txt||
 function certSheet(c, s, juz, date, share){
   const col = c.style==='branch' ? brInk(s.branchId) : c.style==='green' ? '#0F6B3A' : '#9A7420';
   const esc = v => rpEsc(v);
-  const shareRow = share?`<div class="rp-share-row"><button class="rp-share" data-sid="${s.id}" data-fname="شهادة-${esc(s.name)}-جزء-${juz}" data-msg="السلام عليكم، نبارك لكم إتمام الطالب ${esc(s.name)} حفظ ${esc(JUZ_NAMES(juz))}، وهذه شهادته من شعبة الحفاظ." onclick="window.rpShare(this)">${'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2.2A9.7 9.7 0 0 0 3.7 16.9L2.3 21.8l5-1.3A9.7 9.7 0 1 0 12 2.2z"/></svg>'}<span>إرسال</span></button></div>`:'';
+  const shareRow = share?`<div class="rp-share-row"><button class="rp-share" data-sid="${s.id}" data-fname="شهادة-${esc(s.name)}-جزء-${juz}" data-msg="${esc(msgFill('cert', {'الطالب':s.name, 'الجزء':JUZ_NAMES(juz), 'الشعبة':(getBranch(s.branchId)||{}).name||''}))}" onclick="window.rpShare(this)">${'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2.2A9.7 9.7 0 0 0 3.7 16.9L2.3 21.8l5-1.3A9.7 9.7 0 1 0 12 2.2z"/></svg>'}<span>إرسال</span></button></div>`:'';
+  if(s && s.isStaff && !certSheet._in){ certSheet._in = true; try{ return certSheet(c, s, juz, date, share).replace(/الطالبة|الطالب/g,'المشرف').replace(/شعبة المشرفين/g,'شعبة الحفاظ'); } finally { certSheet._in = false; } }
   if(c.mode==='custom') return `<section class="rp-sheet cert-sheet cx-sheet">${shareRow}${cxCanvas(c, s, juz, date, false)}</section>`;
   return `<section class="rp-sheet cert-sheet" style="--cc:${col}">${shareRow}
     <div class="ct-frame"><div class="ct-inner">
@@ -3492,7 +3555,7 @@ async function studentReport(sid){
   const certs = (s.certs||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   const st = pp ? PLAN_ST[pp.status] : null;
   const tlPct = t ? Math.min(100, Math.max(0, (new Date(today)-new Date(t.start))/(new Date(planEnd)-new Date(t.start))*100)) : 0;
-  const shareBtn = `<div class="rp-share-row"><button class="rp-share" data-sid="${s.id}" data-fname="التقرير-الشامل-${esc(s.name)}" data-msg="السلام عليكم، هذا التقرير الشامل للطالب ${esc(s.name)} من شعبة الحفاظ." onclick="window.rpShare(this)"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2.2A9.7 9.7 0 0 0 3.7 16.9L2.3 21.8l5-1.3A9.7 9.7 0 1 0 12 2.2z"/></svg><span>إرسال</span></button></div>`;
+  const shareBtn = `<div class="rp-share-row"><button class="rp-share" data-sid="${s.id}" data-fname="التقرير-الشامل-${esc(s.name)}" data-msg="${esc(msgFill('full', {'الطالب':s.name, 'الشعبة':(getBranch(s.branchId)||{}).name||''}))}" onclick="window.rpShare(this)"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2.2A9.7 9.7 0 0 0 3.7 16.9L2.3 21.8l5-1.3A9.7 9.7 0 1 0 12 2.2z"/></svg><span>إرسال</span></button></div>`;
   const head = (pg) => `<div class="sr-band"><div class="sr-logos"><img class="sr-em" src="${LOGO_EMBLEM}" alt=""><img class="sr-word" src="${LOGO_WORD}" alt=""></div><div class="sr-ttl"><b>التقرير الشامل للطالب</b><small>${srDate(today)}${hijri(today)?' · '+hijri(today).day+' '+hijri(today).name+' '+hijri(today).year+' هـ':''}</small></div><div class="sr-pgn">${pg} / 2</div></div>`;
   const sheet = `<section class="rp-sheet sr-sheet" style="--c1:${C1};--c2:${C2};--g1:${rgbCss(rgbMix(c,[255,255,255], light?0:.2))};--ink:${ink};--tint:${TINT};--tint2:${TINT2};--bar:${BAR}">${shareBtn}
   <div class="sr-pg">${head(1)}
@@ -3690,9 +3753,74 @@ function absStreak(s){
   const A = ((cache.details[s.id]||{}).attendance||[]).filter(r=>r.date && r.status && !holidayOn(s.branchId, r.date)).sort((a,b)=>b.date.localeCompare(a.date));
   let n = 0; for(const r of A){ if(r.status==='غياب') n++; else break; } return n;
 }
-function waPhone(s){ const cc = rpCfg().cc||'962', ph = (s.phones&&s.phones[0]) ? (s.phones[0].number||s.phones[0]) : s.phone; let n = String(ph||'').replace(/\D/g,''); if(!n) return ''; if(n.startsWith('00')) n = n.slice(2); else if(n.startsWith('0')) n = cc+n.slice(1); return n; }
-function absMsg(s, n){ return `السلام عليكم ورحمة الله وبركاته،\nنودّ إعلامكم بأن الطالب ${s.name} تغيّب عن آخر ${n===2?'موعدين':n+' مواعيد'} متتالية في شعبة ${getBranch(s.branchId).name}.\nنرجو التواصل معنا، والحرص على حضوره حتى لا يفوته ورده.\nجزاكم الله خيرًا — شعبة الحفاظ`; }
-function absWaBtn(s, n){ const ph = waPhone(s); return ph ? `<a class="td-btn solid" style="background:#1A8F4B;border-color:#1A8F4B" target="_blank" rel="noopener" href="https://wa.me/${ph}?text=${encodeURIComponent(absMsg(s,n))}" onclick="event.stopPropagation()">واتساب للأهل</a>` : `<span class="row-sub">لا يوجد رقم</span>`; }
+// ===== رسائل الأهل: قوالب قابلة للتعديل + زر لكل رقم (الأب/الأم) =====
+const MSG_DEF = {
+  abs_rep:{t:'الغياب المتكرر', where:'نظرة اليوم ← غياب متكرر، والتنبيهات', vars:['الطالب','العدد','الشعبة','الصلة'],
+    d:'السلام عليكم ورحمة الله وبركاته،\nنودّ إعلامكم بأن الطالب {الطالب} تغيّب عن آخر {العدد} متتالية في شعبة {الشعبة}.\nنرجو التواصل معنا، والحرص على حضوره حتى لا يفوته ورده.\nجزاكم الله خيرًا — شعبة الحفاظ'},
+  abs_one:{t:'الغياب عن آخر موعد', where:'نظرة اليوم ← غابوا عن آخر موعد', vars:['الطالب','التاريخ','الشعبة','الصلة'],
+    d:'السلام عليكم ورحمة الله وبركاته،\nنودّ إعلامكم بأن الطالب {الطالب} تغيّب عن موعد الحلقة يوم {التاريخ} في شعبة {الشعبة}.\nنرجو الحرص على حضوره في الموعد القادم.\nجزاكم الله خيرًا — شعبة الحفاظ'},
+  report:{t:'إرسال تقرير الطالب', where:'تقرير A4 لكل طالب ← إرسال', vars:['الطالب','الفترة','الشعبة'],
+    d:'السلام عليكم، تقرير الطالب {الطالب} {الفترة} من شعبة الحفاظ.'},
+  full:{t:'إرسال التقرير الشامل', where:'ملف الطالب ← التقرير الشامل ← إرسال', vars:['الطالب','الشعبة'],
+    d:'السلام عليكم، هذا التقرير الشامل للطالب {الطالب} من شعبة الحفاظ.'},
+  cert:{t:'إرسال شهادة الإتمام', where:'الشهادة ← إرسال', vars:['الطالب','الجزء','الشعبة'],
+    d:'السلام عليكم، نبارك لكم إتمام الطالب {الطالب} حفظ {الجزء}، وهذه شهادته من شعبة الحفاظ.'},
+};
+function msgAll(){ try{ const o = JSON.parse(cache.content.msg_tpl||'{}'); return (o && typeof o==='object') ? o : {}; }catch(e){ return {}; } }
+function msgTpl(k){ const v = msgAll()[k]; return (typeof v==='string' && v.trim()) ? v : MSG_DEF[k].d; }
+function msgFill(k, vars){ return msgTpl(k).replace(/\{([^{}]{1,20})\}/g, (m, n)=> vars && vars[n]!=null ? String(vars[n]) : (n==='الصلة' ? 'ولي الأمر' : m)).replace(/[ \t]{2,}/g,' ').replace(/ \./g,'.'); }
+// أرقام الطالب مع صلتها: الأب / الأم / ...
+function waNum(raw){ const cc = rpCfg().cc||'962'; let n = String(raw||'').replace(/\D/g,''); if(!n) return ''; if(n.startsWith('00')) n = n.slice(2); else if(n.startsWith('0')) n = cc+n.slice(1); return n; }
+function phoneList(s){
+  const arr = (s.phones && s.phones.length) ? s.phones : (s.phone ? [{type:'',number:s.phone}] : []);
+  return arr.map(p=>{ const raw = typeof p==='string' ? p : (p.number||''), ty = typeof p==='string' ? '' : (p.type||'');
+    const rel = ty==='أب' ? 'الأب' : ty==='أم' ? 'الأم' : (ty && ty!=='—' ? rpEsc(ty) : 'الأهل'); return {raw, wa:waNum(raw), rel}; }).filter(p=>p.wa);
+}
+function waPhone(s){ const l = phoneList(s); return l.length ? l[0].wa : ''; }
+const WA_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2.2A9.7 9.7 0 0 0 3.7 16.9L2.3 21.8l5-1.3A9.7 9.7 0 1 0 12 2.2z"/></svg>';
+function waBtns(s, k, vars){
+  const l = phoneList(s); if(!l.length) return `<span class="row-sub">لا يوجد رقم</span>`;
+  const multi = l.length>1;
+  return `<span class="wa-btns">${l.map(p=>`<a class="td-btn solid wa-b" target="_blank" rel="noopener" href="https://wa.me/${p.wa}?text=${encodeURIComponent(msgFill(k, {...vars, 'الصلة':p.rel==='الأهل'?'ولي الأمر':p.rel}))}" onclick="event.stopPropagation()" title="واتساب ${p.rel} · ${rpEsc(p.raw)}">${WA_SVG}${multi ? p.rel : 'واتساب '+(p.rel==='الأهل'?'للأهل':p.rel)}</a>`).join('')}</span>`;
+}
+function absMsg(s, n){ return msgFill('abs_rep', {'الطالب':s.name, 'العدد':n===2?'موعدين':n+' مواعيد', 'الشعبة':getBranch(s.branchId).name}); }
+function absWaBtn(s, n){ return waBtns(s, 'abs_rep', {'الطالب':s.name, 'العدد':n===2?'موعدين':n+' مواعيد', 'الشعبة':getBranch(s.branchId).name}); }
+function absOneBtn(s, d){ const l = phoneList(s); return waBtns(s, 'abs_one', {'الطالب':s.name, 'التاريخ':fmtDayAr(d), 'الشعبة':getBranch(s.branchId).name}) + (l.length ? `<a class="td-btn wa-call" href="tel:${rpEsc(l[0].raw)}" onclick="event.stopPropagation()" title="اتصال ${l[0].rel}">${icon('user',14)}</a>` : ''); }
+function fmtDayAr(d){ try{ const dt = new Date(d+'T00:00:00'); return dt.toLocaleDateString('ar', {weekday:'long'})+' '+(+d.slice(8))+'/'+(+d.slice(5,7)); }catch(e){ return d; } }
+function msgTplView(){
+  if(!canEditContentPerm()) return subheader('رسائل الأهل', homeRoute()) + `<div class="empty">ما عندك صلاحية تعديل محتوى الموقع</div>`;
+  const all = msgAll(), back = homeRoute();
+  setTimeout(()=>Object.keys(MSG_DEF).forEach(mtPrev), 30);
+  return subheader('رسائل الأهل', back) + `
+  <div class="row-sub" style="margin:8px 2px 12px">عدّل نص الرسائل اللي بتنبعث للأهل عالواتساب. الكلمات بين {} بتتعبّى لحالها لكل طالب — اكبس على أي وحدة لتضيفها مكان المؤشر. <b>{الصلة}</b> بتصير «الأب» أو «الأم» حسب الرقم.</div>
+  ${Object.entries(MSG_DEF).map(([k,m])=>`<div class="stat-card mt-card" style="text-align:right;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b style="font-size:15px">${m.t}</b>${all[k]?'<span class="badge gold">معدّلة</span>':''}</div>
+    <div class="row-sub" style="margin:2px 0 8px">${m.where}</div>
+    <textarea id="mt-${k}" rows="5" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:12px;padding:10px;font:inherit;font-size:14px;background:var(--card);color:var(--text);line-height:1.7" oninput="window.mtPrev('${k}')">${rpEsc(msgTpl(k))}</textarea>
+    <div class="mt-vars">${m.vars.map(v=>`<button type="button" onclick="window.mtIns('${k}','${v}')">{${v}}</button>`).join('')}</div>
+    <div class="mt-prev" id="mtp-${k}"></div>
+    ${all[k]?`<div style="margin-top:6px"><span style="color:var(--green);font-weight:700;font-size:13px;cursor:pointer" onclick="window.mtReset('${k}')">إرجاع النص الأصلي</span></div>`:''}
+  </div>`).join('')}
+  <button class="btn btn-primary" onclick="window.mtSave()">${icon('check',16)} حفظ الرسائل</button>
+  <div id="mt-alert"></div>`;
+}
+const MT_SAMPLE = {'الطالب':'أحمد محمد','العدد':'3 مواعيد','الشعبة':'الفتح','التاريخ':'السبت 22/11','الفترة':'(هذا الشهر)','الجزء':'جزء عمّ','الصلة':'الأب'};
+function mtPrev(k){ const t = document.getElementById('mt-'+k), p = document.getElementById('mtp-'+k); if(!t||!p) return;
+  p.innerHTML = '<small>مثال:</small>' + rpEsc(t.value.replace(/\{([^{}]{1,20})\}/g,(m,n)=>MT_SAMPLE[n]!=null?MT_SAMPLE[n]:m)).replace(/\n/g,'<br>'); }
+function mtIns(k, v){ const t = document.getElementById('mt-'+k); if(!t) return; const a = t.selectionStart??t.value.length, b = t.selectionEnd??a, ins = '{'+v+'}';
+  t.value = t.value.slice(0,a)+ins+t.value.slice(b); t.focus(); t.selectionStart = t.selectionEnd = a+ins.length; mtPrev(k); }
+async function mtWrite(o){
+  const text = JSON.stringify(o); await setDoc(doc(db,'siteContent','msg_tpl'), {text}, {merge:true}); cache.content.msg_tpl = text;
+}
+async function mtSave(){
+  const o = {}, al = document.getElementById('mt-alert');
+  Object.keys(MSG_DEF).forEach(k=>{ const v = (document.getElementById('mt-'+k).value||'').replace(/[<>`]/g,'').slice(0,1000); if(v.trim() && v.trim()!==MSG_DEF[k].d.trim()) o[k] = v; });
+  try{ await mtWrite(o); auditLog('تعديل رسائل الأهل', Object.keys(o).map(k=>MSG_DEF[k].t).join('، ')||'النصوص الأصلية', ''); render(); setTimeout(()=>{ const a = document.getElementById('mt-alert'); if(a) a.innerHTML = `<div class="alert success">${icon('check',16)} تم الحفظ</div>`; }, 60); }
+  catch(e){ al.innerHTML = `<div class="alert error">تعذّر الحفظ: ${rpEsc(e.message)}</div>`; }
+}
+async function mtReset(k){ const t = document.getElementById('mt-'+k); if(t){ t.value = MSG_DEF[k].d; mtPrev(k); } }
+Object.assign(window, {mtPrev, mtIns, mtSave, mtReset});
+window.__wa = {absWaBtn, absOneBtn, phoneList};
 function absRepeatList(studs){ return studs.filter(s=>stStatus(s)!=='paused').map(s=>({s, n:absStreak(s)})).filter(x=>x.n>=2).sort((a,b)=>b.n-a.n); }
 
 /* ===== متابعة المشرفين ===== */
@@ -3723,7 +3851,7 @@ async function supTrackView(){
       <div class="sp-l"><span>آخر تسجيل: <b>${ago(last)}</b></span>${p.sv?`<span>آخر دخول: <b>${ago(seen)}</b></span>`:''}</div>
       ${missing.length ? `<div class="sp-miss">${icon('alert',14)} مواعيد بدون تسجيل حضور: ${missing.map(x=>'شعبة '+x.b.name+' '+(+x.d.slice(8))+'/'+(+x.d.slice(5,7))).join('، ')}</div>` : `<div class="sp-ok">${icon('check',14)} كل المواعيد الأخيرة مسجّلة</div>`}
     </div>`; };
-  return subheader('متابعة المشرفين', 'accountAdmin') + `
+  return subheader('متابعة المشرفين', homeRoute()) + `
   <div class="row-sub" style="margin:12px 4px">نشاط كل مشرف حسب السجلات اللي سجّلها باسمه. «متأخرة» = سجّل حضور الموعد بعد يومه. «بالوقت» = نسبة جلسات الحضور المسجّلة بنفس اليوم خلال آخر 30 يوم.</div>
   ${people.map(card).join('')}`;
 }
@@ -3756,7 +3884,7 @@ async function auditView(){
   if(state.role!=='admin') return subheader('سجل التعديلات', homeRoute()) + `<div class="empty">للمدير فقط</div>`;
   const since = addDaysStr(todayStr(), -90); let rows = [];
   try{ const sn = await getDocs(query(collection(db,'auditLog'), where('date','>=',since))); rows = sn.docs.map(xdoc).sort((a,b)=>tsMillis(b.at)-tsMillis(a.at) || (b.date||'').localeCompare(a.date||'')); }
-  catch(e){ return subheader('سجل التعديلات','accountAdmin') + `<div class="empty">تعذّر تحميل السجل: ${rpEsc(e.message)}<div class="row-sub" style="margin-top:6px">تأكّد إنك نشرت ملف قواعد الحماية الجديد (فيه صلاحيات سجل التعديلات).</div></div>`; }
+  catch(e){ return subheader('سجل التعديلات',homeRoute()) + `<div class="empty">تعذّر تحميل السجل: ${rpEsc(e.message)}<div class="row-sub" style="margin-top:6px">تأكّد إنك نشرت ملف قواعد الحماية الجديد (فيه صلاحيات سجل التعديلات).</div></div>`; }
   const by = state.params.by || '', act = state.params.act || '';
   const people = [...new Set(rows.map(r=>r.by).filter(Boolean))], acts = [...new Set(rows.map(r=>r.action).filter(Boolean))].sort();
   const f = rows.filter(r=>(!by || r.by===by) && (!act || r.action===act));
@@ -3764,7 +3892,7 @@ async function auditView(){
   const groups = {}; f.forEach(r=>{ (groups[r.date||'—'] = groups[r.date||'—'] || []).push(r); });
   const time = r => { const ms = tsMillis(r.at); return ms ? new Date(ms).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : ''; };
   const icn = a => /حذف/.test(a) ? ['trash','#B23A3A'] : /نقاط|مكافأة/.test(a) ? ['star','#B8862F'] : /شهادة|اختبار/.test(a) ? ['crown','#A8385B'] : /حضور|دفع/.test(a) ? ['check','#2F7BD9'] : ['pencil','#14907C'];
-  return subheader('سجل التعديلات', 'accountAdmin') + `
+  return subheader('سجل التعديلات', homeRoute()) + `
   <div class="row-sub" style="margin:12px 4px">كل تعديل مهم بالنظام: مين عمله ومتى. آخر 90 يوم.</div>
   <div class="lb-chips"><button class="${!by?'on':''}" onclick="${go({by:''})}">كل الأشخاص</button>${people.map(p=>`<button class="${by===p?'on':''}" onclick="${go({by:p})}">${p}</button>`).join('')}</div>
   <div class="field" style="margin-top:10px"><select onchange="window.goto('auditView',{by:'${by}',act:this.value})"><option value="">كل أنواع التعديلات</option>${acts.map(a=>`<option ${a===act?'selected':''}>${a}</option>`).join('')}</select></div>
@@ -3862,7 +3990,7 @@ async function pvPickView(){
   if(state.role!=='admin' && !pvSaved) return subheader('معاينة', homeRoute()) + `<div class="empty">للمدير فقط</div>`;
   const q = (state.params.q||'').trim();
   const sups = (cache.supervisors||[]), studs = (cache.allStudents||cache.students).filter(s=>s.status!=='left' && (!q || s.name.includes(q))).sort((a,b)=>a.name.localeCompare(b.name,'ar'));
-  return subheader('معاينة النظام', 'accountAdmin') + `
+  return subheader('معاينة النظام', homeRoute()) + `
   <div class="alert" style="background:var(--green-tint);color:var(--green);margin-top:12px">${icon('eye',15)} <span>بتشوف النظام بالضبط زي ما بيشوفه الشخص: نفس الصفحات والشعب والصلاحيات. المعاينة للعرض فقط، وأي تعديل خلالها ما بينحفظ.</span></div>
   <div class="section-title"><span class="bar"></span>معاينة كمشرف</div>
   <div class="list">${sups.length ? sups.map(sv=>`<div class="row" style="cursor:pointer" onclick="window.pvStart('sup','${sv.id}')"><div class="row-left"><div class="avatar">${icon('briefcase',16)}</div><div><div class="row-title">${sv.name||sv.id}</div><div class="row-sub">${(sv.branchIds||[]).map(id=>'شعبة '+((getBranch(id)||{}).name||'؟')).join('، ')||'بدون شعب'}</div></div></div><div class="chevron">${icon('chevronL',14)}</div></div>`).join('') : `<div class="empty" style="padding:14px">لا يوجد مشرفون</div>`}</div>
@@ -3872,11 +4000,11 @@ async function pvPickView(){
 }
 function pvStart(kind, id){
   if(state.role!=='admin' || pvSaved) return;
-  pvSaved = {role:state.role, personEmail:state.personEmail, personName:state.personName, personPhoto:state.personPhoto, branchIds:state.branchIds, capabilities:state.capabilities, supKind:state.supKind, studentId:state.studentId, profile:state.profile, editMode:state.editMode, students:cache.students, all:cache.allStudents};
+  pvSaved = {role:state.role, personEmail:state.personEmail, personName:state.personName, personPhoto:state.personPhoto, branchIds:state.branchIds, capabilities:state.capabilities, supKind:state.supKind, workPlan:state.workPlan, studentId:state.studentId, profile:state.profile, editMode:state.editMode, students:cache.students, all:cache.allStudents};
   const all = cache.allStudents || cache.students;
   if(kind==='sup'){
     const sv = (cache.supervisors||[]).find(x=>x.id===id); if(!sv){ pvSaved = null; return; }
-    Object.assign(state, {role:'supervisor', personEmail:sv.id, personName:sv.name||sv.id, personPhoto:sv.photo||null, branchIds:sv.branchIds||[], capabilities:sv.capabilities||{}, supKind:sv.kind||'halaqa', profile:sv.profile||{}, studentId:null, editMode:false, preview:{kind, label:'المشرف '+(sv.name||sv.id)}});
+    Object.assign(state, {role:'supervisor', personEmail:sv.id, personName:sv.name||sv.id, personPhoto:sv.photo||null, branchIds:sv.branchIds||[], capabilities:sv.capabilities||{}, supKind:sv.kind||'halaqa', workPlan:sv.workPlan||null, profile:sv.profile||{}, studentId:null, editMode:false, preview:{kind, label:'المشرف '+(sv.name||sv.id)}});
     cache.allStudents = all.filter(s=>(sv.branchIds||[]).includes(s.branchId)); cache.students = cache.allStudents.filter(s=>s.status!=='left');
   } else {
     const s = all.find(x=>x.id===id); if(!s){ pvSaved = null; return; }
@@ -3889,7 +4017,7 @@ function pvStart(kind, id){
 function pvEnd(){
   if(!pvSaved) return;
   const sv = pvSaved; pvSaved = null;
-  Object.assign(state, {role:sv.role, personEmail:sv.personEmail, personName:sv.personName, personPhoto:sv.personPhoto, branchIds:sv.branchIds, capabilities:sv.capabilities, supKind:sv.supKind, studentId:sv.studentId, profile:sv.profile, editMode:false, preview:null});
+  Object.assign(state, {role:sv.role, personEmail:sv.personEmail, personName:sv.personName, personPhoto:sv.personPhoto, branchIds:sv.branchIds, capabilities:sv.capabilities, supKind:sv.supKind, workPlan:sv.workPlan, studentId:sv.studentId, profile:sv.profile, editMode:false, preview:null});
   cache.students = sv.students; cache.allStudents = sv.all;
   try{ document.documentElement.classList.remove('pv-on'); }catch(e){}
   goto('accountAdmin');
@@ -4082,7 +4210,7 @@ function rhParams(t){
   if(rhCtx && rhCtx.sid && t[0]==='exportData') o.sid = rhCtx.sid;
   return o;
 }
-function rhBack(){ if(rhCtx){ const c = rhCtx; rhCtx = null; goto(c.v, c.p); } else goto(state.role==='admin'?'accountAdmin':'accountSup'); }
+function rhBack(){ if(rhCtx){ const c = rhCtx; rhCtx = null; goto(c.v, c.p); } else goto(homeRoute()); }
 window.rhOpen = rhOpen; window.rhBack = rhBack;
 function rhBar(active){
   return `<div class="rh-tabs" role="tablist">${rhTabs().map(t=>`<button role="tab" class="${t[0]===active?'on':''}" onclick="window.goto('${t[0]}',${JSON.stringify(rhParams(t)).replace(/"/g,"'")})">${icon(t[2],14)}<span>${t[1]}</span></button>`).join('')}</div>`;
@@ -4119,6 +4247,12 @@ async function renderView(){
     case 'holidaysView': return holidaysView();
     case 'roleNames': return roleNamesView();
     case 'appearance': return appearanceView();
+    case 'visionView': return visionView();
+    case 'supPlanForm': return supPlanForm();
+    case 'myPlan': return myPlanView();
+    case 'staffLearners': return await staffLearnersView();
+    case 'staffCert': return staffCertView();
+    case 'msgTpl': return msgTplView();
     case 'yearArch': return await yearArchView();
     case 'yearClose': return yearCloseView();
     case 'yearDetail': return await yearDetailView();
@@ -4147,6 +4281,7 @@ async function renderView(){
     case 'notificationsView': return await notificationsView();
     case 'wirdForm': return wirdForm();
     case 'accountAdmin': return await accountView();
+    case 'accounts': return await accountsView();
     case 'inviteForm': return inviteForm();
     case 'supervisorPermissions': return supervisorPermissions();
     case 'supervisorHome': return supervisorHome();
@@ -4173,7 +4308,7 @@ async function homeContent(){
   const tally = () => { let hc=0, rc=0, hw=0, rw=0; for(const s of cache.students){ const det = cache.details[s.id]; if(!det) continue; hc += det.hifzLog.length; rc += det.reviewLog.length; hw += det.hifzLog.filter(r=>r.date>=ws).length; rw += det.reviewLog.filter(r=>r.date>=ws).length; } return {hc,rc,hw,rw}; };
   const ready = cache.students.every(s=>cache.details[s.id]), T = tally(), num = v => ready ? v : '…';
   const hifzCount = T.hc, reviewCount = T.rc, hifzWeek = T.hw, reviewWeek = T.rw;
-  if(!ready) setTimeout(async()=>{ try{ await loadAllDetails(); const t = tally(); document.querySelectorAll('[data-hs]').forEach(el=>{ el.textContent = t[el.dataset.hs]; }); }catch(e){} },0);
+  if(!ready) setTimeout(async()=>{ try{ await loadAllDetails(); if(['adminHome','supervisorHome'].includes(state.view)) render(); }catch(e){} },0);
   const khanas = [
     {go:'libraryView', ic:'book', label:'المكتبة', sub:'التفسير والتجويد والمتون لكل مستوى'},
     {go:'adminDirectory', ic:'idcard', label:editable('khana_directory_label','اسم خانة الملف التعريفي'), sub:editable('khana_directory_sub','وصف خانة الملف التعريفي')},
@@ -4186,27 +4321,49 @@ async function homeContent(){
   if(state.role==='admin') khanas.push({go:'certHome', ic:'crown', label:'الشهادات', sub:'إصدار وتصميم شهادات إتمام الأجزاء'});
   if(canViewSupervisors()) khanas.push({go:'supervisorsList', ic:'briefcase', label:editable('khana_supervisors_label','اسم خانة المشرفين'), sub:editable('khana_supervisors_sub','وصف خانة المشرفين')});
   const chev = `<div style="position:absolute; top:12px; left:12px; color:var(--text-muted)">${icon('chevronL',13)}</div>`;
-  const tdN = ready ? (()=>{ const ws2 = weekStartStr(), t2 = todayStr(); const sc = cache.students.filter(s=>canEditBranch(s.branchId)); return sc.filter(s=>{ const d = cache.details[s.id]||{}; return ![...(d.hifzLog||[]),...(d.reviewLog||[]),...(d.recitationLog||[])].some(r=>r.date>=ws2 && r.date<=t2); }).length; })() : null;
+  const C4 = ready ? tdCounts() : null;
+  const isAdm = state.role==='admin';
+  // الخانات: للمدير نشيل اللي موجود بالشريط السفلي (الشعب/الطلاب/النقاط)
+  const inNav = isAdm ? ['adminBranches','adminDirectory','adminPoints'] : [];
+  const tiles = khanas.filter(k=>!inNav.includes(k.go));
+  const mbr = cache.branches.filter(b=>canEditBranch(b.id));
+  const attGo = mbr.length===1 ? `window.goto('branchAttendance',{id:'${mbr[0].id}'})` : `window.goto('adminBranches')`;
+  const st = (k, n, l, warn) => `<div class="hm-st ${warn&&n?'warn':''}" onclick="event.stopPropagation();${state.editMode?'':`window.goto('todayView',{jump:'${k}'})`}"><b>${n}</b><span>${l}</span></div>`;
   return `
-  <div class="td-tile" style="${tdTileStyle()}" onclick="${state.editMode?'':"window.goto('todayView')"}"><div class="td-tile-ic">${icon('checksq',22)}</div><div style="flex:1"><b>نظرة اليوم</b><small>${tdN===null?'من سمّع، الغياب، والمتأخرون عن الخطة':tdN?tdN+' لم يسمّعوا هذا الأسبوع · اضغط للمتابعة':'الكل سمّع هذا الأسبوع ✓'}</small></div><div class="chevron">${icon('chevronL',15)}</div></div>
-  <div class="vision-card">
+  <div class="td-tile" style="${tdTileStyle()}" onclick="${state.editMode?'':"window.goto('todayView')"}"><div class="td-tile-ic">${icon('checksq',22)}</div><div style="flex:1"><b>نظرة اليوم</b><small>${!C4 ? 'من سمّع، الغياب، والمتأخرون عن الخطة' : [C4.total-C4.done ? (C4.total-C4.done)+' لم يسمّعوا هذا الأسبوع' : 'الكل سمّع هذا الأسبوع ✓', C4.absent ? C4.absent+' غابوا آخر موعد' : '', C4.behind ? C4.behind+' متأخرون عن الخطة' : ''].filter(Boolean).join(' · ')}</small></div><span style="opacity:.85">${icon('chevronL',16)}</span></div>
+  ${wpHomeCard()}
+  ${staffHomeCard()}
+  ${(state.role==='admin'||state.role==='supervisor') && !state.editMode ? `<div class="hm-acts">
+    ${canDo('hifz') ? `<button onclick="window.goto('adminDirectory')">${icon('book',17)}<span>تسجيل ورد</span></button>` : ''}
+    ${canDo('attendance')||canDo('tajweed') ? `<button onclick="${attGo}">${icon('checksq',17)}<span>الحضور</span></button>` : ''}
+    <button onclick="window.rhOpen('pointsReport')">${icon('chart',17)}<span>التقارير</span></button>
+  </div>` : ''}
+  <div class="section-title hm-sec"><span class="bar"></span>الأقسام${hmToggles()}</div>
+  <div class="hm-grid">
+    ${tiles.map((k,i)=>`<div class="hm-tile" onclick="${state.editMode?'':`window.goto('${k.go}')`}" ${(tiles.length%2===1 && i===tiles.length-1)?'style="grid-column:1/3"':''}>${khIcon(k.go, k.ic)}<div><div class="khana-label">${k.label}</div><div class="khana-sub">${k.sub}</div></div></div>`).join('')}
+  </div>
+  <div class="hm-vision" onclick="${state.editMode?'':"window.goto('visionView')"}">${icon('eye',15)} <span>الرؤية والأهداف</span>${state.editMode?'':`<i>${icon('chevronL',13)}</i>`}</div>
+  ${state.editMode ? visionCardHTML() : ''}`;
+}
+function visionCardHTML(){ return `<div class="vision-card">
     <div class="vision-title"><span class="vi">${icon('eye',15)}</span>الرؤية</div>
     <div class="vision-text">${editable('vision_text','نص الرؤية')}</div>
     <div class="vision-divider"></div>
     <div class="vision-title"><span class="vi">${icon('target',15)}</span>الأهداف</div>
     <div class="vision-text">${editable('goals_text','نص الأهداف')}</div>
-  </div>
-  <div class="section-title hm-sec"><span class="bar"></span>الأقسام الرئيسية${hmToggles()}</div>
-  <div class="khana-grid">
-    ${khanas.map((k,i)=>`<div class="khana" onclick="${state.editMode?'':`window.goto('${k.go}')`}" ${(khanas.length%2===1 && i===khanas.length-1)?'style="grid-column:1/3"':''}>${khIcon(k.go, k.ic)}<div class="khana-label">${k.label}</div><div class="khana-sub">${k.sub}</div></div>`).join('')}
-  </div>
-  <div class="section-title"><span class="bar"></span>نظرة سريعة</div>
-  <div class="stat-grid">
-    <div class="stat-card" style="position:relative; cursor:pointer" onclick="window.goto('quickStudents')">${chev}<div class="stat-icon">${icon('user',17)}</div><div class="stat-num">${cache.students.length}</div><div class="stat-label">إجمالي الطلاب</div></div>
-    <div class="stat-card" style="position:relative; cursor:pointer" onclick="window.goto('quickBranches')">${chev}<div class="stat-icon">${icon('building',17)}</div><div class="stat-num">${cache.branches.length}</div><div class="stat-label">الشعب</div></div>
-    <div class="stat-card" style="position:relative; cursor:pointer" onclick="window.goto('quickWird',{type:'hifz',mode:'week'})">${chev}<div class="stat-icon">${icon('book',17)}</div><div class="stat-num" data-hs="hc">${num(hifzCount)}</div><div class="stat-label">جلسات الحفظ المسجّلة</div><div class="stat-label" style="color:var(--green); font-weight:700">هذا الأسبوع: <span data-hs="hw">${num(hifzWeek)}</span></div></div>
-    <div class="stat-card" style="position:relative; cursor:pointer" onclick="window.goto('quickWird',{type:'review',mode:'week'})">${chev}<div class="stat-icon">${icon('trend',17)}</div><div class="stat-num" data-hs="rc">${num(reviewCount)}</div><div class="stat-label">جلسات المراجعة المسجّلة</div><div class="stat-label" style="color:var(--green); font-weight:700">هذا الأسبوع: <span data-hs="rw">${num(reviewWeek)}</span></div></div>
-  </div>`;
+  </div>`; }
+function visionView(){ return subheader('الرؤية والأهداف', homeRoute()) + visionCardHTML() + (canEditContentPerm() ? `<div class="row-sub" style="margin:10px 4px">لتعديل النص: فعّل وضع التعديل (زر القلم فوق) واضغط على النص.</div>` : ''); }
+// أرقام نظرة اليوم المختصرة للرئيسية (نفس منطق صفحة نظرة اليوم)
+function tdCounts(){
+  const brs = cache.branches.filter(b=>canEditBranch(b.id)), ids = brs.map(b=>b.id);
+  const studs = cache.students.filter(s=>ids.includes(s.branchId) && stStatus(s)!=='paused');
+  const ws = weekStartStr(), today = todayStr();
+  const anyW = s => { const d = cache.details[s.id]||{}; return [...(d.hifzLog||[]),...(d.reviewLog||[]),...(d.recitationLog||[])]; };
+  const notYet = studs.filter(s=>!anyW(s).some(r=>r.date>=ws && r.date<=today)).length;
+  let absent = 0; brs.forEach(b=>{ const ld = lastSessionDate(b,'attendance'); if(!ld) return; studs.filter(s=>s.branchId===b.id).forEach(s=>{ const r = ((cache.details[s.id]||{}).attendance||[]).find(x=>x.date===ld); if(r && r.status==='غياب') absent++; }); });
+  const behind = studs.filter(s=>{ const pp = planProgress(s); return pp && (pp.status==='behind'||pp.status==='slight'); }).length;
+  let watch = 0; try{ watch = acWatch(studs).length; }catch(e){}
+  return {total:studs.length, done:studs.length-notYet, absent, behind, watch};
 }
 function quickStudentRows(list){
   if(!list.length) return `<div class="empty"><div class="e-icon">${icon('search',26)}</div>لا توجد نتائج</div>`;
@@ -5077,7 +5234,7 @@ async function studentProfileView(mode){
     ${s.photo && canEditBranch(s.branchId) && canDo('editStudent') ? `<div class="row-sub" style="cursor:pointer; margin-top:6px; color:#B23A3A" onclick="window.removeEntityPhoto('student','${s.id}')">إزالة الصورة</div>` : ''}
     <div style="font-weight:700; margin-top:9px">${s.name}</div>
     <div class="row-sub">شعبة ${getBranch(s.branchId).name}${stBadge(s)}</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="sr-open" onclick="window.studentReport('${s.id}')">${icon('list',15)} التقرير الشامل</button>${(state.role==='admin'||state.role==='supervisor') && canEditBranch(s.branchId) ? `<button class="sr-open" onclick="window.rhOpen('exportData',{bid:'${s.branchId}',sid:'${s.id}'})">${icon('chart',15)} التقارير</button>` : ''}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="sr-open" onclick="window.studentReport('${s.id}')">${icon('list',15)} التقرير الشامل</button>${(state.role==='admin'||state.role==='supervisor') && canEditBranch(s.branchId) && !s.isStaff ? `<button class="sr-open" onclick="window.rhOpen('exportData',{bid:'${s.branchId}',sid:'${s.id}'})">${icon('chart',15)} التقارير</button>` : ''}</div>
   </div>
   ${dash}
   ${planCardHTML(s, from)}
@@ -5514,6 +5671,7 @@ async function notificationsView(){
 const BRANCH_COLORS = ['#098046','#BFA176','#2A9D8F','#E76F51','#6C5CE7','#3D8BFD','#C2185B','#8D6E63','#D6A755','#455A64'];
 const isHex = c => /^#[0-9a-f]{6}$/i.test(c||'');
 function colorOfBranch(id){
+  if(id==='__staff') return STAFF_BR.color;
   const b = cache.branches.find(x=>x.id===id); if(b && isHex(b.color)) return b.color;
   const nm = String(b && b.name || '');
   if(/البشائر/.test(nm)) return '#BFA176';
@@ -5797,8 +5955,8 @@ function roleNames(){ try{ const o = JSON.parse(cache.content.role_names||'{}');
 function roleName(k){ const v = roleNames()[k]; return (typeof v==='string' && v.trim()) ? v.trim() : (ROLE_DEF[k]||k); }
 const SUP_KINDS = new Proxy({halaqa:1, tajweed:1, musammi:1}, {get:(t,k)=> (k in t) ? roleName(k) : undefined, ownKeys:t=>Reflect.ownKeys(t), getOwnPropertyDescriptor:(t,k)=>(k in t)?{enumerable:true,configurable:true,value:roleName(k)}:undefined});
 function roleNamesView(){
-  if(state.role!=='admin') return subheader('أسماء الأدوار','accountAdmin') + `<div class="empty">للمدير فقط</div>`;
-  return subheader('أسماء الأدوار','accountAdmin') + `
+  if(state.role!=='admin') return subheader('أسماء الأدوار',homeRoute()) + `<div class="empty">للمدير فقط</div>`;
+  return subheader('أسماء الأدوار',homeRoute()) + `
   <div class="row-sub" style="margin:4px 4px 12px">غيّر الاسم اللي بيظهر لكل دور بالموقع (بالترحيب، وصفحة الحساب، وإضافة الحسابات، وشارات المشرفين). الصلاحيات ما بتتغيّر — بس الاسم. اترك الخانة فاضية لترجع للاسم الأصلي.</div>
   ${Object.keys(ROLE_DEF).map(k=>`<div class="field"><label>${ROLE_DEF[k]} <small style="color:var(--muted);font-weight:500">· ${ROLE_HINT[k]}</small></label><input id="rn-${k}" type="text" maxlength="24" placeholder="${ROLE_DEF[k]}" value="${rpEsc(roleNames()[k]||'')}"></div>`).join('')}
   <button class="btn btn-primary" onclick="window.rnSave()">${icon('check',16)} حفظ الأسماء</button>
@@ -5867,10 +6025,12 @@ function supervisorPermissions(){
     return capGroupHTML(g, on, g.caps.length, rows + note);
   }).join('');
   const kd = supKind(sup);
-  return subheader('حساب المشرف','accountAdmin') + supCard(sup,'supervisorPermissions') + `
+  return subheader('حساب المشرف','accounts') + supCard(sup,'supervisorPermissions') + `
   <div class="section-title"><span class="bar"></span>نوع المشرف</div>
   <div class="seg">${Object.entries(SUP_KINDS).map(([k,l])=>`<button class="${kd===k?'active':''}" onclick="window.setSupKind('${sup.id}','${k}')">${l}</button>`).join('')}</div>
   <div class="row-sub" style="margin:6px 4px 0">${roleName(kd)+': '}${kd==='tajweed' ? 'يسجّل حضور التجويد ومستويات التجويد للطلاب بشعبه فقط. بتقدر تفتحله صلاحيات إضافية من تحت.'  : kd==='musammi' ? 'يساعد المشرف بتسجيل الأوراد (حفظ ومراجعة وسرد) والحضور والغياب فقط لطلاب شعبه.'  : 'يسجّل الأوراد والمواعيد والتجويد لطلاب شعبه.'}</div>
+  ${wpCardAdmin(sup)}
+  ${staffCardAdmin(sup)}
   <div class="section-title"><span class="bar"></span>الصلاحيات</div>
   <div class="list">${branchesGroup}${groups}</div>
   <div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} فتح وإغلاق أي صلاحية وقت ما بدك — تتحدّث فورًا</div>
@@ -5879,7 +6039,7 @@ function supervisorPermissions(){
 async function deleteSupervisor(email){
   if(!await uiConfirm('حذف حساب هذا المشرف؟ لن يقدر يسجّل الدخول بعدها.')) return;
   const bak=cache.supervisors;
-  undoDelete('تم حذف المشرف', ()=>{ cache.supervisors=(bak||[]).filter(x=>x.id!==email); goto('accountAdmin'); }, ()=>{ cache.supervisors=bak; goto('accountAdmin'); }, async()=>{ await deleteDoc(doc(db,'people',email)); await loadSupervisors(); });
+  undoDelete('تم حذف المشرف', ()=>{ cache.supervisors=(bak||[]).filter(x=>x.id!==email); goto('accounts'); }, ()=>{ cache.supervisors=bak; goto('accountAdmin'); }, async()=>{ await deleteDoc(doc(db,'people',email)); await loadSupervisors(); });
 }
 async function toggleSupCapability(supEmail, capKey){
   const sup = cache.supervisors.find(s=>s.id===supEmail);
@@ -5904,7 +6064,7 @@ async function toggleSupBranch(supEmail, bid){
 
 function inviteForm(){
   const studentsOptions = cache.students.map(s=>`<option value="${s.id}">${s.name} — ${getBranch(s.branchId).name}</option>`).join('');
-  return subheader('إضافة حساب جديد','accountAdmin') + `
+  return subheader('إضافة حساب جديد','accounts') + `
   <div class="field"><label>البريد الإلكتروني</label><input id="inv-email" type="email"></div>
   <div class="field"><label>الاسم</label><input id="inv-name" type="text"></div>
   <div class="field"><label>الدور</label>
@@ -5939,7 +6099,7 @@ async function submitInvite(){
     await setDoc(doc(db,'people',email), data); auditLog('إضافة حساب', email, data.role==='supervisor' ? SUP_KINDS[data.kind] : (data.role||''));
     if(role==='supervisor') await loadSupervisors();
     document.getElementById('inv-alert').innerHTML = `<div class="alert success">${icon('check',16)} تمت إضافة الحساب، بإمكان صاحبه تفعيله الآن من صفحة الدخول</div>`;
-    setTimeout(()=>goto('accountAdmin'), 900);
+    setTimeout(()=>goto('accounts'), 900);
   }catch(e){ document.getElementById('inv-alert').innerHTML = `<div class="alert error">حدث خطأ: ${e.message}</div>`; }
 }
 
@@ -6068,7 +6228,7 @@ function yaSnapshot(){
   return cache.students.filter(s=>stStatus(s)!=='left').map(s=>{
     const det = cache.details[s.id]||{}, I = studentInsights(s, det), st = studentStats(s,'all');
     const att = (det.attendance||[]).filter(r=>inPeriod(r.date,'all'));
-    const present = att.filter(r=>r.status && r.status!=='absent').length, absent = att.filter(r=>r.status==='absent').length;
+    const present = att.filter(r=>r.status==='حضور'||r.status==='تأخر').length, absent = att.filter(r=>r.status==='غياب').length;
     const exams = (det.exams||[]).filter(e=>inPeriod(e.date,'all') && e.passed!==false).length;
     return {id:s.id, n:s.name||'', b:s.branchId||'', pts:s.points||0, ph:st.ph||0, pr:st.pr||0, mem:I.memCount||0, full:I.juz.filter(j=>j.got===j.total).length, pre:present, ab:absent, ex:exams};
   });
@@ -6076,7 +6236,7 @@ function yaSnapshot(){
 async function yearArchView(){
   if(state.role!=='admin') return subheader('أرشيف السنوات', homeRoute()) + `<div class="empty">للمدير فقط</div>`;
   const list = await yaLoad(state.params.fresh), ys = yearStart();
-  return subheader('أرشيف السنوات', 'accountAdmin') + `
+  return subheader('أرشيف السنوات', homeRoute()) + `
   <div class="stat-card" style="margin-top:12px;text-align:right">
     <div style="font-weight:800;font-size:15px">السنة الحالية</div>
     <div class="row-sub" style="margin-top:4px">${ys ? 'بدأت من '+ys : 'ما في سنة مغلقة قبل — كل السجلات محسوبة من البداية'}</div>
@@ -6183,9 +6343,196 @@ function wlOpen(){ if(document.getElementById('wl-ov')) return; wlI = 0; const o
 function wlGo(d){ wlI = Math.max(0, Math.min(wlSteps().length-1, wlI+d)); wlDraw(); }
 function wlClose(){ try{ localStorage.setItem(wlKey(),'1'); }catch(e){} const ov = document.getElementById('wl-ov'); if(ov){ ov.classList.remove('on'); setTimeout(()=>ov.remove(),200); } }
 Object.assign(window, {wlOpen, wlGo, wlClose});
+
+// ===== القائمة الجانبية: كل الأدوات مقسومة مجموعات (منزلقة على الجوال، ثابتة على الشاشة الكبيرة) =====
+function sdGroups(){
+  const A = state.role==='admin', S = state.role==='supervisor', staff = A||S, ed = canEditContentPerm();
+  const it = (show, ic, l, js, view) => show ? {ic, l, js, view} : null;
+  const G = [
+    ['المتابعة', [
+      it(A,'chart','لوحة المؤشرات',"window.goto('dashView')",'dashView'),
+      it(S && wpHas(state.workPlan),'list','خطتي',"window.goto('myPlan')",'myPlan'),
+      it(S && !!staffOf(state.personEmail),'book','حفظي',"window.goto('studentProfile',{id:'"+((staffOf(state.personEmail)||{}).id||'')+"',tab:'hifz'})",''),
+      it(staff,'checksq','نظرة اليوم',"window.goto('todayView')",'todayView'),
+      it(staff,'list','التقارير',"window.rhOpen('pointsReport')",'pointsReport'),
+      it(staff,'trend','الإنجازات',"window.goto('achievementsHome')",'achievementsHome'),
+      it(canViewSupervisors(),'briefcase','المشرفون',"window.goto('supervisorsList')",'supervisorsList'),
+      it(staff,'bell','التنبيهات',"window.goto('notificationsView')",'notificationsView'),
+    ]],
+    ['الطلاب والشعب', [
+      it(S,'idcard','الطلاب',"window.goto('adminDirectory')",'adminDirectory'),
+      it(S,'building','الشعب',"window.goto('adminBranches')",'adminBranches'),
+      it(S,'star','النقاط',"window.goto('adminPoints')",'adminPoints'),
+      it(staff && canDo('editStudent'),'book','إدخال الحفظ المسبق',"window.goto('prevBulk',{})",'prevBulk'),
+      it(staff,'user','الطلاب المنسحبون',"window.goto('archiveView',{})",'archiveView'),
+      it(A,'calendar','العطل الرسمية',"window.goto('holidaysView',{})",'holidaysView'),
+    ]],
+    ['المحتوى', [
+      it(true,'book','المكتبة',"window.goto('libraryView')",'libraryView'),
+      it(true,'list','الخطط ومسارات الحفظ',"window.goto('plansHome')",'plansHome'),
+      it(A,'crown','الشهادات',"window.goto('certHome')",'certHome'),
+      it(true,'eye','الرؤية والأهداف',"window.goto('visionView')",'visionView'),
+    ]],
+    ['الإدارة', [
+      it(A,'user','الحسابات والصلاحيات',"window.goto('accounts')",'accounts'),
+      it(A,'book','حفظ المشرفين',"window.goto('staffLearners')",'staffLearners'),
+      it(A,'eye','معاينة كمشرف أو طالب',"window.goto('pvPick',{})",'pvPick'),
+      it(A,'book','أرشيف السنوات',"window.goto('yearArch',{})",'yearArch'),
+    ]],
+    ['الإعدادات', [
+      it(true,'star','المظهر',"window.goto('appearance',{})",'appearance'),
+      it(ed,'pencil','رسائل الأهل',"window.goto('msgTpl',{})",'msgTpl'),
+      it(A,'pencil','أسماء الأدوار',"window.goto('roleNames',{})",'roleNames'),
+      it(staff,'list','شكل التقرير',"window.goto('reportDesigner')",'reportDesigner'),
+      it(S,'star','جولة تعريفية',"window.wlOpen()",''),
+    ]],
+  ];
+  return G.map(([t,l])=>[t, l.filter(Boolean)]).filter(([,l])=>l.length);
+}
+function sdBody(){
+  const cur = state.view;
+  return `<div class="sd-head"><div class="sd-av">${state.personPhoto?`<img src="${state.personPhoto}" alt="">`:initials(state.personName||'?')}</div><div><b>${rpEsc(state.personName||'')}</b><small>${rpEsc(state.role==='admin'?roleName('admin'):roleName(state.supKind||'halaqa'))}</small></div></div>
+  ${sdGroups().map(([t,l])=>`<div class="sd-g"><div class="sd-gt">${t}</div>${l.map(x=>`<button class="sd-i ${x.view && x.view===cur?'on':''}" onclick="window.sdClose(); ${x.js}">${icon(x.ic,17)}<span>${x.l}</span></button>`).join('')}</div>`).join('')}
+  <button class="sd-i sd-out" onclick="window.sdClose(); window.logoutAsk()">${icon('power',17)}<span>تسجيل الخروج</span></button>`;
+}
+function sdSideHTML(){ return (state.role==='admin'||state.role==='supervisor') ? `<aside class="sd-side" aria-label="القائمة">${sdBody()}</aside>` : ''; }
+function sdOpen(){
+  if(document.getElementById('sd-ov')) return;
+  const ov = document.createElement('div'); ov.id = 'sd-ov'; ov.className = 'sd-ov';
+  ov.innerHTML = `<nav class="sd-panel" aria-label="القائمة"><button class="sd-x" onclick="window.sdClose()" aria-label="إغلاق">✕</button>${sdBody()}</nav>`;
+  ov.addEventListener('click', e=>{ if(e.target===ov) sdClose(); });
+  document.body.appendChild(ov); requestAnimationFrame(()=>ov.classList.add('on'));
+  document.addEventListener('keydown', sdKey);
+}
+function sdKey(e){ if(e.key==='Escape') sdClose(); }
+function sdClose(){ const ov = document.getElementById('sd-ov'); document.removeEventListener('keydown', sdKey); if(!ov) return; ov.classList.remove('on'); setTimeout(()=>ov.remove(), 220); }
+Object.assign(window, {sdOpen, sdClose});
+
+// ===== خطة المشرف / المُسمِّع: المدير بيحدّدله خطة حفظ ومراجعة وتجويد يمشي عليها =====
+const WP_KEYS = [['hifz','الحفظ','book'],['review','المراجعة','trend'],['tajweed','التجويد','checksq']];
+function wpLevels(k){ const n = parseInt(C('plan_'+k+'_levelCount'))||0; return Array.from({length:n},(_,i)=>({i:i+1, name:C('plan_'+k+'_l'+(i+1)+'_name'), text:C('plan_'+k+'_l'+(i+1)+'_text')})); }
+function wpHas(wp){ return !!(wp && (wp.track || WP_KEYS.some(([k])=>wp[k]) || (wp.note||'').trim())); }
+function wpSummary(wp){
+  if(!wpHas(wp)) return '';
+  const parts = [];
+  if(wp.track && TRACKS[wp.track]) parts.push(TRACKS[wp.track].name);
+  WP_KEYS.forEach(([k,l])=>{ const lv = wpLevels(k).find(x=>x.i===Number(wp[k])); if(lv) parts.push(l+': '+lv.name); });
+  return parts.join(' · ') || 'تعليمات من المدير';
+}
+function wpCardAdmin(sup){
+  const wp = sup.workPlan;
+  return `<div class="section-title"><span class="bar"></span>الخطة اللي بيمشي عليها</div>
+  <div class="wp-card" onclick="window.goto('supPlanForm',{id:'${sup.id}'})"><div class="wp-ic">${icon('list',18)}</div><div style="flex:1"><b>${wpHas(wp)?rpEsc(wpSummary(wp)):'ما في خطة محدّدة'}</b><small>${wpHas(wp)?(wp.start?'من '+wp.start+' · ':'')+'اضغط للتعديل':'حدّدله خطة حفظ أو مراجعة أو تجويد يمشي عليها مع طلابه'}</small></div><i>${icon('chevronL',14)}</i></div>`;
+}
+function supPlanForm(){
+  if(state.role!=='admin') return subheader('خطة المشرف', homeRoute()) + `<div class="empty">للمدير فقط</div>`;
+  const sup = (cache.supervisors||[]).find(x=>x.id===state.params.id); if(!sup) return subheader('خطة المشرف','accounts') + `<div class="empty">غير موجود</div>`;
+  const wp = sup.workPlan || {};
+  const sel = (id, opts, cur) => `<select id="${id}"><option value="">— بدون —</option>${opts.map(([v,l])=>`<option value="${v}" ${String(cur||'')===String(v)?'selected':''}>${rpEsc(l)}</option>`).join('')}</select>`;
+  return subheader('خطة '+rpEsc(sup.name||''), "supervisorPermissions',{id:'"+sup.id+"'}") + `
+  <div class="row-sub" style="margin:10px 4px 12px">اختار الخطة اللي بدك ${rpEsc(roleName(supKind(sup)))} يمشي عليها مع طلابه. بتظهرله بالرئيسية وبقائمته «خطتي». المستويات من صفحة «الخطط».</div>
+  <div class="field"><label>مسار الحفظ</label>${sel('wp-track', Object.entries(TRACKS).map(([k,t])=>[k,t.name]), wp.track)}</div>
+  ${WP_KEYS.map(([k,l])=>{ const L = wpLevels(k); return `<div class="field"><label>مستوى ${l}</label>${L.length ? sel('wp-'+k, L.map(x=>[x.i, x.name]), wp[k]) : `<div class="row-sub">ما في مستويات لخطة ${l} — أضفها من «الخطط ← خطة ${l}» بوضع التعديل.</div><input type="hidden" id="wp-${k}" value="">`}</div>`; }).join('')}
+  <div class="field"><label>تاريخ البدء</label>${dateField('wp-start', wp.start||todayStr())}</div>
+  <div class="field"><label>تعليمات وملاحظات للمشرف</label><textarea id="wp-note" rows="4" maxlength="600" placeholder="مثلًا: التركيز على تثبيت جزء عمّ قبل الانتقال، ومراجعة أسبوعية للحفظ القديم">${rpEsc(wp.note||'')}</textarea></div>
+  <button class="btn btn-primary" onclick="window.wpSave('${sup.id}')">${icon('check',16)} حفظ الخطة</button>
+  ${wpHas(wp) ? `<button class="btn btn-outline" style="margin-top:10px;color:#B23A3A" onclick="window.wpClear('${sup.id}')">إلغاء الخطة</button>` : ''}
+  <div id="wp-alert"></div>`;
+}
+async function wpWrite(id, workPlan){
+  await updateDoc(doc(db,'people',id), {workPlan});
+  const sv = (cache.supervisors||[]).find(x=>x.id===id); if(sv) sv.workPlan = workPlan;
+  auditLog(workPlan ? 'تحديد خطة مشرف' : 'إلغاء خطة مشرف', (sv&&sv.name)||id, workPlan ? wpSummary(workPlan) : '');
+}
+async function wpSave(id){
+  const g = k => (document.getElementById(k)||{}).value||'';
+  const wp = {track:g('wp-track'), hifz:g('wp-hifz'), review:g('wp-review'), tajweed:g('wp-tajweed'), start:g('wp-start'), note:g('wp-note').replace(/[<>`]/g,'').trim(), by:state.personName||'', at:todayStr()};
+  try{ await wpWrite(id, wpHas(wp) ? wp : null); goto('supervisorPermissions',{id}); }
+  catch(e){ document.getElementById('wp-alert').innerHTML = `<div class="alert error">تعذّر الحفظ: ${rpEsc(e.message)}</div>`; }
+}
+async function wpClear(id){ if(!await uiConfirm('إلغاء الخطة عن هذا المشرف؟')) return; try{ await wpWrite(id, null); goto('supervisorPermissions',{id}); }catch(e){ alert('تعذّر: '+e.message); } }
+// عند المشرف: بطاقة بالرئيسية + صفحة «خطتي»
+function wpHomeCard(){
+  if(state.role!=='supervisor' || !wpHas(state.workPlan)) return '';
+  return `<div class="wp-card wp-home" onclick="window.goto('myPlan')"><div class="wp-ic">${icon('list',18)}</div><div style="flex:1"><b>خطتي</b><small>${rpEsc(wpSummary(state.workPlan))}</small></div><i>${icon('chevronL',14)}</i></div>`;
+}
+function myPlanView(){
+  const wp = state.workPlan;
+  if(!wpHas(wp)) return subheader('خطتي', homeRoute()) + `<div class="empty">المدير ما حدّدلك خطة لسا</div>`;
+  const t = wp.track && TRACKS[wp.track];
+  return subheader('خطتي', homeRoute()) + `
+  <div class="row-sub" style="margin:10px 4px 12px">الخطة اللي حدّدها المدير لتمشي عليها مع طلابك${wp.start?' · من '+wp.start:''}${wp.by?' · '+rpEsc(wp.by):''}.</div>
+  ${(wp.note||'').trim() ? `<div class="wp-note">${icon('pencil',15)}<div>${rpEsc(wp.note).replace(/\n/g,'<br>')}</div></div>` : ''}
+  ${t ? `<div class="tr-card" onclick="window.goto('trackDetail',{key:'${wp.track}'})"><div class="tr-years"><b>${t.years}</b><small>${t.years===2?'سنتان':'سنوات'}</small></div><div class="tr-body"><b>مسار الحفظ: ${rpEsc(t.name)}</b><small>${fmtNum(t.yearJuz)} أجزاء سنويًا · يوميًا ${pagesTxt(t.dayPages)}</small><div class="tr-chips"><span>شهريًا ${t.monthTxt}</span><span>أسبوعيًا ${t.weekTxt}</span></div></div><div class="chevron">${icon('chevronL',14)}</div></div>` : ''}
+  ${WP_KEYS.map(([k,l,ic])=>{ const lv = wpLevels(k).find(x=>x.i===Number(wp[k])); return lv ? `<div class="level-card"><div class="level-head"><div class="level-name">${icon(ic,15)} ${l}: ${rpEsc(lv.name)}</div><span class="badge gold">مستوى ${lv.i}</span></div><div class="level-text">${rpEsc(lv.text||'')}</div></div>` : ''; }).join('')}`;
+}
+Object.assign(window, {wpSave, wpClear});
+
+// ===== ملف حفظ المشرف: خطة وتقدّم واختبارات وشهادة، منفصل عن الطلاب =====
+const staffOf = email => (cache.staff||[]).find(x=>x.staffOf===email);
+function staffProgTxt(x){
+  const d = cache.details[x.id]; if(!d) return 'اضغط لفتح الملف';
+  let mem = 0; try{ mem = studentInsights(x, d).memCount||0; }catch(e){}
+  const pp = planProgress(x), ex = examPassedJuz(x).length, ct = (x.certs||[]).length;
+  return [(mem/604*30).toFixed(1)+' جزء محفوظ', pp ? PLAN_ST[pp.status][0] : 'بدون خطة', ex ? ex+' اختبار ناجح' : '', ct ? ct+' شهادة' : ''].filter(Boolean).join(' · ');
+}
+function staffCardAdmin(sup){
+  const x = staffOf(sup.id);
+  return `<div class="section-title"><span class="bar"></span>ملف حفظه الخاص</div>` + (x
+    ? `<div class="wp-card" onclick="window.goto('studentProfile',{id:'${x.id}',tab:'hifz',from:'staffLearners'})"><div class="wp-ic" style="background:#E5ECF7;color:#2F5B9A">${icon('book',18)}</div><div style="flex:1"><b>حفظ ${rpEsc(sup.name||'')}</b><small>${staffProgTxt(x)}</small></div><i>${icon('chevronL',14)}</i></div>`
+    : `<div class="wp-card" onclick="window.staffCreate('${sup.id}')"><div class="wp-ic" style="background:#E5ECF7;color:#2F5B9A">${icon('plus',18)}</div><div style="flex:1"><b>إنشاء ملف حفظ للمشرف</b><small>خطة حفظ خاصة فيه، تسجيل ورد، اختبارات أجزاء، وشهادة إتمام — منفصل عن الطلاب</small></div></div>`);
+}
+async function staffCreate(email){
+  const sup = (cache.supervisors||[]).find(x=>x.id===email); if(!sup || state.role!=='admin') return;
+  if(staffOf(email)) return goto('studentProfile',{id:staffOf(email).id, from:'staffLearners'});
+  const data = {name: sup.name||email, branchId:'__staff', isStaff:true, staffOf:email, phones:sup.phone?[{type:'',number:sup.phone}]:[], tajweedLevels:Object.fromEntries(TAJWEED_LEVELS.map(l=>[l.key,0])), notes:'', points:0, createdAt:serverTimestamp()};
+  try{ const r = await addDoc(collection(db,'students'), data); const id = (r&&r.id)||('x'+Date.now()); cache.staff = [...(cache.staff||[]), {id, ...data}]; auditLog('إنشاء ملف حفظ مشرف', data.name, ''); goto('studentProfile',{id, tab:'data', from:'staffLearners'}); }
+  catch(e){ alert('تعذّر الإنشاء: '+e.message); }
+}
+async function staffLearnersView(){
+  if(state.role!=='admin') return subheader('حفظ المشرفين', homeRoute()) + `<div class="empty">للمدير فقط</div>`;
+  await loadSupervisors(); const list = cache.staff||[];
+  await Promise.all(list.map(x=>ensureStudentDetail(x.id).catch(()=>null)));
+  const without = (cache.supervisors||[]).filter(sv=>!staffOf(sv.id));
+  return subheader('حفظ المشرفين', homeRoute()) + `
+  <div class="row-sub" style="margin:10px 4px 12px">ملفات حفظ خاصة بالمشرفين والمُسمِّعين: خطة، ورد، اختبارات، وشهادات — منفصلة عن الطلاب وما بتدخل بالترتيب ولا التقارير.</div>
+  <div class="list">${list.map(x=>`<div class="row" style="cursor:pointer" onclick="window.goto('studentProfile',{id:'${x.id}',tab:'hifz',from:'staffLearners'})"><div class="row-left"><div class="avatar" style="background:#E5ECF7;color:#2F5B9A">${initials(x.name)}</div><div><div class="row-title">${rpEsc(x.name)}</div><div class="row-sub">${staffProgTxt(x)}</div></div></div><span class="chevron">${icon('chevronL',14)}</span></div>`).join('') || `<div class="empty">ما في ملفات بعد</div>`}</div>
+  ${list.length ? `<button class="btn btn-primary" style="margin-top:12px" onclick="window.goto('staffCert',{})">${icon('crown',16)} إصدار شهادة لمشرف</button>` : ''}
+  ${without.length ? `<div class="section-title"><span class="bar"></span>مشرفين بدون ملف</div><div class="list">${without.map(sv=>`<div class="row"><div class="row-left"><div class="avatar">${icon('briefcase',16)}</div><div class="row-title">${rpEsc(sv.name||sv.id)}</div></div><button class="td-btn" onclick="window.staffCreate('${sv.id}')">${icon('plus',14)} إنشاء ملف</button></div>`).join('')}</div>` : ''}`;
+}
+let staffCertSel = {};
+function staffCertView(){
+  if(state.role!=='admin') return subheader('شهادة مشرف','staffLearners') + `<div class="empty">للمدير فقط</div>`;
+  const list = cache.staff||[];
+  const lastJuz = x => { const p = examPassedJuz(x).filter(j=>!(x.certs||[]).some(c=>Number(c.juz)===j)); return p.length ? p[p.length-1] : ''; };
+  return subheader('إصدار شهادة لمشرف','staffLearners') + `
+  <div class="field" style="margin-top:12px"><label>تاريخ الشهادة</label>${dateField('sc-date', todayStr())}</div>
+  <div class="row-sub" style="margin:6px 2px">الشهادة بنفس تصميم شهادة الطلاب، وكلمة «الطالب» بتصير «المشرف». لازم يكون مجتاز اختبار الجزء.</div>
+  <div class="list">${list.map(x=>{ const sel = staffCertSel[x.id], lj = lastJuz(x), passed = examPassedJuz(x);
+    return `<div class="row ct-row ${sel?'on':''}"><label class="row-left" style="cursor:pointer;flex:1"><input type="checkbox" ${sel?'checked':''} onchange="window.scPick('${x.id}',this.checked,${lj||30})" style="width:22px;height:22px;accent-color:var(--green)"><div><div class="row-title">${rpEsc(x.name)}</div><div class="row-sub">${passed.length ? 'اجتاز: '+passed.join('، ') : 'ما اجتاز اختبار جزء بعد'}</div></div></label>
+      <select class="ct-juz-sel" ${sel?'':'disabled'} onchange="window.scJuz('${x.id}',this.value)">${Array.from({length:30},(_,i)=>30-i).map(j=>`<option value="${j}" ${String((sel&&sel.juz)||lj||30)===String(j)?'selected':''}>جزء ${j}${passed.includes(j)?' ✓':''}</option>`).join('')}</select></div>`; }).join('')}</div>
+  <button class="btn btn-primary" style="margin-top:14px" onclick="window.scIssue()">${icon('crown',16)} إصدار الشهادة</button>`;
+}
+function scPick(id, on, juz){ if(on) staffCertSel[id] = {juz: staffCertSel[id] ? staffCertSel[id].juz : juz}; else delete staffCertSel[id]; render(); }
+function scJuz(id, v){ if(staffCertSel[id]) staffCertSel[id].juz = Number(v); render(); }
+async function scIssue(){
+  const date = (document.getElementById('sc-date')||{}).value || todayStr(), c = certTpl();
+  const items = Object.entries(staffCertSel).map(([id,p])=>({s:findStudent(id), juz:p.juz})).filter(x=>x.s);
+  if(!items.length) return alert('اختار مشرف');
+  const bad = items.filter(x=>!examPassedJuz(x.s).includes(Number(x.juz)));
+  if(bad.length) return alert('ما بصير تصدر شهادة بدون اجتياز اختبار الجزء:\n'+bad.map(x=>'• '+x.s.name+' — الجزء '+x.juz).join('\n')+'\n\nسجّل الاختبار من ملف حفظه أولًا.');
+  certShow(items, date, c);
+  for(const x of items){ try{ const rec = {juz:x.juz, date}; await updateDoc(doc(db,'students',x.s.id), {certs: arrayUnion(rec)}); x.s.certs = [...(x.s.certs||[]), rec]; auditLog('إصدار شهادة مشرف', x.s.name, 'الجزء '+x.juz); }catch(e){} }
+  staffCertSel = {};
+}
+function staffHomeCard(){
+  if(state.role!=='supervisor') return ''; const x = staffOf(state.personEmail); if(!x) return '';
+  return `<div class="wp-card wp-home" style="border-color:#2F5B9A;background:#EEF3FA" onclick="window.goto('studentProfile',{id:'${x.id}',tab:'hifz'})"><div class="wp-ic" style="background:#2F5B9A;color:#fff">${icon('book',18)}</div><div style="flex:1"><b>حفظي</b><small>${staffProgTxt(x)}</small></div><i>${icon('chevronL',14)}</i></div>`;
+}
+Object.assign(window, {staffCreate, scPick, scJuz, scIssue});
 // ===== صفحة المظهر الموحّدة =====
 function appearanceView(){
-  let html = subheader('المظهر', state.role==='admin'?'accountAdmin':state.role==='supervisor'?'accountSup':'accountStd');
+  let html = subheader('المظهر', state.role==='student'?'accountStd':homeRoute());
   html += `<div class="section-title" style="margin-top:4px"><span class="bar"></span>لجهازك أنت</div><div class="row-sub" style="margin:-4px 2px 10px">هاي الإعدادات بتأثر على جهازك بس، وكل مستخدم بيختار اللي بريحه.</div>`;
   const th = window.getTheme ? window.getTheme() : 'auto';
   html += `<div class="row-sub" style="margin:4px 2px 6px;font-weight:700">الوضع</div><div class="seg" id="theme-seg">${[['auto','تلقائي'],['light','فاتح'],['dark','داكن']].map(([k,l])=>`<button data-t="${k}" class="${th===k?'active':''}" onclick="window.setTheme('${k}')">${l}</button>`).join('')}</div>`;
@@ -6199,6 +6546,19 @@ function appearanceView(){
     html += `<div class="section-title" style="margin-top:24px"><span class="bar"></span>ألوان الموقع (للمدير — تظهر للجميع)</div>` + ntCard() + tdcCard().replace('<details class="td-clr"','<details class="td-clr" open') +
       `<div class="row-sub" style="margin:10px 2px 0">لون كل شعبة بيتغيّر من صفحة الشعبة نفسها (الشعب ← اختر الشعبة ← خانة «لون الشعبة»).</div>`;
   }
+  return html;
+}
+
+async function accountsView(){
+  if(state.role!=='admin') return subheader('الحسابات والصلاحيات', homeRoute()) + `<div class="empty">للمدير فقط</div>`;
+  await loadSupervisors();
+  let html = subheader('الحسابات والصلاحيات', homeRoute());
+  html += `
+    <div class="section-title"><span class="bar"></span>حسابات المشرفين والصلاحيات</div>
+    <div class="list">${cache.supervisors.map(sv=>{ const on = isOnline(sv);
+      return `<div class="row" onclick="window.goto('supervisorPermissions',{id:'${sv.id}'})"><div class="row-left"><div class="avatar">${icon('briefcase',16)}</div><div><div class="row-title">${sv.name} <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${on?'#2ECC71':'#D64545'};margin-inline-start:5px;vertical-align:middle;"></span></div><div class="row-sub">${(sv.branchIds||[]).length? sv.branchIds.map(id=>getBranch(id).name).join('، '):'بدون شعبة مُسندة'} · ${on?'متصل الآن':'غير متصل'}</div></div></div><div class="chevron">${icon('chevronL',14)}</div></div>`;
+    }).join('')||`<div class="empty">لا يوجد مشرفون بعد</div>`}</div>
+    <button class="btn btn-outline" style="margin-top:14px" onclick="window.goto('inviteForm')">${icon('plus',16)} إضافة حساب جديد</button>`;
   return html;
 }
 async function accountView(){
@@ -6217,21 +6577,8 @@ async function accountView(){
     <div class="row"><span class="row-sub">الدور</span><span class="row-title">${roleTxt}</span></div>
     <div class="row"><span class="row-sub">البريد الإلكتروني</span><span class="row-title">${state.personEmail}</span></div>
   </div>`;
-  if(state.role==='admin'){
-    await loadSupervisors();
-    html += `<button class="hr-btn" onclick="window.goto('pvPick',{})"><span style="background:linear-gradient(145deg,#4F7BD8,#2B4E9E)">${icon('eye',17)}</span><b>معاينة كمشرف أو كطالب</b><small>شوف النظام من عيونهم</small><i>${icon('chevronL',14)}</i></button>
-    <button class="hr-btn" onclick="window.rhOpen('pointsReport')"><span style="background:linear-gradient(145deg,#2FA36B,#0B5E2F)">${icon('chart',17)}</span><b>التقارير</b><small>النقاط · الشهري · ترتيب الحفظ · متابعة المشرفين · سجل التعديلات · التصدير</small><i>${icon('chevronL',14)}</i></button>
-    <button class="hr-btn" onclick="window.goto('yearArch',{})"><span style="background:linear-gradient(145deg,#D4A94E,#8E6A1E)">${icon('book',17)}</span><b>أرشيف السنوات</b><small>إغلاق السنة وحفظ ملخّصها · السنوات السابقة</small><i>${icon('chevronL',14)}</i></button>
-    <button class="hr-btn" onclick="window.goto('roleNames',{})"><span style="background:linear-gradient(145deg,#9B6FD0,#5E3E94)">${icon('pencil',17)}</span><b>أسماء الأدوار</b><small>غيّر مسمّيات المدير والمشرفين والطلاب</small><i>${icon('chevronL',14)}</i></button>
-    <div class="section-title"><span class="bar"></span>حسابات المشرفين والصلاحيات</div>
-    <div class="list">${cache.supervisors.map(sv=>{ const on = isOnline(sv);
-      return `<div class="row" onclick="window.goto('supervisorPermissions',{id:'${sv.id}'})"><div class="row-left"><div class="avatar">${icon('briefcase',16)}</div><div><div class="row-title">${sv.name} <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${on?'#2ECC71':'#D64545'};margin-inline-start:5px;vertical-align:middle;"></span></div><div class="row-sub">${(sv.branchIds||[]).length? sv.branchIds.map(id=>getBranch(id).name).join('، '):'بدون شعبة مُسندة'} · ${on?'متصل الآن':'غير متصل'}</div></div></div><div class="chevron">${icon('chevronL',14)}</div></div>`;
-    }).join('')||`<div class="empty">لا يوجد مشرفون بعد</div>`}</div>
-    <button class="btn btn-outline" style="margin-top:14px" onclick="window.goto('inviteForm')">${icon('plus',16)} إضافة حساب جديد</button>`;
-  }
+  if(state.role==='admin'||state.role==='supervisor') html += `<div class="sd-hint" onclick="window.sdOpen()">${icon('menu',18)}<span>كل الأدوات (التقارير، الحسابات، الأرشيف، الإعدادات…) صارت بالقائمة الجانبية</span><i>${icon('chevronL',13)}</i></div>`;
   if(state.role==='supervisor'){
-    html += `<button class="hr-btn" style="margin-top:14px" onclick="window.wlOpen()"><span style="background:linear-gradient(145deg,#5BB98B,#1F7A4A)">${icon('star',17)}</span><b>جولة تعريفية</b><small>3 خطوات سريعة عن شغلك بالموقع</small><i>${icon('chevronL',14)}</i></button>`;
-    html += `<button class="hr-btn" style="margin-top:10px" onclick="window.rhOpen('pointsReport')"><span style="background:linear-gradient(145deg,#2FA36B,#0B5E2F)">${icon('chart',17)}</span><b>التقارير</b><small>النقاط · الشهري · ترتيب الحفظ · التصدير</small><i>${icon('chevronL',14)}</i></button>`;
     html += `<button class="btn btn-outline" style="margin-top:14px" onclick="window.goto('supervisorProfile',{email:'${state.personEmail}',from:'accountSup'})">${icon('idcard',16)} بياناتي التعريفية</button>`;
   }
   html += `<button class="hr-btn" style="margin-top:18px" onclick="window.goto('appearance',{})"><span style="background:linear-gradient(145deg,#5B8DEF,#2F5BB8)">${icon('star',17)}</span><b>المظهر</b><small>الوضع الداكن، حجم الخط، التباين، ألوان الأيقونات${state.role==='admin'?'، ألوان الموقع':''}</small><i>${icon('chevronL',14)}</i></button>`;
