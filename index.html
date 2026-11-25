@@ -566,6 +566,8 @@ html[data-theme=dark] .rp-sheet table,html[data-theme=dark] .rp-t{background:#ff
 .wq-chips button.in{background:var(--green-tint);border-color:var(--green);color:var(--green)}
 .wq-chips button.on{background:var(--gbtn,var(--green));border-color:var(--green);color:#fff}
 .wq-chips button.wq-all{min-width:auto;padding-inline:13px}
+.wq-chips button.wq-cont{min-width:auto;padding-inline:12px;border-style:dashed;color:var(--green);font-weight:800}
+.wf-seg.wf-link{border-style:dashed!important;border-color:var(--green)!important;margin-top:6px!important}
 .wq-chips .wq-empty{font-size:13px;color:var(--text-muted);padding:6px 2px}
 .wq-lbl small{font-weight:500;color:var(--text-muted);margin-inline-start:6px}
 .wq-res{margin:6px 0 8px;padding:10px 12px;border-radius:12px;background:var(--green-tint);color:var(--text);font-size:13.5px;line-height:1.7}
@@ -1683,17 +1685,27 @@ function rangeSuggest(surahName, f, t){
 function wrRange(r){ const a = /^(.*)\s(\d+)$/.exec((r.from||'').trim()), b = /^(.*)\s(\d+)$/.exec((r.to||'').trim()); if(!a||!b||a[1]!==b[1]) return null; const si = SURAHS.findIndex(x=>x.name===a[1]); return si<0 ? null : {si, f:+a[2], t:+b[2]}; }
 function wrCov(si, f, t){ const c = {}; try{ for(let a=f;a<=t;a++){ const p = findMushafPage(si+1,a); (c[p] = c[p]||new Set()).add(si+':'+a); } }catch(e){} return c; }
 function wrErrN(e){ const n = parseInt(e); return isNaN(n) ? 0 : n; }
-function pgCombo(prev, si, f, t, errors, table){
+// curFull = الصفحات الكاملة اللي انحسبت للورد الحالي. ما بنعطي صفحات مجمّعة أكثر من «العجز»: الصفحات المكتملة فعلًا بكل الأوراد المشاركة ناقص اللي انحسب إلها (لأنه الورد الواحد ممكن ياخذ صفحة كاملة من كسور صفحتين)
+const wrFull = r => r.fullPages!=null ? +r.fullPages : (()=>{ const g = wrRange(r), sg = g && rangeSuggest(SURAHS[g.si].name, g.f, g.t); return sg ? sg.full : Math.floor(+r.pagesEst||0); })();
+function pgCombo(prev, si, f, t, errors, table, curFull){
   const out = {pages:[], pts:0}, tot = pageTotals(), cur = wrCov(si, f, t);
   const share = (cov, e)=>{ const w = {}; let sum = 0; for(const p in cov){ w[p] = cov[p].size/(tot[p]||1); sum += w[p]; } for(const p in w) w[p] = sum ? wrErrN(e)*w[p]/sum : 0; return w; };
   const cw = share(cur, errors), P = (prev||[]).map(r=>{ const g = wrRange(r); if(!g) return null; const cov = wrCov(g.si, g.f, g.t); return {r, cov, w:share(cov, r.errors)}; }).filter(Boolean);
   for(const k in cur){
-    const p = +k, need = tot[p]; if(!need || cur[k].size>=need) continue;
-    if(P.some(x=>(x.r.pgDone||[]).includes(p) || (x.cov[k] && x.cov[k].size>=need))) continue;
+    const p = +k, need = tot[p]; if(!need || cur[k].size>=need*0.83) continue;
+    if(P.some(x=>(x.r.pgDone||[]).includes(p) || (x.cov[k] && x.cov[k].size>=need*0.83))) continue;
     const u = new Set(cur[k]); let e = cw[k];
     P.forEach(x=>{ if(!x.cov[k]) return; let add = false; x.cov[k].forEach(a=>{ if(!u.has(a)){ u.add(a); add = true; } }); if(add) e += x.w[k]; });
-    if(u.size>=need){ const n = Math.round(e); out.pages.push(p); out.pts += table[Math.min(n,2)]||0; }
+    if(u.size>=need){ const n = Math.round(e); out.pages.push(p); out.cand = out.cand||[]; out.cand.push(table[Math.min(n,2)]||0); }
   }
+  if(!out.pages.length) return out;
+  // السقف: كل الأوراد اللي بتلمس الصفحات المكتملة + الورد الحالي
+  const G = P.filter(x=>out.pages.some(p=>x.cov[p])), U = {};
+  [cur, ...G.map(x=>x.cov)].forEach(cv=>{ for(const k in cv){ (U[k] = U[k]||new Set()); cv[k].forEach(a=>U[k].add(a)); } });
+  const trueG = Object.keys(U).filter(k=>tot[k] && U[k].size>=tot[k]*0.83).length;
+  const paidG = (curFull!=null ? +curFull : (rangeSuggest(SURAHS[si].name, f, t)||{full:0}).full) + G.reduce((a,x)=>a + wrFull(x.r) + (x.r.pgDone||[]).length, 0);
+  const allow = Math.max(0, Math.min(out.pages.length, trueG - paidG));
+  out.pages = out.pages.slice(0, allow); out.pts = out.cand.slice(0, allow).reduce((a,b)=>a+b,0); delete out.cand;
   return out;
 }
 function wfAutoPages(suf){
@@ -2263,7 +2275,7 @@ async function saveWirdEdit(sid, coll, id, from){
   try{
     const det = await ensureStudentDetail(sid), old = (det[coll]||[]).find(x=>x.id===id);
     const oldPts = old ? recPts(table, old) : 0;
-    const cmb = coll==='hifzLog' ? pgCombo((det.hifzLog||[]).filter(x=>x.id!==id), SURAHS.indexOf(sObj), f, t, errors, table) : {pages:[], pts:0};
+    const cmb = coll==='hifzLog' ? pgCombo((det.hifzLog||[]).filter(x=>x.id!==id), SURAHS.indexOf(sObj), f, t, errors, table, full) : {pages:[], pts:0};
     const newPts = (full>0 ? wirdPts(table, errors, full) : 0) + cmb.pts;
     await updateDoc(doc(db,'students',sid,coll,id), {date, from:sObj.name+' '+f, to:sObj.name+' '+t, errors, grade:gradeFromErrors(errors), pagesEst:+(full+frac).toFixed(2), pagesExact:true, fullPages:full, frac, pts:newPts, pgDone:cmb.pages, pgPts:cmb.pts, editedBy:state.personName});
     if(newPts!==oldPts) await updateDoc(doc(db,'students',sid), {points: increment(newPts-oldPts)}); auditLog('تعديل ورد', (findStudent(sid)||{}).name, sObj.name+' '+f+'–'+t+' · '+date);
@@ -4602,7 +4614,7 @@ const LIB_CATS = {tafsir:['تفسير','book'], tajweed:['تجويد','checksq']
 const LIB_CAT_COL = {tafsir:'#A8732F', tajweed:'#14907C', mutoon:'#2F7BD9', tilawa:'#A8385B', gharib:'#6A55D8', other:'#5B6770'};
 const LIB_LEVELS = ['عام','المستوى الأول','المستوى الثاني','المستوى الثالث','المستوى الرابع','المستوى الخامس','المستوى السادس','الإجازة'];
 const LIB_TYPES = {pdf:['ملف PDF','#C0392B'], video:['فيديو','#C2185B'], audio:['صوت','#6C5CE7'], link:['رابط','#2A7DE1']};
-function canEditLib(){ return state.role==='admin' || (state.role==='supervisor' && state.capabilities && state.capabilities.editLibrary === true); }
+function canEditLib(){ return state.role==='admin' || (state.role==='supervisor' && state.capabilities && (state.capabilities.editLibrary === true || state.capabilities.upload === true)); }
 // المكتبة تُخزَّن داخل siteContent/library_json (لا تحتاج قواعد Firestore جديدة)
 async function libRead(){ try{ const d = await getDoc(doc(db,'siteContent','library_json')); const t = d.exists() ? d.data().text : cache.content.library_json; cache.content.library_json = t||''; }catch(e){} let a = []; try{ a = JSON.parse(cache.content.library_json||'[]')||[]; }catch(e){} return Array.isArray(a) ? a : []; }
 async function libWrite(arr){ const text = JSON.stringify(arr); await setDoc(doc(db,'siteContent','library_json'), {text}, {merge:true}); cache.content.library_json = text; cache.library = arr; }
@@ -4778,6 +4790,7 @@ async function renderView(){
     case 'revCellEdit': return revCellEditView();
     case 'achievementsHome': return await achievementsHome();
     case 'adminPoints': return await pointsHome();
+    case 'pgRecalc': return await pgRecalcView();
     case 'studentProfile': return await studentProfileView('manage');
     case 'editStudentForm': return editStudentForm();
     case 'adjustPointsForm': return adjustPointsForm();
@@ -5764,24 +5777,32 @@ function prevSpan(e){
   const idx = SURAHS.findIndex(x=>x.name===e.surah); if(idx<0) return null;
   try{ const a = findMushafPage(idx+1, Math.min(e.from,e.to)), b = findMushafPage(idx+1, Math.max(e.from,e.to)); return (a&&b) ? [Math.min(a,b), Math.max(a,b)] : null; }catch(err){ return null; }
 }
-const pmLabel = e => e.kind==='juz' ? 'جزء '+e.juz+' كامل' : e.kind==='pages' ? (e.from===e.to ? 'صفحة '+e.from : 'الصفحات '+e.from+' – '+e.to) : e.surah+' ('+e.from+' – '+e.to+')';
+const pmLabel = e => e.kind==='juz' ? 'جزء '+e.juz+' كامل' : e.kind==='pages' ? (e.from===e.to ? 'صفحة '+e.from : 'الصفحات '+e.from+' – '+e.to) : (+e.from===1 && (SURAHS.find(x=>x.name===e.surah)||{}).ayat===+e.to ? 'سورة '+e.surah+' كاملة' : e.surah+' ('+e.from+' – '+e.to+')');
 function pmPanel(I){
   if(!I.canEdit) return '';
   if(!pmOpen) return `<button class="btn btn-outline" style="margin-top:12px" onclick="window.pmToggle()">الحفظ المسبق (إضافة وتعديل)</button>`;
   const d = pmDraft, editing = d.idx>=0;
   const list = I.prevList.map((e,i)=>`<div class="row"><div class="row-title">${pmLabel(e)}</div><div style="display:flex; gap:6px">${e.kind==='pages' ? '' : `<button class="pm-btn" style="background:#EAF4EE; color:#0f7a44" onclick="window.pmEditStart(${i})">تعديل</button>`}<button class="pm-btn" style="background:#FADBD8; color:#B23A3A" onclick="window.pmDelete(${i})">حذف</button></div></div>`).join('') || `<div class="row-sub" style="padding:12px">لا يوجد حفظ مسبق مسجّل</div>`;
-  const form = d.kind==='juz'
+  const form = d.kind==='surahs'
+    ? `<div class="field"><label>الجزء</label><select onchange="window.pmSJ(+this.value)">${Array.from({length:30},(_,i)=>`<option value="${i+1}" ${(d.sj||30)===i+1?'selected':''}>جزء ${i+1}</option>`).join('')}</select></div>
+       <div class="field"><label class="wq-lbl">السور<small>اختار سورة أو أكثر (كل سورة بتنضاف كاملة)</small></label><div class="wq-chips">${(()=>{ const L = juzSurahs(d.sj||30), all = L.length>1 && L.every(si=>(d.sel||new Set()).has(si)); return (L.length>1 ? `<button type="button" class="wq-all ${all?'on':''}" onclick="window.pmSAll()">كل سور الجزء</button>` : '') + L.map(si=>`<button type="button" class="${(d.sel||new Set()).has(si)?'on':''}" onclick="window.pmST(${si})">${SURAHS[si].name}</button>`).join(''); })()}</div></div>
+       ${(d.sel&&d.sel.size) ? `<div class="row-sub" style="margin:-4px 2px 8px">مختار: ${[...d.sel].sort((a,b)=>a-b).map(si=>SURAHS[si].name).join('، ')}</div>` : ''}`
+    : d.kind==='juz'
     ? `<div class="field"><label>الجزء</label><select id="pm-juz">${Array.from({length:30},(_,i)=>`<option value="${i+1}" ${d.juz===i+1?'selected':''}>جزء ${i+1}</option>`).join('')}</select></div>`
     : `${surahPicker('pm-surah', d.surah)}<div style="display:flex; gap:10px"><div class="field" style="flex:1"><label>من الآية</label><input id="pm-from" type="number" inputmode="numeric" min="1" value="${d.from}"></div><div class="field" style="flex:1"><label>إلى الآية</label><input id="pm-to" type="number" inputmode="numeric" min="1" value="${d.to}"></div></div>`;
   return `<div class="section-title" style="margin-top:14px"><span class="bar"></span>الحفظ المسبق</div>
     <div class="list">${list}</div>
     <div class="row-title" style="margin-top:14px; font-size:13px">${editing ? 'تعديل البند' : 'إضافة بند جديد'}</div>
-    <div class="field"><label>النوع</label><select onchange="window.pmKind(this.value)"><option value="juz" ${d.kind==='juz'?'selected':''}>جزء كامل</option><option value="range" ${d.kind==='range'?'selected':''}>سورة (من آية إلى آية)</option></select></div>
+    <div class="field"><label>النوع</label><select onchange="window.pmKind(this.value)"><option value="juz" ${d.kind==='juz'?'selected':''}>جزء كامل</option><option value="surahs" ${d.kind==='surahs'?'selected':''}>سور كاملة (سورة أو أكثر)</option><option value="range" ${d.kind==='range'?'selected':''}>سورة (من آية إلى آية)</option></select></div>
     ${form}
     <div style="display:flex; gap:8px; margin-top:6px"><button class="btn btn-primary" onclick="window.pmSubmit()">${editing ? 'حفظ التعديل' : 'إضافة'}</button><button class="btn btn-outline" onclick="window.pmToggle()">${editing ? 'إلغاء' : 'إغلاق'}</button></div>`;
 }
 function pmToggle(){ pmOpen = !pmOpen; pmDraft = {idx:-1, kind:'juz', juz:1, surah:'', from:'', to:''}; hmapRefresh(); }
-function pmKind(v){ pmDraft.kind = v; hmapRefresh(); }
+function pmKind(v){ pmDraft.kind = v; if(v==='surahs'){ pmDraft.sel = pmDraft.sel || new Set(); pmDraft.sj = pmDraft.sj || 30; } hmapRefresh(); }
+function pmSJ(j){ pmDraft.sj = j; hmapRefresh(); }
+function pmST(si){ const S = pmDraft.sel = pmDraft.sel || new Set(); if(S.has(si)) S.delete(si); else S.add(si); hmapRefresh(); }
+window.pmSJ = pmSJ; window.pmST = pmST; window.pmSAll = pmSAll;
+function pmSAll(){ const S = pmDraft.sel = pmDraft.sel || new Set(), L = juzSurahs(pmDraft.sj||30), all = L.every(si=>S.has(si)); L.forEach(si=>all ? S.delete(si) : S.add(si)); hmapRefresh(); }
 function pmEditStart(i){ const e = profIns.prevList[i]; pmDraft = e.kind==='juz' ? {idx:i, kind:'juz', juz:e.juz, surah:'', from:'', to:''} : {idx:i, kind:'range', juz:1, surah:e.surah, from:e.from, to:e.to}; hmapRefresh(); }
 async function pmSave(list){
   try{
@@ -5793,6 +5814,12 @@ async function pmDelete(i){ if(!await uiConfirm('حذف هذا البند من �
 function pmSubmit(){
   const I = profIns, d = pmDraft; let e;
   const id = d.idx>=0 ? I.prevList[d.idx].id : pmId();
+  if(d.kind==='surahs'){
+    const sel = [...(d.sel||[])].sort((a,b)=>a-b); if(!sel.length){ alert('اختار سورة وحدة على الأقل'); return; }
+    const list = [...I.prevList], has = si => list.some(x=>x.kind==='range' && x.surah===SURAHS[si].name && +x.from===1 && +x.to===SURAHS[si].ayat);
+    sel.forEach(si=>{ if(!has(si)) list.push({id:pmId(), kind:'range', surah:SURAHS[si].name, from:1, to:SURAHS[si].ayat}); });
+    pmDraft.sel = new Set(); pmSave(list); return;
+  }
   if(d.kind==='juz'){ e = {id, kind:'juz', juz:Number(document.getElementById('pm-juz').value)}; }
   else {
     const sObj = SURAHS.find(x=>x.name===document.getElementById('pm-surah-input').value.trim());
@@ -6061,10 +6088,11 @@ function ringSvg(pct){
 }
 
 let wfCount = 1;
-function wfSegHTML(i){
+function wfSegHTML(i, link){
   const err = ['0','1','2','3+'].map((n,k)=>`<button class="${k===0?'active':''}" onclick="window.selectSeg('wf-err-${i}',this)">${n}</button>`).join('');
-  return `<div class="wf-seg" id="wf-seg-${i}" data-i="${i}" style="border:1px solid var(--border); border-radius:14px; padding:12px; margin-top:12px">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px"><b style="font-size:13px">السورة ${i+1}</b>${i>0 ? `<button class="btn btn-outline" style="width:auto; padding:4px 12px; font-size:12px; border-color:#B23A3A; color:#B23A3A" onclick="window.wfRemoveSeg(${i})">حذف</button>` : ''}</div>
+  const L = link!=null;
+  return `<div class="wf-seg${L?' wf-link':''}" id="wf-seg-${i}" data-i="${i}" ${L?`data-link="${link}"`:''} style="border:1px solid var(--border); border-radius:14px; padding:12px; margin-top:12px">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px"><b style="font-size:13px">${L ? '↳ تكملة الورد' : 'السورة '+(i+1)}</b>${i>0 ? `<button class="btn btn-outline" style="width:auto; padding:4px 12px; font-size:12px; border-color:#B23A3A; color:#B23A3A" onclick="window.wfRemoveSeg(${i})">حذف</button>` : ''}</div>
     <div class="field"><label>الجزء</label><select id="wf-juz-${i}" onchange="window.wfJuz(${i},+this.value)">${Array.from({length:30},(_,k)=>`<option value="${k+1}">الجزء ${k+1}</option>`).join('')}</select></div>
     <div class="field"><label class="wq-lbl">السورة<small>سور هذا الجزء</small></label><div class="wq-chips" id="wf-sl-${i}"></div><input type="hidden" id="wf-surah-${i}-input" value=""></div>
     <div class="field"><label class="wq-lbl">الصفحات<small>اضغط صفحة البداية ثم صفحة النهاية، أو «السورة كاملة»</small></label><div class="wq-chips" id="wf-pl-${i}"><div class="wq-empty">اختر السورة أولًا</div></div></div>
@@ -6072,7 +6100,7 @@ function wfSegHTML(i){
     <div class="wq-res" id="wf-res-${i}" style="display:none"></div>
     <div style="display:flex; gap:10px"><div class="field" style="flex:1"><label>صفحات كاملة</label><input type="number" inputmode="numeric" min="0" id="wf-full-${i}" oninput="this.dataset.edited=1"></div><div class="field" style="flex:1"><label>جزء من صفحة</label><select id="wf-frac-${i}" onchange="this.dataset.edited=1"><option value="0">لا يوجد</option><option value="0.33">ثلث</option><option value="0.5">نصف</option><option value="0.67">ثلثين</option></select></div></div>
     <div class="row-sub" id="wf-hint-${i}" style="margin:-4px 0 6px"></div>
-    <div class="field"><label>عدد الأخطاء</label><div class="seg" id="wf-err-${i}">${err}</div></div>
+    ${L ? `<div class="row-sub" style="margin:2px 2px 0">${icon('check',13)} الأخطاء والنقاط بتنحسب مع الورد اللي فوقه كورد واحد.</div>` : `<div class="field"><label id="wf-errlbl-${i}">عدد الأخطاء</label><div class="seg" id="wf-err-${i}">${err}</div></div>`}
   </div>`;
 }
 /* ===== اختيار الورد من المصحف: الجزء ← السورة ← الصفحات ← الآيات ===== */
@@ -6121,7 +6149,7 @@ function wfInit(i, j, pre, tries){
   el.value = String(j);
   wfDrawSurahs(i); wfDrawPages(i); wfFillAyahs(i, pre && pre.f, pre && pre.t);
 }
-function wfJuz(i, j){ wfSt[i] = {j, si:-1, ps:0, pe:0}; wfDrawSurahs(i); wfDrawPages(i); wfFillAyahs(i); }
+function wfJuz(i, j){ const o = wfSt[i]||{}; wfSt[i] = {j, si:-1, ps:0, pe:0, link:o.link, from:o.from}; wfDrawSurahs(i); wfDrawPages(i); wfFillAyahs(i); }
 function wfDrawSurahs(i){
   const S = wfSt[i], list = juzSurahs(S.j), box = document.getElementById('wf-sl-'+i); if(!box) return;
   if(list.length===1 && S.si<0){ S.si = list[0]; }
@@ -6139,6 +6167,26 @@ function wfDrawPages(i){
   const ps = surahPagesInJuz(S.si, S.j), all = ps.length>1 && S.ps===ps[0] && S.pe===ps[ps.length-1];
   box.innerHTML = (ps.length>1 ? `<button type="button" class="wq-all ${all?'on':''}" onclick="window.wfAllPages(${i})">السورة كاملة</button>` : '') + ps.map(p=>{ const c = all ? 'in' : (p===S.ps || p===S.pe) ? 'on' : (S.ps && p>S.ps && p<S.pe) ? 'in' : '';
     return `<button type="button" class="${c}" onclick="window.wfPage(${i},${p})">${p}</button>`; }).join('');
+  // يكمل على السورة/الجزء اللي بعده (لما الاختيار يوصل لآخر صفحة)
+  const n = S.ps && S.pe===ps[ps.length-1] && !document.getElementById('we-date') ? wfNextPos(i) : null;
+  if(n && !Object.values(wfSt).some(x=>x && x.from===i)) box.insertAdjacentHTML('beforeend', `<button type="button" class="wq-cont" onclick="window.wfContinue(${i})">يكمل ← ${SURAHS[n.si].name}${n.j!==S.j?' (الجزء '+n.j+')':''}</button>`);
+}
+function wfNextPos(i){
+  const S = wfSt[i], Q = qIndex(); if(!S || S.si<0 || !S.pe || !Q) return null;
+  let last = 0; for(let a=1;a<=SURAHS[S.si].ayat;a++) if(Q.pageOf[S.si][a]===S.pe) last = a;
+  if(!last) return null;
+  let si = S.si, a = last+1; if(a>SURAHS[si].ayat){ si++; a = 1; if(si>=SURAHS.length) return null; }
+  const p = Q.pageOf[si][a]; return {si, a, p, j:juzOfPage(p)};
+}
+function wfContinue(i){
+  const n = wfNextPos(i), Q = qIndex(), segEl = document.getElementById('wf-seg-'+i); if(!n || !segEl) return;
+  const root = wfSt[i].link!=null ? wfSt[i].link : i, k = wfCount++;
+  let last = n.a; while(last+1<=SURAHS[n.si].ayat && Q.pageOf[n.si][last+1]===n.p) last++;
+  segEl.insertAdjacentHTML('afterend', wfSegHTML(k, root));
+  wfInit(k, n.j, {si:n.si, f:n.a, t:last}); wfSt[k].link = root; wfSt[k].from = i;
+  const lb = document.getElementById('wf-errlbl-'+root); if(lb) lb.textContent = 'عدد الأخطاء (للورد كامل مع التكملة)';
+  wfDrawPages(i);
+  const el = document.getElementById('wf-seg-'+k); if(el && el.scrollIntoView) el.scrollIntoView({behavior:'smooth', block:'center'});
 }
 // اختيار الصفحات: كبسة بعد المدى بتمدّه، قبل المدى بتمدّه لورا، جوّا المدى بتقصّره، وعلى نفس الصفحة الوحيدة بتلغيها
 function wfPage(i, p){
@@ -6192,9 +6240,11 @@ function wfAddSeg(){
   box.insertAdjacentHTML('beforeend', wfSegHTML(i));
   wfInit(i, prev!=null && wfSt[prev] ? wfSt[prev].j : wfDefaultJuz(state.params.id));
 }
-function wfRemoveSeg(i){ const el = document.getElementById('wf-seg-'+i); if(el) el.remove(); delete wfSt[i]; }
+function wfRemoveSeg(i){ const el = document.getElementById('wf-seg-'+i); if(el) el.remove(); const fr = wfSt[i] && wfSt[i].from; delete wfSt[i];
+  Object.keys(wfSt).forEach(k=>{ if(wfSt[k] && (wfSt[k].link===+i || wfSt[k].from===+i)) wfRemoveSeg(+k); });
+  if(fr!=null && wfSt[fr]) wfDrawPages(fr); }
 window.acReplay = () => render();
-Object.assign(window, {wfJuz, wfSurah, wfPage, wfAyah, wfAllPages});
+Object.assign(window, {wfJuz, wfSurah, wfPage, wfAyah, wfAllPages, wfContinue});
 
 /* ===== تسجيل سريع للورد ===== */
 function wfQuickPlan(s, coll){
@@ -6248,7 +6298,7 @@ async function wirdQuickCommit(sid, coll, e, date){
   const errors = ['0','1','2','3+'][e];
   const table = {hifzLog:TYPE_POINTS.hifz, reviewLog:TYPE_POINTS.review, recitationLog:TYPE_POINTS.recitation}[coll];
   let pts = q.full>0 ? wirdPts(table, errors, q.full) : 0, cmb = {pages:[], pts:0};
-  if(coll==='hifzLog'){ try{ const det = await ensureStudentDetail(sid); cmb = pgCombo(det.hifzLog, SURAHS.findIndex(x=>x.name===q.name), q.f, q.t, errors, table); pts += cmb.pts; }catch(err){} }
+  if(coll==='hifzLog'){ try{ const det = await ensureStudentDetail(sid); cmb = pgCombo(det.hifzLog, SURAHS.findIndex(x=>x.name===q.name), q.f, q.t, errors, table, q.full); pts += cmb.pts; }catch(err){} }
   const rec = {date, from:q.name+' '+q.f, to:q.name+' '+q.t, errors, grade:gradeFromErrors(errors), recordedBy:state.personName, pagesEst:+(q.full+q.frac).toFixed(2), pagesExact:true, fullPages:q.full, frac:q.frac, pts};
   if(cmb.pages.length){ rec.pgDone = cmb.pages; rec.pgPts = cmb.pts; }
   const ref = await addDoc(collection(db,'students',sid,coll), {...rec, recordedAt:serverTimestamp()});
@@ -6395,17 +6445,24 @@ async function saveWird(sid, from){
     const f = parseInt(fRaw,10), t = parseInt(tRaw,10);
     if(f<1 || t<1 || f>sObj.ayat || t>sObj.ayat){ showErr(tag+'سورة '+sObj.name+' آياتها من 1 إلى '+sObj.ayat+' فقط'); return; }
     if(f>t){ showErr(tag+'آية البداية لازم تكون أصغر من أو تساوي آية النهاية'); return; }
-    const errors = document.querySelector('#wf-err-'+i+' .active').textContent;
+    const lk = segs[n].dataset.link, pe = lk!=null && document.querySelector('#wf-err-'+lk+' .active');
+    const errors = lk!=null ? (pe ? pe.textContent : '0') : document.querySelector('#wf-err-'+i+' .active').textContent;
     const full = parseInt(document.getElementById('wf-full-'+i).value,10), frac = Number(document.getElementById('wf-frac-'+i).value)||0;
     if(isNaN(full) || full<0){ showErr(tag+'اكتب عدد الصفحات الكاملة (0 أو أكثر)'); return; }
     if(full===0 && frac===0){ showErr(tag+'حدد صفحة كاملة أو جزءًا من صفحة'); return; }
     const sg = rangeSuggest(sObj.name, f, t);
     if(sg && Math.abs((full+frac)-sg.total)>0.5) warns.push(tag+sObj.name+': أدخلت '+pgTxt(full+frac)+' صفحة، والمتوقع من الآيات حوالي '+pgTxt(sg.total));
-    items.push({si:SURAHS.indexOf(sObj), surah:sObj.name, f, t, errors, grade:gradeFromErrors(errors), full, frac, pagesEst:+(full+frac).toFixed(2), pagesExact:true, pts: full>0 ? wirdPts(ptsTable, errors, full) : 0});
+    items.push({seg:i, link:lk, si:SURAHS.indexOf(sObj), surah:sObj.name, f, t, errors, grade:gradeFromErrors(errors), full, frac, pagesEst:+(full+frac).toFixed(2), pagesExact:true, pts: full>0 ? wirdPts(ptsTable, errors, full) : 0});
   }
+  // الورد اللي بيكمّل على سورة/جزء ثاني: الأخطاء مرة وحدة للورد كله، بتتوزع على أجزائه حسب الصفحات
+  items.filter(it=>it.link==null).forEach(root=>{ const grp = [root, ...items.filter(x=>x.link!=null && String(x.link)===String(root.seg))]; if(grp.length<2) return;
+    const E = wrErrN(root.errors), W = grp.map(x=>x.pagesEst||0), tw = W.reduce((a,b)=>a+b,0)||1;
+    const raw = W.map(w=>E*w/tw), base = raw.map(Math.floor); let rem = E - base.reduce((a,b)=>a+b,0);
+    raw.map((r,k)=>[r-base[k],k]).sort((a,b)=>b[0]-a[0]).forEach(([_,k])=>{ if(rem>0){ base[k]++; rem--; } });
+    grp.forEach((x,k)=>{ x.errors = (root.errors==='3+' && base[k]>=3) ? '3+' : String(base[k]); x.grade = root.grade; x.pts = x.full>0 ? wirdPts(ptsTable, x.errors, x.full) : 0; x.cont = true; }); });
   const doneAll = [];
   if(collKey==='hifzLog'){ try{ const det = await ensureStudentDetail(sid), prev = [...(det.hifzLog||[])];
-    for(const it of items){ const c = pgCombo(prev, it.si, it.f, it.t, it.errors, ptsTable); if(c.pages.length){ it.pts += c.pts; it.pgDone = c.pages; it.pgPts = c.pts; doneAll.push(...c.pages); } prev.push({from:it.surah+' '+it.f, to:it.surah+' '+it.t, errors:it.errors, pgDone:it.pgDone}); } }catch(err){ console.warn('combo',err); } }
+    for(const it of items){ const c = pgCombo(prev, it.si, it.f, it.t, it.errors, ptsTable, it.full); if(c.pages.length){ it.pts += c.pts; it.pgDone = c.pages; it.pgPts = c.pts; doneAll.push(...c.pages); } prev.push({from:it.surah+' '+it.f, to:it.surah+' '+it.t, errors:it.errors, pgDone:it.pgDone, fullPages:it.full}); } }catch(err){ console.warn('combo',err); } }
   if(!items.length){ showErr('أضف سورة واحدة على الأقل'); return; }
   if(warns.length && !await uiConfirm('عدد الصفحات ما بيتطابق مع الآيات:\n'+warns.join('\n')+'\n\nهل تريد الحفظ كما هو؟')) return;
   try{
@@ -6761,6 +6818,48 @@ window.setPtsBranch = id => { ptsBranch = id; render(); };
 window.ptsGo = id => { ptsBranch = id; goto('adminPoints'); };
 let ptsPeriod = 'all';
 window.setPtsPeriod = p => { ptsPeriod = p; render(); };
+/* ===== إعادة احتساب الصفحات المجمّعة للأوراد السابقة (للمدير) ===== */
+let pgrc = null;
+function pgrcCompute(){
+  const out = [], T = TYPE_POINTS.hifz;
+  (cache.allStudents||cache.students).forEach(s=>{
+    const L = [...((cache.details[s.id]||{}).hifzLog||[])].filter(r=>r.date).sort((a,b)=>a.date.localeCompare(b.date) || tsMillis(a.recordedAt)-tsMillis(b.recordedAt));
+    const prev = [];
+    L.forEach(r=>{ const g = wrRange(r); let pg = r.pgDone||[];
+      if(g && !(r.pgDone && r.pgDone.length)){ const c = pgCombo(prev, g.si, g.f, g.t, r.errors, T, wrFull(r)); if(c.pages.length){ out.push({s, r, pages:c.pages, pts:c.pts}); pg = c.pages; } }
+      prev.push({...r, pgDone:pg}); });
+  });
+  return out;
+}
+async function pgRecalcView(){
+  const head = subheader('إعادة احتساب الصفحات المجمّعة', 'adminPoints');
+  if(state.role!=='admin') return head + `<div class="empty">للمدير فقط</div>`;
+  await loadAllDetails();
+  pgrc = pgrcCompute();
+  const tot = pgrc.reduce((a,x)=>a+x.pts,0), byS = {}; pgrc.forEach(x=>{ (byS[x.s.id] = byS[x.s.id]||{s:x.s, n:0, pts:0, rows:[]}); byS[x.s.id].n += x.pages.length; byS[x.s.id].pts += x.pts; byS[x.s.id].rows.push(x); });
+  const L = Object.values(byS).sort((a,b)=>b.pts-a.pts);
+  return head + `
+  <div class="row-sub" style="margin:12px 4px;line-height:1.8">بيمرق على أوراد الحفظ السابقة لكل الطلاب بالترتيب، وبيلاقي الصفحات اللي اكتملت آياتها من أكثر من ورد وما أخذت نقاطها. نقاط الصفحة (على مجموع أخطاء أجزائها) بتنضاف على الورد اللي كمّلها وبتاريخه. كل صفحة بتنحسب مرة وحدة، وما في إشي بينحفظ قبل ما تضغط «تطبيق».</div>
+  ${!pgrc.length ? `<div class="empty">${icon('check',16)} ما في صفحات مجمّعة ناقصة — كل شي محسوب</div>` : `
+  <div class="td-stats"><div><b>${L.length}</b><span>${stuWord(L.length)}</span></div><div><b>${pgrc.reduce((a,x)=>a+x.pages.length,0)}</b><span>صفحة مكتملة</span></div><div><b>+${tot}</b><span>نقطة</span></div></div>
+  <div class="list" style="margin-top:12px">${L.map(x=>`<details class="row" style="display:block"><summary style="display:flex;justify-content:space-between;align-items:center;cursor:pointer"><span class="row-title">${rpEsc(x.s.name)}</span><span class="badge green">+${x.pts} · ${x.n} ص</span></summary><div class="row-sub" style="margin-top:6px;line-height:1.8">${x.rows.map(r=>`${r.r.date} · ${rpEsc(r.r.from)} ← ${rpEsc(String(r.r.to).split(' ').pop())} · صفحة ${r.pages.join('، ')} · +${r.pts}`).join('<br>')}</div></details>`).join('')}</div>
+  <button class="btn btn-primary" style="margin-top:14px" onclick="window.pgrcApply()">${icon('check',16)} تطبيق (+${tot} نقطة)</button><div id="pgrc-alert"></div>`}`;
+}
+async function pgrcApply(){
+  if(!pgrc || !pgrc.length) return;
+  if(!await uiConfirm('إضافة نقاط '+pgrc.reduce((a,x)=>a+x.pages.length,0)+' صفحة مجمّعة (+'+pgrc.reduce((a,x)=>a+x.pts,0)+' نقطة) على أوراد الطلاب السابقة؟\n\nالترتيب الأسبوعي والشهري للفترات القديمة ممكن يتغير.')) return;
+  const al = document.getElementById('pgrc-alert'); let ok = 0, fail = 0; const add = {};
+  for(const x of pgrc){ try{ const T = TYPE_POINTS.hifz, base = recPts(T, x.r);
+      await updateDoc(doc(db,'students',x.s.id,'hifzLog',x.r.id), {pgDone:x.pages, pgPts:x.pts, pts:base + x.pts});
+      x.r.pgDone = x.pages; x.r.pgPts = x.pts; x.r.pts = base + x.pts; add[x.s.id] = (add[x.s.id]||0) + x.pts; ok++;
+      if(al) al.innerHTML = `<div class="alert">جاري التطبيق… ${ok} من ${pgrc.length}</div>`; }catch(e){ fail++; } }
+  for(const sid in add){ try{ await updateDoc(doc(db,'students',sid), {points: increment(add[sid])}); }catch(e){ fail++; } }
+  auditLog('إعادة احتساب الصفحات المجمّعة', ok+' ورد', '+'+Object.values(add).reduce((a,b)=>a+b,0)+' نقطة');
+  try{ await loadStudentsForRole(); }catch(e){}
+  if(al) al.innerHTML = fail ? `<div class="alert error">انطبق ${ok}، وتعذّر ${fail}. اضغط مرة ثانية لإكمال الباقي.</div>` : `<div class="alert success">${icon('check',16)} تم: ${ok} ورد</div>`;
+  setTimeout(()=>{ if(!fail) render(); }, 900);
+}
+window.pgrcApply = pgrcApply;
 async function pointsHome(){
   const brs = visBrs(); if(!brs.some(b=>b.id===ptsBranch)) ptsBranch = brs[0] && brs[0].id;
   const cur = getBranch(ptsBranch);
@@ -6776,6 +6875,7 @@ async function pointsHome(){
   return subheader('النقاط',homeRoute()) + `
   ${(state.role==='admin'||state.role==='supervisor') ? `<button class="hr-btn" style="margin:0 0 14px" onclick="window.rhOpen('pointsReport',{bid:'${ptsBranch||''}'})"><span style="background:linear-gradient(145deg,#2FA36B,#0B5E2F)">${icon('chart',17)}</span><b>التقارير</b><small>تقرير النقاط والشهري وترتيب الحفظ والتصدير</small><i>${icon('chevronL',14)}</i></button>` : ''}
   ${starHomeCard()}
+  ${state.role==='admin' ? `<button class="hr-btn" style="margin:0 0 14px" onclick="window.goto('pgRecalc',{})"><span style="background:linear-gradient(145deg,#C9A24B,#8A6416)">${icon('review',17)}</span><b>إعادة احتساب الصفحات المجمّعة</b><small>للأوراد السابقة</small><i>${icon('chevronL',14)}</i></button>` : ''}
   <div class="section-title"><span class="bar"></span>آلية احتساب النقاط</div>
   <div class="list">${POINT_RULES.map(r=>`<div class="row"><div class="row-title">${r.label}</div><div class="row-sub" style="text-align:left">${r.items.map(i=>i[0]+' '+i[1]).join(' · ')}</div></div>`).join('')}
     <div class="row"><div class="row-title">⭐ نجم الأسبوع (بالنقاط، وبالحفظ) بكل شعبة</div><span class="badge gold">${STAR_PTS}+ نقطة لكل نجمة</span></div>
@@ -6791,8 +6891,8 @@ async function pointsHome(){
 async function supervisorHome(){ return homeContent(); }
 
 const CAP_LABELS = {hifz:'تسجيل ورد الحفظ', attendance:'تسجيل المواعيد', tajweed:'تسجيل حضور التجويد', tajweedLevels:'تعديل مستويات التجويد للطلاب', editStudent:'تعديل بيانات الطلاب', addStudent:'إضافة طلاب جدد'};
-const CAP_DEFAULT_ON = {hifz:true, attendance:true, tajweed:true, tajweedLevels:true, editStudent:true, addStudent:true, editContent:false, editLibrary:false, viewSupervisors:false, viewRecordTime:false, pay:false, editPlan:false};
-const EXTRA_CAPS = {editContent:'تعديل محتوى الموقع (الرؤية، الخطط، الخانات)', viewSupervisors:'عرض صفحة تعريف المشرفين', viewRecordTime:'إظهار وقت تسجيل السجلات', pay:'تسجيل الدفع وعرضه', editLibrary:'إضافة وتعديل مواد المكتبة', editPlan:'تعيين خطط الحفظ وتعديل مقدار الورد اليومي'};
+const CAP_DEFAULT_ON = {hifz:true, attendance:true, tajweed:true, tajweedLevels:true, editStudent:true, addStudent:true, editContent:false, editLibrary:false, viewSupervisors:false, viewRecordTime:false, pay:false, editPlan:false, upload:false};
+const EXTRA_CAPS = {upload:'رفع المواد والملفات: اختبارات وأوراق عمل التجويد، وملفات المكتبة (على جوجل درايف)', editContent:'تعديل محتوى الموقع (الرؤية، الخطط، الخانات)', viewSupervisors:'عرض صفحة تعريف المشرفين', viewRecordTime:'إظهار وقت تسجيل السجلات', pay:'تسجيل الدفع وعرضه', editLibrary:'إضافة وتعديل مواد المكتبة', editPlan:'تعيين خطط الحفظ وتعديل مقدار الورد اليومي'};
 let capOpen = {};
 function capGroupToggle(k, open){ capOpen[k] = open; }
 // أنواع المشرفين: مشرف حلقة (كل التسجيل) أو مشرف تجويد (التجويد فقط)
@@ -6823,9 +6923,9 @@ async function rnSave(){
 async function rnReset(){ if(!await uiConfirm('ترجع كل الأسماء للأصلية؟')) return; await rnWrite({}); }
 Object.assign(window, {rnSave, rnReset});
 const CAP_PRESETS = {
-  halaqa: {hifz:true, attendance:true, tajweed:true, tajweedLevels:true, editStudent:true, addStudent:true, editPlan:false, editContent:false, editLibrary:false, viewRecordTime:false, viewSupervisors:false, pay:false},
-  musammi: {hifz:true, attendance:true, tajweed:false, tajweedLevels:false, editStudent:false, addStudent:false, editPlan:false, editContent:false, editLibrary:false, viewRecordTime:false, viewSupervisors:false, pay:false},
-  tajweed: {hifz:false, attendance:false, tajweed:true, tajweedLevels:true, editStudent:false, addStudent:false, editPlan:false, editContent:false, editLibrary:false, viewRecordTime:false, viewSupervisors:false, pay:false}
+  halaqa: {hifz:true, attendance:true, tajweed:true, tajweedLevels:true, editStudent:true, addStudent:true, editPlan:false, editContent:false, editLibrary:false, viewRecordTime:false, viewSupervisors:false, pay:false, upload:false},
+  musammi: {hifz:true, attendance:true, tajweed:false, tajweedLevels:false, editStudent:false, addStudent:false, editPlan:false, editContent:false, editLibrary:false, viewRecordTime:false, viewSupervisors:false, pay:false, upload:false},
+  tajweed: {hifz:false, attendance:false, tajweed:true, tajweedLevels:true, editStudent:false, addStudent:false, editPlan:false, editContent:false, editLibrary:false, viewRecordTime:false, viewSupervisors:false, pay:false, upload:true}
 };
 const supKind = sv => (sv && SUP_KINDS[sv.kind]) ? sv.kind : 'halaqa';
 async function setSupKind(email, kind){
@@ -6839,6 +6939,7 @@ const CAP_GROUPS = [
   {key:'daily', title:'التسجيل اليومي', sub:'ورد الحفظ، المواعيد، التجويد', icon:'book', caps:['hifz','attendance','tajweed','tajweedLevels']},
   {key:'students', title:'إدارة الطلاب', sub:'تعديل البيانات، إضافة طلاب، خطط الحفظ', icon:'cap', caps:['editStudent','addStudent','editPlan']},
   {key:'content', title:'المحتوى والعرض', sub:'محتوى الموقع، المكتبة، وقت التسجيل، تعريف المشرفين', icon:'crown', caps:['editContent','editLibrary','viewRecordTime','viewSupervisors'], sensitive:true},
+  {key:'files', title:'رفع المواد', sub:'اختبارات وأوراق عمل التجويد، وملفات المكتبة (مقفولة افتراضيًا)', icon:'book', caps:['upload']},
   {key:'pay', title:'الدفع', sub:'جدول الدفع وسجل الدفعات (مقفولة افتراضيًا)', icon:'briefcase', caps:['pay']}
 ];
 function capGroupHTML(g, on, total, bodyHtml){
@@ -7175,6 +7276,7 @@ function wlSteps(){
   if(canDo('attendance')) can.push('الحضور والغياب');
   if(canDo('tajweed')) can.push('حضور التجويد');
   if(canDo('tajweedLevels')) can.push('مستويات التجويد');
+  if(canUpload()) can.push('رفع المواد والملفات');
   if(canDo('editStudent')) can.push('تعديل بيانات الطلاب');
   if(canDo('addStudent')) can.push('إضافة طلاب');
   const s3 = k==='tajweed'
@@ -7658,7 +7760,9 @@ function tjItemView(){
 const TJF_MAX = 5*1024*1024, TJF_CHUNK = 700000;
 const TJF_ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.webp,.gif,.mp3,.m4a';
 const TJF_KINDS = {test:['اختبار','#2F5B9A','#E5ECF7'], sheet:['ورقة عمل','#0F7B3E','#E3F3EA']};
-const canUpTaj = () => state.role==='admin' || (state.role==='supervisor' && canDo('tajweedLevels'));
+// رفع المواد: صلاحية منفصلة (upload) بيعطيها المدير للمشرف
+const canUpload = () => state.role==='admin' || (state.role==='supervisor' && !!state.capabilities && state.capabilities.upload === true);
+const canUpTaj = () => canUpload();
 // جوجل درايف: إذا المدير حط رابط سكربت الدرايف، الملفات بترتفع على درايف الشعبة بدل الفيرستور
 const TJD_MAX = 30*1024*1024;
 const DRIVE_DEFAULT = 'https://script.google.com/macros/s/AKfycbxD08RYOhR9MldtOiCblqtOWzNzEdgdW_8JEelay227MNEriH97TLEI74vSFU48b4xCPQ/exec';
