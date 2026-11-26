@@ -1391,6 +1391,8 @@ html[data-theme=dark] #edfab,html[data-theme=dark] #edfab-x,html[data-theme=dark
 .khana-icon,.khana-icon[style*="--kc"],html[data-theme=dark] .khana-icon[style*="--kc"]{box-shadow:none!important}
 body:not(.has-sd) .bottomnav.bn-c{left:50%;right:auto;transform:translateX(-50%);width:min(330px,calc(100% - 40px));bottom:calc(12px + env(safe-area-inset-bottom));border-radius:32px;padding:7px 10px;border:.5px solid var(--border);box-shadow:0 8px 22px -12px rgba(0,0,0,.3);align-items:center}
 .bn-g{flex:1;display:flex;justify-content:space-around;align-items:center}
+.bottomnav.bn-c{justify-content:space-around}
+body.has-sd .bottomnav.bn-c.bn-s{justify-content:space-around;gap:0}
 .bn-s{justify-content:center;gap:26px}
 .bn-c .navitem{position:relative;flex:none;width:44px;height:44px;padding:0;display:grid;place-items:center;border-radius:50%;color:var(--text-muted)}
 .bn-c .navitem>div:first-child{display:grid;place-items:center}
@@ -6612,7 +6614,7 @@ async function studentProfileView(mode){
   let body = (mode==='manage' && state.role!=='student' && canHifzFor(s) && !s._noFab ? `<button class="rec-fab" onclick="window.goto('wirdForm',{id:'${s.id}',from:'${from}'})">${icon('plus',18)}<span>تسجيل ورد</span></button>` : '') + `<div style="display:flex; flex-direction:column; align-items:center; margin-top:6px">
     ${entityAvatar(64, s.photo, s.name, 'student', s.id, canEditBranch(s.branchId) && canDo('editStudent'))}
     ${s.photo && canEditBranch(s.branchId) && canDo('editStudent') ? `<div class="row-sub" style="cursor:pointer; margin-top:6px; color:#B23A3A" onclick="window.removeEntityPhoto('student','${s.id}')">إزالة الصورة</div>` : ''}
-    <div style="font-weight:700; margin-top:9px">${s.name}</div>
+    <div style="font-weight:700; margin-top:9px; display:flex; align-items:center; gap:8px; justify-content:center">${s.name}${canEdit && canDo('editStudent') ? `<button title="تعديل بيانات الطالب" aria-label="تعديل بيانات الطالب" onclick="window.goto('editStudentForm',{id:'${s.id}',from:'${from}'})" style="width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--card);color:var(--green);display:grid;place-items:center;padding:0;cursor:pointer">${icon('pencil',14)}</button>` : ''}</div>
     <div class="row-sub">${getBranch(s.branchId).name}${s.tajBranchId && cache.branches.some(b=>b.id===s.tajBranchId) ? ' · تجويد: '+getBranch(s.tajBranchId).name : ''}${stBadge(s)}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">${state.role!=='student' && showH ? `<button class="sr-open" onclick="window.studentReport('${s.id}')">${icon('list',15)} التقرير الشامل</button>` : ''}${(state.role==='admin'||state.role==='supervisor') && canEditBranch(s.branchId) && !s.isStaff ? `<button class="sr-open" onclick="window.rhOpen('exportData',{bid:'${s.branchId}',sid:'${s.id}'})">${icon('chart',15)} التقارير</button>` : ''}</div>
   </div>
@@ -6644,8 +6646,7 @@ async function studentProfileView(mode){
         <div class="row-title">${lvEd(l)}</div><span class="badge ${TAJWEED_STATUS_CLASS[st]}">${TAJWEED_STATUS[st]}</span></div>`;
     }).join('')}</div>
     ${state.role==='student'?'':adjHtml}
-    ${canEdit && canDo('editStudent')? `<button class="btn btn-outline" style="margin-top:14px" onclick="window.goto('editStudentForm',{id:'${s.id}',from:'${from}'})">${icon('pencil',15)} تعديل بيانات الطالب</button>`:''}
-    ${canEdit && canDo('editStudent')? `<button class="btn btn-outline" style="margin-top:10px" onclick="window.goto('adjustPointsForm',{id:'${s.id}',from:'${from}'})">${icon('star',15)} تعديل النقاط يدويًا</button>`:''}
+    ${canEdit && canDo('editStudent')? `<button class="btn btn-outline" style="margin-top:14px" onclick="window.goto('adjustPointsForm',{id:'${s.id}',from:'${from}'})">${icon('star',15)} تعديل النقاط يدويًا</button>`:''}
     ${canEdit && canDo('editStudent')? `<div class="section-title"><span class="bar"></span>حالة الطالب: ${ST_STATUS[stStatus(s)][0]}</div><div class="st-acts">${['active','paused','left'].filter(k=>k!==stStatus(s)).map(k=>`<button class="td-btn ${k==='left'?'cx-del':''}" onclick="window.setStudentStatus('${s.id}','${k}','${from}')">${k==='active'?'إعادة تفعيل':k==='paused'?'إيقاف مؤقت':'نقل للأرشيف (منسحب)'}</button>`).join('')}</div>` : ''}`;
   } else {
     const det = await ensureStudentDetail(s.id);
