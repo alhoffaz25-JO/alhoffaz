@@ -572,6 +572,11 @@ html[data-theme=dark] .rp-sheet table,html[data-theme=dark] .rp-t{background:#ff
 .fn-pos{color:#13804a}.fn-neg{color:#B23A3A}html[data-theme=dark] .fn-pos{color:#7FD6A0}html[data-theme=dark] .fn-neg{color:#FF8A80}
 .fn-bar{height:8px;border-radius:99px;background:var(--fill);overflow:hidden;margin:6px 0 2px}.fn-bar>i{display:block;height:100%;background:var(--green);border-radius:99px}
 .fn-total{margin-top:14px;background:var(--green-tint);border:1px solid var(--border);border-radius:16px;padding:14px;text-align:center}.fn-total span{display:block;font-size:13px;color:var(--text-muted)}.fn-total b{display:block;font-size:26px;margin:2px 0}.fn-total small{color:var(--text-muted)}
+.wk-remind button,.wk-remind .wk-no,.wk-remind .wk-b button{background:#fff!important;color:var(--repalert,#C62828)!important}
+.bottomnav.bn-c.bn-s{justify-content:space-around;gap:0}
+body:not(.has-sd) .bottomnav.bn-c.bn-n2{width:min(220px,calc(100% - 40px))}
+body:not(.has-sd) .bottomnav.bn-c.bn-n3{width:min(270px,calc(100% - 40px))}
+body:not(.has-sd) .bottomnav.bn-c.bn-n6,body:not(.has-sd) .bottomnav.bn-c.bn-n7{width:min(380px,calc(100% - 16px))}
 @page{size:A4;margin:0}
 @media print{body>*:not(#rp){display:none!important}body{padding:0!important;background:#fff!important}#rp{position:static;background:#fff;overflow:visible}.rp-bar{display:none}.rp-wrap{zoom:1!important;width:auto}.rp-sheet{margin:0;page-break-after:always;break-after:page}.rp-sheet:last-child{page-break-after:auto;break-after:auto}}
 </style>
@@ -2174,7 +2179,8 @@ function resizeImageToDataURL(file, maxSize){
   });
 }
 async function handleAvatarFile(e){
-  const file = e.target.files[0];
+ if(state.role==='student') return;
+ const file = e.target.files[0];
   if(!file) return;
   try{
     const dataUrl = await resizeImageToDataURL(file, 260);
@@ -2201,7 +2207,8 @@ function pickEntityPhoto(kind, id){
 }
 async function removeEntityPhoto(kind, id){ if(await uiConfirm('إزالة الصورة؟')) saveEntityPhoto(kind, id, null); }
 async function saveEntityPhoto(kind, id, file){
-  try{
+ if(state.role==='student') return;
+ try{
     const photo = file ? await resizeImageToDataURL(file, 260) : null;
     await updateDoc(doc(db, kind==='student' ? 'students' : 'branches', id), {photo});
     if(kind==='student') await loadStudentsForRole(); else await loadBranches();
@@ -3576,7 +3583,8 @@ function neInit(){
   if(neDraft) return; const sc = neScope==='default' ? 'g' : undefined, nc = navCfg(sc), hc = homeCfg(sc), ids = homeCat().map(x=>x[0]);
   const ord = hc ? hc.map(x=>x.replace(/^-/,'')).filter(id=>ids.includes(id)) : [], all = [...ord, ...ids.filter(id=>!ord.includes(id))];
   const hid = hc ? hc.filter(x=>x[0]==='-').map(x=>x.slice(1)) : (state.role==='admin' ? ['adminBranches','adminDirectory','adminPoints'] : []);
-  neDraft = {nav: nc ? nc.map(normAcc).filter(id=>navCat().some(x=>x[0]===id)) : (state.role==='admin' ? ['adminBranches','adminDirectory','supervisorsList','adminPoints','achievementsHome','accountAdmin'] : ['accountSup']), home: all.map(id=>[id, !hid.includes(id)])};
+  neDraft = {nav: nc ? nc.map(normAcc).filter(id=>id==='home' || navCat().some(x=>x[0]===id)) : (state.role==='admin' ? ['adminBranches','adminDirectory','supervisorsList','adminPoints','achievementsHome','accountAdmin'] : ['accountSup']), home: all.map(id=>[id, !hid.includes(id)])};
+ if(!neDraft.nav.includes('home')){ const r = neDraft.nav; r.splice(r.length>=3 ? Math.ceil(r.length/2) : 0, 0, 'home'); }
 }
 function neOpen(sc){ neScope = sc==='default' ? 'default' : 'me'; neDraft = null; goto('navEdit'); }
 function navEdit(){
@@ -3588,13 +3596,13 @@ function navEdit(){
   const ar = (k,i,n) => `<span style="display:flex;gap:6px"><button ${B} ${i?'':'disabled'} onclick="window.neMove('${k}',${i},-1)">▲</button><button ${B} ${i<n-1?'':'disabled'} onclick="window.neMove('${k}',${i},1)">▼</button></span>`;
   const row = (ic, t, act) => `<div class="row"><div class="row-left"><div class="avatar">${icon(ic,16)}</div><div class="row-title">${t}</div></div><div style="display:flex;gap:8px;align-items:center">${act}</div></div>`;
   const nm = id => navCat().find(x=>x[0]===id);
-  const sel = N.map((id,i)=>{ const x = nm(id); return x ? row(x[1], x[3], ar('nav',i,N.length)+`<button ${BT} onclick="window.neRem('${id}')">إزالة</button>`) : ''; }).join('');
-  const rest = navCat().filter(x=>!N.includes(x[0]) && (x[0]!=='supervisorsList' || canViewSupervisors())).map(x=>row(x[1], x[3], `<button ${BT} ${N.length>=6?'disabled':''} onclick="window.neAdd('${x[0]}')">إضافة</button>`)).join('');
+  const sel = N.map((id,i)=>{ if(id==='home') return row('home','الرئيسية', ar('nav',i,N.length)+'<span class="badge gray">ثابتة</span>'); const x = nm(id); return x ? row(x[1], x[3], ar('nav',i,N.length)+`<button ${BT} onclick="window.neRem('${id}')">إزالة</button>`) : ''; }).join('');
+  const rest = navCat().filter(x=>!N.includes(x[0]) && (x[0]!=='supervisorsList' || canViewSupervisors())).map(x=>row(x[1], x[3], `<button ${BT} ${N.length>=7?'disabled':''} onclick="window.neAdd('${x[0]}')">إضافة</button>`)).join('');
   const hm = H.map(([id,on],i)=>{ const x = HOME_CAT.find(y=>y[0]===id); const ic = (NAV_CAT.find(y=>y[0]===id)||[])[1]||'list'; return row(ic, x[1], ar('home',i,H.length)+`<button ${BT} onclick="window.neHomeTog('${id}')">${on?'ظاهر':'مخفي'}</button>`); }).join('');
   return subheader(neScope==='default' ? 'الترتيب الافتراضي (للكل)' : 'تخصيص واجهتي','appearance') + `
   <div class="row-sub" style="margin:10px 2px 0">${neScope==='default' ? 'هاد الترتيب بيظهر لكل المستخدمين اللي ما خصصوا واجهتهم بنفسهم.' : 'هاد التخصيص لجهازك أنت بس، وما بيأثر على غيرك. اللي ما بتخصصه بياخد من الافتراضي.'}</div>
   <div class="section-title" style="margin-top:12px"><span class="bar"></span>الشريط السفلي</div>
-  <div class="row-sub" style="margin:0 2px 8px">الرئيسية دايمًا بالنص. اختار لحد 6 تبويبات ورتّبها (الأول من اليمين)، والأفضل عدد زوجي عشان يتوازن الشريط. التبويبات: ${N.length}/6</div>
+  <div class="row-sub" style="margin:0 2px 8px">الرئيسية ثابتة ما بتنشال، بس بتقدر تغيّر مكانها. اختار لحد 6 تبويبات غيرها ورتّبها (الأول من اليمين)، والمسافات بتتوزّع بالتساوي حسب العدد. التبويبات: ${N.filter(x=>x!=='home').length}/6</div>
   <div class="list">${sel || '<div class="empty">ما في تبويبات</div>'}</div>
   <div class="row-sub" style="margin:12px 2px 6px;font-weight:700">تبويبات متاحة للإضافة</div>
   <div class="list">${rest || '<div class="empty">كلها مضافة</div>'}</div>
@@ -3605,8 +3613,8 @@ function navEdit(){
   <button class="btn btn-outline" style="margin-top:10px" onclick="window.neReset()">رجوع للترتيب الافتراضي</button>`;
 }
 function neMove(k, i, d){ const a = k==='nav' ? neDraft.nav : neDraft.home, j = i+d; if(j<0 || j>=a.length) return; [a[i], a[j]] = [a[j], a[i]]; render(); }
-function neAdd(id){ if(neDraft.nav.length<6 && !neDraft.nav.includes(id)) neDraft.nav.push(id); render(); }
-function neRem(id){ neDraft.nav = neDraft.nav.filter(x=>x!==id); render(); }
+function neAdd(id){ if(neDraft.nav.length<7 && !neDraft.nav.includes(id)) neDraft.nav.push(id); render(); }
+function neRem(id){ if(id==='home') return; neDraft.nav = neDraft.nav.filter(x=>x!==id); render(); }
 function neHomeTog(id){ const h = neDraft.home.find(x=>x[0]===id); if(h) h[1] = !h[1]; render(); }
 async function neWrite(nav, home){ pvGuard(); for(const [k,v] of [['nav_cfg',nav],['home_cfg',home]]){ if(neScope==='default' && state.role==='admin'){ await setDoc(doc(db,'siteContent',k), {text:v}, {merge:true}); cache.content[k] = v; } else { try{ if(v) localStorage.setItem(neKey(k), v); else localStorage.removeItem(neKey(k)); }catch(e){} } } }
 async function neSave(){ try{ await neWrite(JSON.stringify(neDraft.nav), JSON.stringify(neDraft.home.map(([id,on])=>on?id:'-'+id))); neDraft = null; goto('appearance'); }catch(e){ alert('تعذّر الحفظ: '+(e.message||e)); } }
@@ -3628,14 +3636,12 @@ function renderBottomNav(){
   if(state.role==='supervisor') items=[['supervisorHome','home',editable('nav_home','اسم تبويب الرئيسية')],['accountSup','user',editable('nav_account','اسم تبويب حسابي')]];
   if(state.role==='student') items=[['studentHome','home',editable('nav_myfile','اسم تبويب ملفي')],['accountStd','user',editable('nav_account','اسم تبويب حسابي')]];
   if(state.role==='admin' && items.length===6) items.splice(5,0,['achievementsHome','trend',editable('nav_ach','اسم تبويب الإنجازات')]);
-  if(state.role==='admin' || state.role==='supervisor'){ const cf = navCfg(); if(cf){ const h0 = items.find(x=>x[1]==='home'); items = [h0, ...cf.map(normAcc).map(id=>navCat().find(x=>x[0]===id)).filter(x=>x && (x[0]!=='supervisorsList' || (typeof canViewSupervisors==='function' && canViewSupervisors()))).map(x=>[x[0], x[1], editable(x[2],'اسم تبويب '+x[3])])]; } }
+  if(state.role==='admin' || state.role==='supervisor'){ const cf = navCfg(); if(cf){ const h0 = items.find(x=>x[1]==='home'); items = cf.map(normAcc).map(id=>{ if(id==='home') return h0; const x = navCat().find(y=>y[0]===id); return (x && (x[0]!=='supervisorsList' || (typeof canViewSupervisors==='function' && canViewSupervisors()))) ? [x[0], x[1], editable(x[2],'اسم تبويب '+x[3])] : null; }).filter(Boolean); if(!items.includes(h0)) items.splice(items.length>=3 ? Math.ceil(items.length/2) : 0, 0, h0); } }
+ if(!((state.role==='admin' || state.role==='supervisor') && navCfg())){ const h1 = items.find(x=>x[1]==='home'), r1 = items.filter(x=>x!==h1); if(h1 && r1.length>=3){ const k1 = Math.ceil(r1.length/2); items = [...r1.slice(0,k1), h1, ...r1.slice(k1)]; } }
   const activeRoot = {branchDetail:'adminBranches'}[state.view] || state.view;
   const navClr = v => { const c0 = khCustom()[v], c = /^#[0-9a-f]{6}$/i.test(c0||'') ? c0 : KH_COLORS[v]; return c ? ` style="--nc:${c}"` : ''; };
   const mk=([v,ic,label],home)=>`<div class="navitem ${home?'nv-home ':''}${activeRoot===v?'active':''}"${home?'':navClr(v)} onclick="window.goto('${v}')"><div>${nvIc(ic,24)}</div><div class="nv-l">${label}</div></div>`;
-  const hm=items.find(x=>x[1]==='home'), rest=items.filter(x=>x!==hm);
-  if(hm && rest.length>=3){ const h=Math.ceil(rest.length/2);
-    return `<div class="bottomnav bn-c"><div class="bn-g">${rest.slice(0,h).map(x=>mk(x)).join('')}</div>${mk(hm,1)}<div class="bn-g">${rest.slice(h).map(x=>mk(x)).join('')}</div></div>`; }
-  return `<div class="bottomnav bn-c bn-s">${items.map(x=>mk(x)).join('')}</div>`;
+  return `<div class="bottomnav bn-c bn-s bn-n${items.length}">${items.map(x=>mk(x, x[1]==='home')).join('')}</div>`;
 }
 
 /* ---------- Router ---------- */
@@ -4694,8 +4700,8 @@ async function streakAward(sid){
 function streakCardHTML(s){
   const a = attStreak(s), w = wkStreak(s), na = STREAK.attEvery - (a.n % STREAK.attEvery), nw = STREAK.wkEvery - (w.n % STREAK.wkEvery);
   const dots = (n, every) => Array.from({length:every},(_,i)=>`<i class="${i < (n%every || (n && n%every===0 ? every : 0)) ? 'on':''}"></i>`).join('');
-  return `<div class="sk-card"><div class="sk"><span>🔥</span><div><b>${a.n} ${a.n===1?'موعد':'مواعيد'} حضور متتالية</b><small>${na===STREAK.attEvery && a.n ? 'حصل على المكافأة · ' : ''}باقي ${na} للمكافأة (+${STREAK.attPts})</small><div class="sk-d">${dots(a.n, STREAK.attEvery)}</div></div></div>
-    <div class="sk"><span>📅</span><div><b>${w.n} ${w.n===1?'أسبوع':'أسابيع'} تسميع متتالية</b><small>${w.curHas?'':'سمّع هذا الأسبوع ليستمر · '}باقي ${nw} للمكافأة (+${STREAK.wkPts})</small><div class="sk-d">${dots(w.n, STREAK.wkEvery)}</div></div></div></div>`;
+  return `<div class="sk-card"><div class="sk"><span>🔥</span><div><b>${a.n} ${a.n===1?'موعد':'مواعيد'} حضور متتالية</b><small>${na===STREAK.attEvery && a.n ? 'حصل على المكافأة · ' : ''}باقٍ ${na} للمكافأة (+${STREAK.attPts})</small><div class="sk-d">${dots(a.n, STREAK.attEvery)}</div></div></div>
+    <div class="sk"><span>📅</span><div><b>${w.n} ${w.n===1?'أسبوع':'أسابيع'} تسميع متتالية</b><small>${w.curHas?'':'سمّع هذا الأسبوع ليستمر · '}باقٍ ${nw} للمكافأة (+${STREAK.wkPts})</small><div class="sk-d">${dots(w.n, STREAK.wkEvery)}</div></div></div></div>`;
 }
 
 /* ===== سجل التعديلات ===== */
@@ -6614,7 +6620,7 @@ async function studentProfileView(mode){
   let body = (mode==='manage' && state.role!=='student' && canHifzFor(s) && !s._noFab ? `<button class="rec-fab" onclick="window.goto('wirdForm',{id:'${s.id}',from:'${from}'})">${icon('plus',18)}<span>تسجيل ورد</span></button>` : '') + `<div style="display:flex; flex-direction:column; align-items:center; margin-top:6px">
     ${entityAvatar(64, s.photo, s.name, 'student', s.id, canEditBranch(s.branchId) && canDo('editStudent'))}
     ${s.photo && canEditBranch(s.branchId) && canDo('editStudent') ? `<div class="row-sub" style="cursor:pointer; margin-top:6px; color:#B23A3A" onclick="window.removeEntityPhoto('student','${s.id}')">إزالة الصورة</div>` : ''}
-    <div style="font-weight:700; margin-top:9px; display:flex; align-items:center; gap:8px; justify-content:center">${s.name}${canEdit && canDo('editStudent') ? `<button title="تعديل بيانات الطالب" aria-label="تعديل بيانات الطالب" onclick="window.goto('editStudentForm',{id:'${s.id}',from:'${from}'})" style="width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--card);color:var(--green);display:grid;place-items:center;padding:0;cursor:pointer">${icon('pencil',14)}</button>` : ''}</div>
+    <div style="font-weight:700; margin-top:9px; display:flex; align-items:center; gap:8px; justify-content:center">${s.name}${canEdit && canDo('editStudent') ? `<button title="تعديل بيانات الطالب" aria-label="تعديل بيانات الطالب" onclick="window.goto('editStudentForm',{id:'${s.id}',from:'${from}'})" style="height:32px;padding:0 12px;border-radius:99px;border:1px solid var(--border);background:var(--card);color:var(--green);display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:13px;font-weight:700;cursor:pointer">${icon('pencil',14)} تعديل</button>` : ''}</div>
     <div class="row-sub">${getBranch(s.branchId).name}${s.tajBranchId && cache.branches.some(b=>b.id===s.tajBranchId) ? ' · تجويد: '+getBranch(s.tajBranchId).name : ''}${stBadge(s)}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">${state.role!=='student' && showH ? `<button class="sr-open" onclick="window.studentReport('${s.id}')">${icon('list',15)} التقرير الشامل</button>` : ''}${(state.role==='admin'||state.role==='supervisor') && canEditBranch(s.branchId) && !s.isStaff ? `<button class="sr-open" onclick="window.rhOpen('exportData',{bid:'${s.branchId}',sid:'${s.id}'})">${icon('chart',15)} التقارير</button>` : ''}</div>
   </div>
@@ -9013,7 +9019,7 @@ async function accountView(){
   else roleTxt=roleName('student')+' - '+getBranch(findStudent(state.studentId)?.branchId).name;
   let html = subheader('حسابي', state.role==='admin'?'adminHome':state.role==='supervisor'?'supervisorHome':'studentHome').replace('</h1></div>', `</h1>${(state.role==='admin'||state.role==='supervisor') ? `<button class="sh-menu" onclick="window.sdOpen()" aria-label="كل الأدوات" title="كل الأدوات">${icon('menu',20)}</button>` : ''}</div>`) + `
   <div style="display:flex; flex-direction:column; align-items:center; margin-top:12px">
-    ${avatarBlock(70, state.personPhoto, state.personName, true)}
+    ${avatarBlock(70, state.personPhoto, state.personName, state.role!=='student')}
     <input type="file" id="avatar-file-input" accept="image/*" style="display:none" onchange="window.handleAvatarFile(event)">
     <div style="font-weight:700; margin-top:11px; font-size:16px">${state.personName}</div>
     <div class="row-sub">${roleTxt}</div>
