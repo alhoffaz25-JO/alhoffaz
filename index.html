@@ -1479,6 +1479,7 @@ html[data-theme=dark]{--g1:#0A5028;--g2:#042211}
 .fab-stack .rec-fab.fab-edit{width:44px;height:44px;box-shadow:0 6px 16px rgba(0,0,0,.25)}
 .fab-stack .rec-fab:active{transform:scale(.94)}
 .sd-i svg[viewBox="0 0 380 468"]{width:17px;height:17px;fill:currentColor;stroke:none}
+.pv-grid[style*="--svc"] .pv-ic,.pv-grid[style*="--svc"] .pv-act{color:var(--svc)!important;background:color-mix(in srgb,var(--svc) 14%,transparent)!important}
 </style>
 </head>
 <body>
@@ -1544,7 +1545,7 @@ setTimeout(function(){var a=document.getElementById('app');
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
 import {
-  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, deleteUser, sendPasswordResetEmail
+  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, deleteUser, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import {
   getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc as _setDoc, updateDoc as _updateDoc, deleteDoc as _deleteDoc, collection, getDocs, query, where,
@@ -1964,14 +1965,16 @@ let presenceInterval = null;
 async function sendHeartbeat(){
   if(!state.personEmail || document.hidden) return;
   try{ await updateDoc(doc(db,'people',state.personEmail), {lastActive: serverTimestamp()}); }catch(e){}
+  if(_hbN++ % 2 === 0) checkKickedOut();
 }
+let _hbN = 0;
 function isOnline(person){
   if(!person || !person.lastActive) return false;
   const t = person.lastActive.toMillis ? person.lastActive.toMillis() : (person.lastActive.seconds? person.lastActive.seconds*1000 : 0);
   return (Date.now() - t) < 45000;
 }
 function mapAuthError(e){
-  const map = {'auth/wrong-password':'كلمة المرور غير صحيحة','auth/user-not-found':'لا يوجد حساب بهذا البريد','auth/invalid-email':'صيغة البريد غير صحيحة','auth/email-already-in-use':'هذا البريد مُفعّل مسبقًا، سجّل الدخول مباشرة','auth/weak-password':'كلمة المرور ضعيفة جدًا','auth/invalid-credential':'البريد أو كلمة المرور غير صحيحة','auth/too-many-requests':'محاولات كثيرة، حاول لاحقًا'};
+  const map = {'auth/wrong-password':'كلمة المرور غير صحيحة','auth/user-not-found':'لا يوجد حساب بهذا البريد','auth/invalid-email':'صيغة البريد غير صحيحة','auth/email-already-in-use':'هذا البريد مُفعّل مسبقًا، سجّل الدخول مباشرة','auth/weak-password':'كلمة المرور ضعيفة جدًا','auth/invalid-credential':'البريد أو كلمة المرور غير صحيحة','auth/too-many-requests':'محاولات كثيرة، حاول لاحقًا','auth/requires-recent-login':'سجّل الدخول من جديد ثم أعد المحاولة'};
   return map[e.code] || e.message;
 }
 
@@ -2056,7 +2059,7 @@ async function bootSession(user){
   }
   const p = xclean(pdoc.data());
   state.role = p.role; state.personEmail = email; state.personName = p.name || email; state.personPhoto = p.photo || null;
-  state.branchIds = p.branchIds || []; state.studentId = p.studentId || null; state.capabilities = p.capabilities || {}; state.supKind = p.kind || 'halaqa'; state.workPlan = p.workPlan || null; state.profile = p.profile || {}; state.canAddAdmin = p.canAddAdmin !== false; state.secretary = p.secretary === true;
+  state.branchIds = p.branchIds || []; state.studentId = p.studentId || null; state.capabilities = p.capabilities || {}; state.supKind = p.kind || 'halaqa'; state.workPlan = p.workPlan || null; state.profile = p.profile || {}; state.canAddAdmin = p.canAddAdmin !== false; state.secretary = p.secretary === true; sessStamp(false);
   await loadBranches();
   await loadContent();
   if(state.role==='student'){
@@ -2122,7 +2125,7 @@ async function doForgotPassword(){
     renderLoginError('تم إرسال رابط تعيين كلمة سر جديدة إلى بريدك — افتح إيميلك واتبع الرابط');
   }catch(e){ renderLoginError(mapAuthError(e)); }
 }
-function logout(){ try{ sessionStorage.removeItem('lastNav'); }catch(_){} if(heartbeatInterval){clearInterval(heartbeatInterval); heartbeatInterval=null;} signOut(auth); }
+function logout(){ try{ sessionStorage.removeItem('lastNav'); localStorage.removeItem(sessKey()); }catch(_){} if(heartbeatInterval){clearInterval(heartbeatInterval); heartbeatInterval=null;} signOut(auth); }
 function setLoginMode(m){ state.loginMode=m; render(); }
 function renderLoginError(msg){
   const el = document.getElementById('login-alert');
@@ -3173,10 +3176,15 @@ function presPrevPred(period){
   if(period==='month'){ const t = todayStr(); let y = +t.slice(0,4), m = +t.slice(5,7)-1; if(m<1){ m=12; y--; } const pre = y+'-'+String(m).padStart(2,'0'); return d => !!d && d.startsWith(pre); }
   return null;
 }
-function presCalc(s, pred){
+function presCalc(s, pred, taj){
   const det = cache.details[s.id] || {};
   let pts=0, ph=0, pr=0, got=0, max=0; const c = {'حضور':0,'تأخر':0,'غياب':0};
   const tally = (t,r)=>{ const v = recPts(t,r); got += v; max += r.pts!=null ? t[0]*Math.max(1,Number(r.pagesEst)||1) : t[0]; return v; };
+  if(taj){
+    (det.tajweedAtt||[]).forEach(r=>{ if(pred(r.date)){ pts += TAJ_ATT_POINTS[r.status]||0; if(c[r.status]!==undefined) c[r.status]++; } });
+    (det.pointsAdjustments||[]).forEach(a=>{ if(a.taj && pred(a.date)) pts += Number(a.tp)||0; });
+    return {pts, ph:0, pr:0, pages:0, c, got:0, max:0};
+  }
   (det.attendance||[]).forEach(r=>{ if(pred(r.date)){ pts += ATT_POINTS[r.status]||0; if(c[r.status]!==undefined) c[r.status]++; } });
   (det.hifzLog||[]).forEach(r=>{ if(pred(r.date)){ pts += tally(TYPE_POINTS.hifz,r); ph += recPages(r); } });
   (det.reviewLog||[]).forEach(r=>{ if(pred(r.date)){ pts += tally(TYPE_POINTS.review,r); pr += recPages(r); } });
@@ -3187,12 +3195,13 @@ function presCalc(s, pred){
 function presData(){
   if(pres.bid==='cmp') return {n:0, rows:[], cur:{}, prev:null, hasPrev:false};
   const {period, bid} = pres, prevP = presPrevPred(period), curP = dt => inPeriod(dt, period);
+  const taj = isTajBr(bid);
   const rows = cache.students.filter(s=>inBr(s,bid)).map(s=>{
-    const cur = presCalc(s, curP); if(period==='all') cur.pts = s.points||0;
+    const cur = presCalc(s, curP, taj); if(period==='all') cur.pts = taj ? tajPtsOf(s,'all') : (s.points||0);
     const tot = cur.c['حضور']+cur.c['تأخر']+cur.c['غياب'];
     cur.rate = tot ? Math.round((cur.c['حضور']+cur.c['تأخر'])/tot*100) : null;
     cur.ex = cur.max ? Math.min(100, Math.round(cur.got/cur.max*100)) : null;
-    return {s, cur, prev: prevP ? presCalc(s, prevP) : null};
+    return {s, cur, prev: prevP ? presCalc(s, prevP, taj) : null};
   });
   const sumOf = k=>{
     const c = {'حضور':0,'تأخر':0,'غياب':0}; let pts=0, ph=0, pr=0, got=0, max=0;
@@ -3200,7 +3209,7 @@ function presData(){
     const tot = c['حضور']+c['تأخر']+c['غياب'];
     return {pts, ph, pr, pages:ph+pr, c, rate: tot ? Math.round((c['حضور']+c['تأخر'])/tot*100) : 0, ex: max ? Math.min(100,Math.round(got/max*100)) : 0};
   };
-  return {rows, n:rows.length, cur:sumOf('cur'), prev: prevP ? sumOf('prev') : null, hasPrev:!!prevP};
+  return {rows, n:rows.length, cur:sumOf('cur'), prev: prevP ? sumOf('prev') : null, hasPrev:!!prevP, taj};
 }
 function presDelta(cur, prev, pp){
   if(prev===null || prev===undefined) return '';
@@ -3329,7 +3338,8 @@ function presRender(){
   const br = bid && bid!=='cmp' ? getBranch(bid) : null;
   const scope = bid==='cmp' ? 'مواجهة الشعب' : br ? ''+br.name : '—', per = PRES_PERIODS[pres.period], sc = scope+' · '+per, lab = PRES_PREV[pres.period];
   const head = (t, sub) => `<div class="pr-h">${t}</div><div class="pr-sub">${sub||sc}</div>`;
-  const MET = [['النقاط', r=>r.cur.pts, ''], ['الصفحات', r=>r.cur.pages, ''], ['نسبة الحضور', r=>r.cur.rate, '%'], ['التميّز والتقييم', r=>r.cur.ex, '%']];
+  const isTj = !!(d && d.taj);
+  const MET = [['النقاط', r=>r.cur.pts, ''], ['الصفحات', r=>r.cur.pages, ''], ['نسبة الحضور', r=>r.cur.rate, '%'], ['التميّز والتقييم', r=>r.cur.ex, '%']].filter((m,k)=>!isTj || k===0 || k===2);
   let html = '', hook = null;
   if(bid==='cmp'){ const r = presCmpSlide(i, gen, per); html = r[0]; hook = r[1]; }
   else if(i===0){
@@ -3339,7 +3349,7 @@ function presRender(){
   } else if(i===1){
     const P = d.prev, C = d.cur;
     const card = (v,l,suf,dl)=>`<div class="pr-card"><div class="pr-num" data-count="${v}" data-suffix="${suf||''}">0</div><div class="pr-lbl">${l}</div>${dl||''}</div>`;
-    html = head('ملخص الشعبة') + `<div class="pr-cards">${card(d.n,stuWord(d.n))}${card(C.pages,'صفحة مسمّعة','',P?presDelta(C.pages,P.pages):'')}${card(C.pts,'نقطة','',P?presDelta(C.pts,P.pts):'')}${card(C.rate,'نسبة الحضور','%',P?presDelta(C.rate,P.rate,true):'')}${card(C.ex,'التميّز والتقييم','%',P?presDelta(C.ex,P.ex,true):'')}</div>`;
+    html = head('ملخص الشعبة') + `<div class="pr-cards">${card(d.n,stuWord(d.n))}${isTj?'':card(C.pages,'صفحة مسمّعة','',P?presDelta(C.pages,P.pages):'')}${card(C.pts,'نقطة','',P?presDelta(C.pts,P.pts):'')}${card(C.rate,'نسبة الحضور','%',P?presDelta(C.rate,P.rate,true):'')}${isTj?'':card(C.ex,'التميّز والتقييم','%',P?presDelta(C.ex,P.ex,true):'')}</div>`;
   } else if(i===2){
     const items = d.rows.map(r=>({label:r.s.name, v:r.cur.pts, color:pres.barC || colorOfBranch(bid)})), rowH = items.length>14 ? 44 : 58;
     html = head('سباق النقاط','من سيتصدّر؟ · '+sc) + `<div id="pr-race" data-h="${rowH}" style="position:relative; height:${items.length*rowH}px">${items.map(x=>`<div class="pr-race-row" data-v="${x.v}" style="height:${rowH-8}px"><div class="pr-rank">1</div><div class="pr-name">${x.label}</div><div class="pr-track"><div class="pr-bar-fill" style="background:${x.color}"></div></div><div class="pr-val">0</div></div>`).join('')}</div>`;
@@ -5571,6 +5581,8 @@ function dirSetGrp(g){ dirGrp = g; dirBr = 'all'; render(); }
 window.dirSetBr = dirSetBr; window.dirSetGrp = dirSetGrp;
 function filterDirectory(q){ document.getElementById('dir-list').innerHTML = directoryRows(dirList(q)); }
 
+const ORPHAN = {'':'غير يتيم', father:'يتيم الأب', mother:'يتيم الأم', both:'يتيم الأبوين'};
+const orphanOpts = sel => Object.entries(ORPHAN).map(([k,v])=>`<option value="${k}" ${k===(sel||'')?'selected':''}>${v}</option>`).join('');
 function addStudentForm(){
   const availableBranches = state.role==='admin' ? cache.branches : cache.branches.filter(b=>canEditBranch(b.id));
   const opts = brOpts(availableBranches, state.params.bid||'');
@@ -5585,6 +5597,7 @@ function addStudentForm(){
     <button type="button" class="btn btn-outline" style="margin-top:8px" onclick="window.addPhoneRow('as-phones')">${icon('plus',14)} إضافة رقم آخر</button>
   </div>
   <div class="field"><label>تاريخ الميلاد</label>${dateField('as-bd','','birth')}</div>
+  <div class="field"><label>حالة الأبوين</label><select id="as-orphan">${orphanOpts('')}</select></div>
   <div class="field"><label>مقدار الحفظ</label><input id="as-hifz" placeholder="مثال: 5 أجزاء"></div>
   <div class="field"><label>ملاحظات</label><textarea id="as-notes"></textarea></div>
   <button class="btn btn-primary" style="margin-top:18px" onclick="window.submitAddStudent()">إضافة الطالب</button>
@@ -5600,6 +5613,7 @@ async function submitAddStudent(){
     schoolGrade: document.getElementById('as-grade').value||'', gradeSY: curSY(),
     phones: collectPhoneRows('as-phones'),
     birthDate: document.getElementById('as-bd').value,
+    orphan: document.getElementById('as-orphan').value||'',
     hifzAmount: document.getElementById('as-hifz').value,
     tajweedLevels: Object.fromEntries(TAJWEED_LEVELS.map(l=>[l.key,0])),
     notes: document.getElementById('as-notes').value,
@@ -5628,6 +5642,7 @@ function editStudentForm(){
     <button type="button" class="btn btn-outline" style="margin-top:8px" onclick="window.addPhoneRow('es-phones')">${icon('plus',14)} إضافة رقم آخر</button>
   </div>
   <div class="field"><label>تاريخ الميلاد</label>${dateField('es-bd', s.birthDate||'', 'birth')}</div>
+  <div class="field"><label>حالة الأبوين</label><select id="es-orphan">${orphanOpts(s.orphan)}</select></div>
   <div class="field"><label>مقدار الحفظ</label><input id="es-hifz" value="${s.hifzAmount||''}"></div>
   <div class="field"><label>ملاحظات</label><textarea id="es-notes">${s.notes||''}</textarea></div>
   <button class="btn btn-primary" style="margin-top:18px" onclick="window.submitEditStudent('${s.id}','${from}')">حفظ التعديلات</button>
@@ -5655,6 +5670,7 @@ async function submitEditStudent(sid, from){
     schoolGrade: document.getElementById('es-grade').value||'', gradeSY: curSY(),
     phones: collectPhoneRows('es-phones'),
     birthDate: document.getElementById('es-bd').value,
+    orphan: document.getElementById('es-orphan').value||'',
     hifzAmount: document.getElementById('es-hifz').value,
     notes: document.getElementById('es-notes').value,
   };
@@ -5839,12 +5855,12 @@ function adminBranches(){
   ${!list.length ? `<div class="row-sub" style="margin:0 4px 10px">ما في شعب تجويد لسا. اضغط + وأضف شعبة واختار «تجويد».</div>` : ''}
   <div class="list">
     ${list.map(b=>`
-      <div class="row">
-        <div class="row-left" style="cursor:pointer" onclick="window.goto('branchDetail',{id:'${b.id}'})"><div class="avatar" style="background:${colorOfBranch(b.id)};color:#fff;overflow:hidden">${b.photo?`<img src="${b.photo}" alt="" style="width:100%;height:100%;object-fit:cover">`:icon('building',16)}</div><div class="row-title">${b.name}${b.private?' <span class="badge" style="background:#EEF0F3;color:#5A6472">🔒 خاصة</span>':''}</div></div>
+      <div class="row" style="cursor:pointer" onclick="window.goto('branchDetail',{id:'${b.id}'})">
+        <div class="row-left"><div class="avatar" style="background:${colorOfBranch(b.id)};color:#fff;overflow:hidden">${b.photo?`<img src="${b.photo}" alt="" style="width:100%;height:100%;object-fit:cover">`:icon('building',16)}</div><div class="row-title">${b.name}${b.private?' <span class="badge" style="background:#EEF0F3;color:#5A6472">🔒 خاصة</span>':''}</div></div>
         <div style="display:flex; align-items:center; gap:10px">
           <span class="badge gold">${stuCnt(cache.students.filter(s=>inBr(s,b.id)).length)}</span>
-          ${state.role==='admin'? `<span onclick="window.deleteBranch('${b.id}')" style="color:#B23A3A;cursor:pointer">${icon('trash',15)}</span>`:''}
-          <div class="chevron" onclick="window.goto('branchDetail',{id:'${b.id}'})" style="cursor:pointer">${icon('chevronL',14)}</div>
+          ${state.role==='admin'? `<span onclick="event.stopPropagation();window.deleteBranch('${b.id}')" style="color:#B23A3A;cursor:pointer">${icon('trash',15)}</span>`:''}
+          <div class="chevron">${icon('chevronL',14)}</div>
         </div>
       </div>`).join('')}
   </div>`).join('')}` + (state.role==='admin'? `<div class="fab" onclick="window.quickAddBranch()">${icon('plus',22)}</div>` : '');
@@ -6287,6 +6303,7 @@ function branchDetail(){
   <div style="display:flex; flex-direction:column; align-items:center; margin-top:14px">${entityAvatar(72, b.photo, b.name, 'branch', b.id, state.role==='admin')}${b.photo && state.role==='admin' ? `<div class="row-sub" style="cursor:pointer; margin-top:6px; color:#B23A3A" onclick="window.removeEntityPhoto('branch','${b.id}')">إزالة الصورة</div>` : ''}</div>
   ${tj ? `<div style="text-align:center;margin-top:8px"><span class="badge" style="background:#E5ECF7;color:#2F5B9A">شعبة تجويد</span></div>` : ''}
   <div class="stat-card" style="margin-top:16px; text-align:center"><div class="stat-num">${students.length}</div><div class="stat-label">عدد الطلاب${tj && students.some(s=>s.tajBranchId===b.id) ? ` <small style="display:block;font-size:11.5px;margin-top:3px">منهم ${students.filter(s=>s.tajBranchId===b.id).length} من شعب التحفيظ</small>` : ''}</div></div>
+  ${(b.waGroup && (editable || state.role==='admin')) ? `<a class="btn btn-outline" style="margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none" href="${rpEsc(b.waGroup)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2.2A9.7 9.7 0 0 0 3.7 16.9L2.3 21.8l5-1.3A9.7 9.7 0 1 0 12 2.2zm0 17.7a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 19.9zm4.4-6c-.2-.1-1.4-.7-1.7-.8-.2-.1-.4-.1-.5.1l-.8 1c-.1.2-.3.2-.5.1a6.6 6.6 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.5-.4h-.5a.9.9 0 0 0-.7.3 2.8 2.8 0 0 0-.9 2.1 4.9 4.9 0 0 0 1 2.6 11 11 0 0 0 4.3 3.8c1.6.7 2.2.7 3 .6.5-.1 1.4-.6 1.6-1.1.2-.6.2-1 .1-1.1l-.5-.3z"/></svg> جروب الشعبة على واتساب</a>` : ''}
   ${state.role==='admin' ? `<button class="btn btn-outline" style="margin-top:12px" onclick="window.brAddOpen('${b.id}')">${icon('plus',16)} إضافة طالب للشعبة</button>` : ''}
   ${editable && (tj ? canDo('tajweed') : (canDo('attendance')||canDo('tajweed'))) ? `<button class="btn btn-primary" style="margin-top:12px" onclick="window.goto('branchAttendance',{id:'${b.id}',fresh:1${tj?",kind:'tajweed'":''}})">${icon('check',16)} ${tj?'تسجيل حضور التجويد':'تسجيل الحضور للشعبة'}</button>` : ''}
   ${!tj && editable && canDo('hifz') && students.length ? `<button class="btn btn-outline hq-go" style="margin-top:10px" onclick="window.goto('halaqa',{id:'${b.id}',from:'branch'})">${icon('target',16)} وضع الحلقة — تسميع الطلاب واحد ورا الثاني</button>` : ''}
@@ -6298,6 +6315,7 @@ function branchDetail(){
   </div>` : ''}
   ${state.role==='admin' ? `<details class="br-set" ${brSaveBar(b)?'open':''}><summary>${icon('pencil',15)} <b>إعدادات الشعبة</b><small>أيام الدوام ولون الشعبة</small></summary>` : ''}
   ${state.role==='admin' ? `<div class="field" style="margin-top:12px"><label>اسم الشعبة</label><input type="text" value="${rpEsc(b.name)}" onchange="window.brRename('${b.id}',this.value)"></div>` : ''}
+  ${state.role==='admin' ? `<div class="field" style="margin-top:12px"><label>رابط جروب واتساب الشعبة</label><input type="url" dir="ltr" value="${rpEsc(b.waGroup||'')}" placeholder="https://chat.whatsapp.com/…" onchange="window.brSetWa('${b.id}',this.value)"><div class="row-sub" style="margin-top:4px">لو تغيّر الجروب، حط الرابط الجديد هون وبيتحدّث الزر لحاله. اتركه فاضي لإزالته.</div></div>` : ''}
   ${state.role==='admin' ? `<div class="field" style="margin-top:12px"><label>مسؤول تسجيل حضور المشرفين بهالشعبة</label><select onchange="window.brSetResp('${b.id}',this.value)"><option value="">بدون (المدير بس)</option>${(cache.supervisors||[]).map(sv=>`<option value="${String(sv.id).toLowerCase()}" ${String(b.supRespEmail||'').toLowerCase()===String(sv.id).toLowerCase()?'selected':''}>${rpEsc(sv.name||sv.id)}</option>`).join('')}</select><div class="row-sub" style="margin-top:4px">بيسجّل حضور مشرفي هالشعبة (موعد الشعبة والتجويد واجتماع اللجنة) وبيشوف تقييمهم.</div></div>` : ''}
   ${state.role==='admin' ? `<label class="pl-opt" style="margin-top:12px"><input type="checkbox" ${tj?'checked':''} onchange="window.brSetType('${b.id}',this.checked)"><div><b>شعبة تجويد</b><small>طلابها بيبيّن عندهم حضور التجويد ومستوياته بس، وإلها ترتيب لحالها. وبتقدر تحط فيها طلاب من شعب التحفيظ من «تعديل بيانات الطالب».</small></div></label>` : ''}
   ${state.role==='admin' ? (tj ? [['tajweed','التجويد']] : [['attendance','المواعيد'],['tajweed','التجويد']]).map(([k,l])=>`<div class="field" style="margin-top:12px"><label>يوم دوام ${l} (يسري من اليوم)</label><select onchange="window.brDraftSet('${b.id}','${k}',this.value)">${AR_DAYS.map((n,i)=>`<option value="${i}" ${brVal(b,k)===i?'selected':''}>${n}</option>`).join('')}</select></div>`).join('') : ''}
@@ -6330,6 +6348,15 @@ async function brRename(id, v){
   try{ const old = b.name; await updateDoc(doc(db,'branches',id), {name:n}); b.name = n; try{ auditLog('تعديل اسم شعبة', old, n); }catch(_){} await loadBranches(); render(); }
   catch(e){ alert('تعذّر حفظ الاسم: '+e.message); }
 }
+async function brSetWa(id, v){
+  const b = cache.branches.find(x=>x.id===id); if(!b) return;
+  let u = String(v||'').trim();
+  if(u && !/^https?:\/\//i.test(u)) u = 'https://'+u;
+  if(u && !/^https:\/\/(chat\.whatsapp\.com|wa\.me|whatsapp\.com)\//i.test(u)){ alert('الرابط لازم يكون رابط جروب واتساب (يبدأ بـ https://chat.whatsapp.com/)'); render(); return; }
+  if(u===(b.waGroup||'')) return;
+  try{ await updateDoc(doc(db,'branches',id), {waGroup:u}); b.waGroup = u; try{ auditLog('تعديل رابط جروب واتساب الشعبة', b.name, u?'تحديث':'إزالة'); }catch(_){} await loadBranches(); render(); }
+  catch(e){ alert('تعذّر حفظ الرابط: '+e.message); }
+}
 async function brRemoveStu(sid, bid){
   const st = findStudent(sid); if(!st || st.tajBranchId!==bid) return;
   const b = getBranch(bid);
@@ -6340,7 +6367,7 @@ async function brRemoveStu(sid, bid){
     await loadStudentsForRole(); render();
   }catch(e){ alert('تعذّرت الإزالة: '+e.message); }
 }
-Object.assign(window,{brRemoveStu,brRename});
+Object.assign(window,{brRemoveStu,brRename,brSetWa});
 
 
 /* ===== لوحة الطالب: بطاقات + خريطة الحفظ + منحنى النمو ===== */
@@ -6664,6 +6691,7 @@ async function studentProfileView(mode){
       <div class="row"><span class="row-sub">العمر</span><span class="row-title">${s.age||'—'} سنة</span></div>
       ${phonesList.length? phonesList.map(p=>`<div class="row"><span class="row-sub">هاتف ${p.type}</span><span class="row-title">${p.number}</span></div>`).join('') : `<div class="row"><span class="row-sub">رقم التواصل</span><span class="row-title">—</span></div>`}
       <div class="row"><span class="row-sub">الصف الدراسي</span><span class="row-title">${gradeTxt(s)||'—'}</span></div>
+      ${s.orphan ? `<div class="row"><span class="row-sub">حالة الأبوين</span><span class="row-title">${ORPHAN[s.orphan]||''}</span></div>` : ''}
       <div class="row"><span class="row-sub">تاريخ الميلاد</span><span class="row-title">${s.birthDate||'—'}</span></div>
       <div class="row"><span class="row-sub">مقدار الحفظ</span><span class="row-title">${s.hifzAmount||'—'}</span></div>
       <div class="row"><span class="row-sub">النقاط</span><span class="row-title">${s.points||0}</span></div>
@@ -7770,6 +7798,7 @@ async function pointsHome(){
     const st = t ? `background:${t[0]};color:${t[1]}` : '', av = t ? 'background:rgba(255,255,255,.28);color:inherit;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.55)' : '';
     return `<div class="row" style="${st}" onclick="window.goto('studentProfile',{id:'${s.id}',from:'adminPoints'})"><div class="row-left"><div class="avatar" style="${av}">${i===0?icon('crown',20):i+1}</div><div><div class="row-title">${s.name}</div></div></div><span class="badge" style="${t?'background:rgba(255,255,255,.4);color:inherit':'background:#F6EBD0;color:#7A5A12'}">${s._pv} نقطة</span></div>`; }).join('');
   return subheader('النقاط',homeRoute()) + `
+  <div style="margin-bottom:14px">${chips}</div>
   ${(state.role==='admin'||state.role==='supervisor') ? `<button class="hr-btn" style="margin:0 0 14px" onclick="window.rhOpen('pointsReport',{bid:'${ptsBranch||''}'})"><span style="background:linear-gradient(145deg,#2FA36B,#0B5E2F)">${icon('chart',17)}</span><b>التقارير</b><small>تقرير النقاط والشهري وترتيب الحفظ والتصدير</small><i>${icon('chevronL',14)}</i></button>` : ''}
   ${ptsCfgBtn()}
   ${isTaj ? '' : starHomeCard()}
@@ -7781,7 +7810,6 @@ async function pointsHome(){
     <div class="row"><div class="row-title">📅 كل ${STREAK.wkEvery} أسابيع تسميع متتالية</div><span class="badge gold">${STREAK.wkPts}+ نقاط استمرارية</span></div>`}</div>
   ${ptsAwardSection(cur, isTaj, ranked)}
   <div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('star',15)} ${isTaj ? 'نقاط التجويد بتنحسب من حضور مواعيد التجويد، ومنفصلة عن نقاط الحفظ' : 'نظام النقاط للتحفيز والمنافسة، منفصل عن تقييم الورد التلقائي بالإنجازات'}</div>
-  ${chips}
   ${perSeg}
   <div class="hon ${rgbLum(hexRgb(colorOfBranch(cur.id)))>0.6?'light':''}" style="--hc:${colorOfBranch(cur.id)}; --hd:${branchRamp(cur.id).dk}"><div class="hon-t"><span class="hon-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3 H17 V9 A 5 5 0 0 1 7 9 Z"/><path d="M7 5 H4 V7 C4 8.7 5.3 10 7 10"/><path d="M17 5 H20 V7 C20 8.7 18.7 10 17 10"/><path d="M12 14 V18"/><path d="M8.5 21 H15.5"/><path d="M9.5 18 H14.5"/></svg></span><div><b>لوحة الشرف</b><small>ترتيب شعبة ${cur.name} · ${perLbl}</small></div></div><span class="hon-pill">${stuCnt(ranked.length)}</span></div>
   <div class="list">${rows||`<div class="empty">لا يوجد طلاب بهذه الشعبة</div>`}</div>`;
@@ -7995,7 +8023,8 @@ function supCard(sv, from){
   const badge = isAd ? `<span class="badge gold">مدير المشروع</span>` : `<span class="badge ${supKind(sv)==='tajweed'?'gold':'green'}">${SUP_KINDS[supKind(sv)]}</span>`;
   const btn = (label, js, inner) => `<button class="sv-b" aria-label="${label}" title="${label}" onclick="event.stopPropagation();${js}">${inner}</button>`;
   const btns = (canEditIt || state.role==='admin') ? `<div class="sv-acts">${canEditIt ? btn('تعديل البيانات', `window.goto('supervisorProfileForm',{email:'${sv.id}',from:'${fr}'})`, icon('pencil',17)) : ''}${state.role==='admin' ? btn('الصلاحيات', `window.goto('supervisorPermissions',{id:'${sv.id}'})`, permImg(21)) : ''}</div>` : '';
-  return `<div class="row sv-row" onclick="window.goto('supervisorProfile',{email:'${sv.id}',from:'${fr}'})"><div class="row-left">${avatarBlock(44, sv.photo, sv.name, false)}<div style="min-width:0"><div class="row-title">${sv.name}</div><div class="row-sub sv-sub">${badge}<span>${brs}</span></div></div></div>${btns}</div>`;
+  const svc0 = (!isAd && (sv.branchIds||[]).length) ? colorOfBranch(sv.branchIds[0]) : '', svAv = avatarBlock(44, sv.photo, sv.name, false).replace('<div class="avatar" style="', '<div class="avatar" style="'+(svc0 && !sv.photo ? 'background:'+svc0+';color:'+(rgbLum(hexRgb(svc0))>0.6?'#1d1d1d':'#fff')+';' : ''));
+  return `<div class="row sv-row" onclick="window.goto('supervisorProfile',{email:'${sv.id}',from:'${fr}'})"><div class="row-left">${svAv}<div style="min-width:0"><div class="row-title">${sv.name}</div><div class="row-sub sv-sub">${badge}<span>${brs}</span></div></div></div>${btns}</div>`;
 }
 /* ===== تقارير المشرفين: رحلات / لجان / خطط الشعب → PDF → جوجل درايف (مستقل عن درايف المكتبة والتجويد) ===== */
 const UI_COLORS = [['ui_logout_color','#D92D20','لون زر تسجيل الخروج'],['ui_repalert_color','#C62828','لون رسالة تنبيه التقارير']];
@@ -8164,13 +8193,17 @@ async function supervisorProfileView(){
   const digits = String(p.phone||'').replace(/\D/g,'');
   const wa = digits.startsWith('00') ? digits.slice(2) : (digits.startsWith('0') ? '962'+digits.slice(1) : digits);
   const phoneActs = digits ? `<a class="pv-act" href="tel:${digits}">اتصال</a><a class="pv-act" href="https://wa.me/${wa}" target="_blank" rel="noopener">واتساب</a>` : '';
-  const brs = (sv.branchIds||[]).map(id=>`<span>${getBranch(id).name}</span>`).join('') || `<span>بدون شعبة مُسندة</span>`;
+  const svTone = id => { const c = colorOfBranch(id), r = hexRgb(c); return rgbLum(r)>0.55 ? rgbCss(rgbMix(r,[0,0,0],.38)) : c; };
+  const brs = (sv.branchIds||[]).map(id=>`<span style="background:#fff;color:${svTone(id)};box-shadow:0 1px 4px rgba(0,0,0,.18)"><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${colorOfBranch(id)};margin-inline-end:6px"></i>${getBranch(id).name}</span>`).join('') || `<span>بدون شعبة مُسندة</span>`;
+  const svCol = (sv.branchIds||[]).length ? colorOfBranch(sv.branchIds[0]) : '', svRgb = svCol ? hexRgb(svCol) : null, svLight = svRgb ? rgbLum(svRgb)>0.6 : false;
+  const heroSt = svCol ? `background:linear-gradient(150deg,${rgbCss(rgbMix(svRgb,[0,0,0],.2))},${svCol});box-shadow:0 10px 26px ${rgbCss(rgbMix(svRgb,[0,0,0],.2)).replace('rgb(','rgba(').replace(')',',.3)')};color:${svLight?'#1d1d1d':'#fff'}` : '';
+  const gridSt = svCol ? `--svc:${svLight ? rgbCss(rgbMix(svRgb,[0,0,0],.3)) : svCol}` : '';
   const levels = TAJWEED_LEVELS.map(l=>{ const st = (p.tajweedLevels && p.tajweedLevels[l.key]) || 0;
     return `<div class="row"><div class="row-title">${lvEd(l)}</div><span class="badge ${TAJWEED_STATUS_CLASS[st]}">${TAJWEED_STATUS[st]}</span></div>`; }).join('');
   return head + `
-  <div class="pv-hero"><div class="pv-ava">${avatarBlock(92, sv.photo, sv.name, false)}</div>
+  <div class="pv-hero" style="${heroSt}"><div class="pv-ava">${avatarBlock(92, sv.photo, sv.name, false)}</div>
     <div class="pv-name">${sv.name}</div><div class="pv-role">${roleName(supKind(sv))}</div><div class="pv-chips">${brs}</div></div>
-  <div class="pv-grid">
+  <div class="pv-grid" style="${gridSt}">
     ${item(icon('book',20), 'حفظ القرآن', hafiz)}
     ${item(PHONE, 'رقم الهاتف', p.phone ? `<span dir="ltr">${p.phone}</span>` : '', phoneActs)}
     ${item(icon('briefcase',20), 'الدراسة / العمل', work)}
@@ -9061,9 +9094,59 @@ async function accountView(){
   html += `<button class="hr-btn" style="margin-top:${state.role==='student'?10:18}px" onclick="window.goto('appearance',{})"><span style="background:linear-gradient(145deg,#5B8DEF,#2F5BB8)">${icon('star',17)}</span><b>المظهر</b><small>الوضع الداكن، حجم الخط، التباين، ألوان الأيقونات${state.role==='admin'?'، ألوان الموقع':''}</small><i>${icon('chevronL',14)}</i></button>`;
   if(state.role==='admin') html += `<details class="br-set" style="margin-top:18px"><summary>${icon('eye',15)} <b>ألوان الواجهة</b><small>زر الخروج وتنبيه التقارير</small></summary>${UI_COLORS.map(([k,d,l])=>`<div class="field" style="margin-top:10px"><label>${l}</label><div style="display:flex;gap:8px;align-items:center"><input type="color" value="${uiColor(k,d)}" style="width:56px;height:40px;padding:2px" oninput="window.uiColorPick('${k}',this.value,false)" onchange="window.uiColorPick('${k}',this.value,true)"><button class="td-btn" onclick="window.uiColorPick('${k}','',true)">الافتراضي</button></div></div>`).join('')}</details>`;
   if(state.role==='admin') html += khColorsHTML();
+  html += `<details class="br-set" style="margin-top:18px"><summary>${icon('user',15)} <b>تغيير كلمة المرور</b><small>بتحتاج كلمة المرور الحالية</small></summary>
+    <div class="field" style="margin-top:10px"><label>كلمة المرور الحالية</label><input id="acc-pw-cur" type="password" autocomplete="current-password"></div>
+    <div class="field"><label>كلمة المرور الجديدة (6 أحرف على الأقل)</label><input id="acc-pw-new" type="password" autocomplete="new-password"></div>
+    <div class="field"><label>تأكيد كلمة المرور الجديدة</label><input id="acc-pw-new2" type="password" autocomplete="new-password"></div>
+    <button class="btn btn-primary" style="margin-top:8px" onclick="window.accChangePw()">${icon('check',16)} تغيير كلمة المرور</button><div id="acc-pw-alert"></div></details>
+  <button class="btn btn-outline" style="margin-top:12px" onclick="window.accKickOthers()">${icon('power',16)} تسجيل الخروج من باقي الأجهزة</button><div id="acc-sec-alert"></div>`;
   html += `<button class="btn btn-logout" style="margin-top:22px" onclick="window.logoutAsk()">تسجيل الخروج</button>`;
   return html;}
 
+/* ===== الأمان: تغيير كلمة المرور + تسجيل الخروج من باقي الأجهزة ===== */
+const sessKey = () => 'sessStart_'+(state.personEmail||'');
+function sessStamp(force){ try{ if(force || !localStorage.getItem(sessKey())) localStorage.setItem(sessKey(), String(Date.now())); }catch(_){} }
+function sessGet(){ try{ return Number(localStorage.getItem(sessKey()))||0; }catch(_){ return 0; } }
+const signOutAllMs = d => { const t = d && d.signOutAll; return t && t.toMillis ? t.toMillis() : (Number(t)||0); };
+async function checkKickedOut(){
+  if(!state.personEmail || state.preview) return;
+  try{
+    const d = await getDoc(doc(db,'people',state.personEmail)); if(!d.exists()) return;
+    const ms = signOutAllMs(d.data());
+    if(ms && ms > sessGet()){ alert('تم تسجيل خروجك لأنه انطلب تسجيل الخروج من كل الأجهزة الأخرى. سجّل الدخول من جديد.'); logout(); }
+  }catch(e){}
+}
+async function accKickOthers(silent){
+  if(state.preview){ alert('وضع المعاينة للعرض فقط'); return; }
+  if(!silent && !await uiConfirm('تسجيل الخروج من كل الأجهزة الثانية؟ جهازك الحالي بيضل مسجّل دخول.','الخروج من باقي الأجهزة')) return;
+  const al = document.getElementById('acc-sec-alert');
+  try{
+    await updateDoc(doc(db,'people',state.personEmail), {signOutAll: serverTimestamp()});
+    const d = await getDoc(doc(db,'people',state.personEmail)); const ms = signOutAllMs(d.data());
+    try{ localStorage.setItem(sessKey(), String(Math.max(Date.now(), ms)+1)); }catch(_){}
+    if(al && !silent) al.innerHTML = `<div class="alert success">${icon('check',16)} تم. الأجهزة الثانية بتطلع خلال دقيقة تقريبًا (أو أول ما تفتح الموقع).</div>`;
+  }catch(e){ if(al && !silent) al.innerHTML = `<div class="alert error">${icon('alert',16)} تعذّر التنفيذ: ${rpEsc(e.message)}</div>`; }
+}
+async function accChangePw(){
+  const g = id => (document.getElementById(id)||{}).value||'', al = document.getElementById('acc-pw-alert');
+  const cur = g('acc-pw-cur'), n1 = g('acc-pw-new'), n2 = g('acc-pw-new2');
+  const err = m => { al.innerHTML = `<div class="alert error">${icon('alert',16)} ${m}</div>`; };
+  if(state.preview) return err('وضع المعاينة للعرض فقط');
+  if(!cur) return err('اكتب كلمة المرور الحالية');
+  if(n1.length<6) return err('كلمة المرور الجديدة لازم تكون 6 أحرف على الأقل');
+  if(n1!==n2) return err('تأكيد كلمة المرور ما بيطابق الجديدة');
+  if(n1===cur) return err('الجديدة لازم تختلف عن الحالية');
+  const u = auth.currentUser; if(!u || !u.email) return err('سجّل الدخول من جديد ثم أعد المحاولة');
+  al.innerHTML = `<div class="alert">جاري التغيير…</div>`;
+  try{
+    await reauthenticateWithCredential(u, EmailAuthProvider.credential(u.email, cur));
+    await updatePassword(u, n1);
+    ['acc-pw-cur','acc-pw-new','acc-pw-new2'].forEach(i=>{ const e = document.getElementById(i); if(e) e.value=''; });
+    al.innerHTML = `<div class="alert success">${icon('check',16)} تم تغيير كلمة المرور. الأجهزة الثانية بتحتاج تسجّل دخول من جديد.</div>`;
+    accKickOthers(true);
+  }catch(e){ err(rpEsc(mapAuthError(e))); }
+}
+Object.assign(window,{accChangePw, accKickOthers});
 async function accSaveName(){
   if(state.role!=='admin') return;
   const el = document.getElementById('acc-name'), al = document.getElementById('acc-name-alert'); if(!el) return;
