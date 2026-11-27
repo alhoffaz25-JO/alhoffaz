@@ -1194,6 +1194,8 @@ html[data-theme=dark] .gs-o.sel i{border-color:#3DBE7A;background:#3DBE7A}
 .hx-row{display:flex;align-items:center;gap:8px;margin-top:8px}
 .hx-row small{color:var(--text-muted);font-size:12px}
 .pay-grid td.ag-c{line-height:1.2}.pa-att{display:block;font-size:10px;font-weight:600;opacity:.6;margin-top:2px;color:var(--text-muted)}
+.ag-c.e{background:#ECECEF;color:#6B6B72}.sa-grid td.ag-c{font-size:12px;min-width:46px;cursor:pointer}.sa-grid th small{font-size:10px;opacity:.75;font-weight:600}.sa-vw button{display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.tjb-ck{display:flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap;flex:none}.tjb-ck input{width:18px;height:18px}
 .tc-btns{display:flex;gap:6px;flex-basis:100%;justify-content:flex-start}.tc-btns .td-btn{display:inline-flex;align-items:center;gap:4px}
 .sr-cert{color:inherit;text-decoration:underline;display:inline-flex;align-items:center;gap:2px}
 .tb-dot{position:absolute;top:3px;inset-inline-end:3px;width:9px;height:9px;border-radius:50%;background:#FF5A4E;border:2px solid #fff}
@@ -2385,7 +2387,8 @@ function payPrompt(sid, ym){
 }
 function payAll(ym){
   if(!payOldOk(ym)) return;
-  cache.students.filter(x=>x.branchId===pay.bid && stStatus(x)!=='left').forEach(x=>{ pay.sel[x.id+'|'+ym] = PAY_PRICE; payRefresh(x.id, ym); });
+  const st = cache.students.filter(x=>x.branchId===pay.bid && stStatus(x)!=='left'), k = x => x.id+'|'+ym, full = st.length && st.every(x=>pay.sel[k(x)]!==undefined);
+  st.forEach(x=>{ if(full) delete pay.sel[k(x)]; else if(pay.sel[k(x)]===undefined) pay.sel[k(x)] = PAY_PRICE; payRefresh(x.id, ym); });
 }
 function payAddToggle(){ const el = document.getElementById('p-addbox'); if(el) el.style.display = el.style.display==='none' ? 'flex' : 'none'; }
 async function payAddMonth(){
@@ -2627,7 +2630,8 @@ function csvDownload(name, rows){
 function monthIn(pred, ym){ return [...Array(31)].some((_,i)=>pred(ym+'-'+String(i+1).padStart(2,'0'))); }
 // مواعيد الفترة: كل يوم دوام رسمي للشعبة ضمن الفترة (حتى اليوم) + أي موعد استثنائي مسجّل للطالب
 function sessCount(x, kind, pred){
-  const b = cache.branches.find(z=>z.id===x.branchId); if(!b) return null;
+  const tbid = kind==='tajweed' ? (isTajBr(x.branchId) ? x.branchId : x.tajBranchId) : x.branchId;
+  const b = cache.branches.find(z=>z.id===tbid); if(!b) return null;
   const d = cache.details[x.id]||{}, recs = (kind==='attendance' ? d.attendance : d.tajweedAtt) || [], today = todayStr();
   const join = [x.createdAt ? ymdLocal(new Date(tsMillis(x.createdAt))) : null, ...recs.map(r=>r.date)].filter(Boolean).sort()[0];
   const set = new Set(recs.filter(r=>r.date && r.date<=today && pred(r.date)).map(r=>r.date)), days = new Set();
@@ -3075,12 +3079,14 @@ function atrBranch(bid, kind, pred){
 const atrDm = d => (+d.slice(8))+'/'+(+d.slice(5,7));
 const atrPctCls = p => p==null ? '' : p>=90 ? 'g' : p>=75 ? 'y' : 'r';
 async function attReportView(){
-  const P = {per:'month', kind:'attendance', sort:'name', ...state.params};
-  const kinds = [['attendance','المواعيد',canDo('attendance') && !isTajBr(P.bid)],['tajweed','حضور التجويد',canDo('tajweed')]].filter(k=>k[2]);
+  const P = {per:'month', sort:'name', ...state.params};
+  // نوع الحضور حسب الشعبة: شعب التحفيظ = المواعيد · شعب التجويد = حضور التجويد
+  if(!P.bid && !canDo('attendance')){ const t = cache.branches.find(b=>b.type==='taj' && canEditBranch(b.id)); if(t) P.bid = t.id; }
+  P.kind = isTajBr(P.bid) ? 'tajweed' : 'attendance';
+  const kinds = [[P.kind, '', P.kind==='tajweed' ? canDo('tajweed') : canDo('attendance')]].filter(k=>k[2]);
   const back = subheader('تقرير الحضور', homeRoute());
   if(state.role!=='admin' && state.role!=='supervisor') return back + `<div class="empty">للمشرفين والمدير فقط</div>`;
   if(!kinds.length) return back + `<div class="empty">لا تملك صلاحية الحضور</div>`;
-  if(!kinds.some(k=>k[0]===P.kind)) P.kind = kinds[0][0];
   await loadAllDetails();
   const ed = cache.branches.filter(b=>canEditBranch(b.id)), pred = atrPred(P), ids = atrBranchIds(P);
   const D = ids.map(id=>atrBranch(id, P.kind, pred));
@@ -3094,7 +3100,6 @@ async function attReportView(){
   const many = D.length>1, kname = P.kind==='tajweed' ? 'دروس التجويد' : 'المواعيد';
   const chip = r => r.absD.map(d=>`<span class="atr-c a">${atrDm(d)}</span>`).join('') + r.lateD.map(d=>`<span class="atr-c l">${atrDm(d)}</span>`).join('');
   return back + `
-  ${kinds.length>1 ? `<div class="seg" style="margin-top:14px">${kinds.map(k=>`<button class="${k[0]===P.kind?'active':''}" onclick="${go({kind:k[0]})}">${k[1]}</button>`).join('')}</div>` : ''}
   ${ed.length>1 ? brGroupChips(ed, P.bid||'', id=>go({bid:id}), {allId:'', allLabel:'كل الشعب', allLabelG:'كل الشعب'}) : ''}
   <div class="field" style="margin-top:12px"><label>الفترة</label><select onchange="window.goto('attReport',{...window.atrP(), per:this.value})">${Object.entries(ATR_PER).map(([k,l])=>`<option value="${k}" ${k===P.per?'selected':''}>${l}</option>`).join('')}</select></div>
   ${P.per==='custom' ? `<div style="display:flex;gap:10px"><div class="field" style="flex:1"><label>من</label>${dateField('atr-from',P.from||'')}</div><div class="field" style="flex:1"><label>إلى</label>${dateField('atr-to',P.to||todayStr())}</div></div><button class="btn btn-outline" onclick="window.atrCustom()">عرض</button>` : ''}
@@ -3117,6 +3122,7 @@ async function attReportView(){
   <div class="row-sub" style="margin:8px 2px 24px;line-height:1.7">النسبة = (حضور + تأخر) ÷ ${kname} المسجّلة للطالب · «بدون» = ${kname} انعقدت وما انسجّل للطالب فيها شي · التواريخ الحمرا غياب والذهبية تأخر · اضغط الطالب لفتح سجل حضوره</div>`;
 }
 function atrP(){ const o = {...state.params}; return o; }
+function atrKindP(){ const P = {per:'month', ...state.params}; if(!P.bid && !canDo('attendance')){ const t = cache.branches.find(b=>b.type==='taj' && canEditBranch(b.id)); if(t) P.bid = t.id; } P.kind = isTajBr(P.bid) ? 'tajweed' : 'attendance'; return P; }
 function atrCustom(){ const f = (document.getElementById('atr-from')||{}).value||'', t = (document.getElementById('atr-to')||{}).value||''; goto('attReport', {...state.params, per:'custom', from:f, to:t}); }
 function atrSheet(x, P){
   const c = colorOfBranch(x.b.id), kname = P.kind==='tajweed' ? 'حضور التجويد' : 'حضور المواعيد', esc = rpEsc;
@@ -3132,7 +3138,7 @@ function atrSheet(x, P){
   </div>`;
 }
 async function atrPdf(){
-  const P = {per:'month', kind:'attendance', ...state.params}; const kinds = ['attendance','tajweed'].filter(k=>canDo(k==='tajweed'?'tajweed':'attendance')); if(!kinds.includes(P.kind)) P.kind = kinds[0];
+  const P = atrKindP();
   await loadAllDetails(); const pred = atrPred(P), D = atrBranchIds(P).map(id=>atrBranch(id, P.kind, pred));
   closePrint();
   const el = document.createElement('div'); el.id = 'rp'; el.dir = 'rtl'; el.dataset.per = ''; el.dataset.kind = 'att'; el.dataset.fname = 'تقرير-الحضور-'+(P.bid?getBranch(P.bid).name:'كل-الشعب');
@@ -3145,7 +3151,7 @@ async function atrPdf(){
   el.querySelector('.rp-wrap').style.zoom = Math.min(1,(innerWidth-16)/794);
 }
 async function atrXlsx(){
-  const P = {per:'month', kind:'attendance', ...state.params};
+  const P = atrKindP();
   await loadAllDetails(); const pred = atrPred(P), D = atrBranchIds(P).map(id=>atrBranch(id, P.kind, pred));
   const sum = [], det = [];
   D.forEach(x=>{
@@ -4821,7 +4827,52 @@ const SA_ST = [['حضور','#2E9E5B'],['تأخر','#C9A24B'],['غياب','#B23A3
 const SA_VAL = {'حضور':1, 'تأخر':0.5, 'غياب':0};
 const saRespBids = () => state.role==='admin' ? cache.branches.filter(b=>!b.private).map(b=>b.id) : cache.branches.filter(b=>String(b.supRespEmail||'').toLowerCase()===String(state.personEmail||'').toLowerCase()).map(b=>b.id);
 const canSA = () => state.role==='admin' || (state.role==='supervisor' && saRespBids().length>0);
-const saSups = bid => (cache.supervisors||[]).filter(sv=>!bid || (sv.branchIds||[]).includes(bid)).sort((a,b)=>String(a.name||a.id).localeCompare(String(b.name||b.id),'ar'));
+const saSups = (bid, type) => (cache.supervisors||[]).filter(sv=>type==='committee' && !bid ? (sv.branchIds||[]).some(x=>{ const b = cache.branches.find(y=>y.id===x); return b && b.type!=='taj'; }) : (!bid || (sv.branchIds||[]).includes(bid))).sort((a,b)=>String(a.name||a.id).localeCompare(String(b.name||b.id),'ar'));
+// التحفيظ: شعب الحفظ بس · التجويد: شعب التجويد بس · اللجنة: كل مشرفي شعب الحفظ (المدير) أو شعب الحفظ اللي هو مسؤولها
+function saGridDates(type, b, ym){
+  const today = todayStr(), out = [], end = ymNext(ym)+'-01';
+  if(type==='committee'){ for(let w = wkOf(ym+'-01'); w<end; w = addDaysStr(w,7)) if(w<=today && w>=addDaysStr(ym+'-01',-3)) out.push(w); return out; }
+  const kind = SA_TYPES[type][1];
+  for(let d = ym+'-01'; d<end && d<=today; d = addDaysStr(d,1)) if(b && new Date(d+'T00:00:00').getDay()===dayOn(b,kind,d) && !holidayOn(b.id,d)) out.push(d);
+  (cache.supAtt||[]).forEach(x=>{ if(x.type===type && (x.bid||'')===(b?b.id:'') && x.date.startsWith(ym) && !out.includes(x.date)) out.push(x.date); });
+  return out.sort();
+}
+function saGridHTML(type, bid, month){
+  const ym = month || todayStr().slice(0,7), b = bid ? getBranch(bid) : null, key = type+'|'+bid+'|'+ym;
+  const dates = saGridDates(type, b, ym), sups = saSups(bid, type), rid = d => type+'_'+(bid||'all')+'_'+d;
+  if(!saGrid || saGrid.key!==key){ saGrid = {key, marks:{}, cx:{}, dirty:new Set()}; dates.forEach(d=>{ const r = (cache.supAtt||[]).find(x=>x.id===rid(d)); saGrid.marks[d] = {...((r||{}).marks||{})}; saGrid.cx[d] = !!(r||{}).cancelled; }); }
+  const months = Array.from({length:6},(_,i)=>ymShift(todayStr().slice(0,7),-i)).reverse();
+  setTimeout(()=>{ const el = document.querySelector('.ag-mb.on'); if(el && el.scrollIntoView) el.scrollIntoView({inline:'center', block:'nearest'}); }, 120);
+  const isC = type==='committee', lbl = d => isC ? (+d.slice(8))+'/'+(+d.slice(5,7))+'<br><small>أسبوع</small>' : (+d.slice(8))+'/'+(+d.slice(5,7))+'<br><small>'+AR_DAYS[new Date(d+'T00:00:00').getDay()]+'</small>';
+  const pct = em => { const v = dates.filter(d=>!saGrid.cx[d]).map(d=>saGrid.marks[d][em]).filter(x=>x in SA_VAL).map(x=>SA_VAL[x]); return v.length ? Math.round(v.reduce((a,c)=>a+c,0)/v.length*100)+'%' : '—'; };
+  return `
+  <div class="ag-months">${months.map(m=>`<button class="ag-mb ${m===ym?'on':''}" onclick="window.goto('supAtt',{type:'${type}',bid:'${bid}',view:'grid',month:'${m}'})">${monthLabel(m,false)}</button>`).join('')}</div>
+  <div class="row-sub" style="margin-top:10px">${isC ? 'عمود لكل أسبوع (الاجتماع بدون يوم محدد).' : 'الأعمدة حسب يوم دوام الشعبة.'} اضغط الخانة: حضور ← تأخر ← غياب ← بعذر ← فارغ${isC?' · اضغط «ملغي» تحت الأسبوع لإلغائه':''}.</div>
+  ${!sups.length ? `<div class="empty">ما في مشرفين</div>` : !dates.length ? `<div class="empty">ما في مواعيد بهالشهر لحد اليوم</div>` : `<div class="tbl-wrap" style="margin-top:10px"><table class="att-grid sa-grid"><thead><tr><th class="ag-name">المشرف</th>${dates.map(d=>`<th>${lbl(d)}${`<button class="ag-all" onclick="window.saGAll('${d}')">الكل</button>`}${isC?`<button class="ag-all ${saGrid.cx[d]?'on':''}" style="${saGrid.cx[d]?'background:#B23A3A;color:#fff':''}" onclick="window.saGCx('${d}')">ملغي</button>`:''}</th>`).join('')}<th>النسبة</th></tr></thead><tbody>
+    ${sups.map(sv=>{ const em = String(sv.id).toLowerCase(); return `<tr><td class="ag-name">${rpEsc(sv.name||sv.id)}</td>${dates.map(d=>{ const v = saGrid.cx[d] ? '' : (saGrid.marks[d][em]||''); return saGrid.cx[d] ? `<td class="ag-c lock">—</td>` : `<td class="ag-c ${SA_ST_CLS[v]||''}" onclick="window.saGTap('${d}','${em}')">${v}</td>`; }).join('')}<td class="ag-s">${pct(em)}</td></tr>`; }).join('')}
+  </tbody></table></div>
+  <button class="btn btn-primary" style="margin-top:12px" onclick="window.saGSave('${type}','${bid}')">حفظ الشهر${saGrid.dirty.size?' ('+saGrid.dirty.size+' موعد)':''}</button><div id="sa-alert"></div>`}`;
+}
+function saGTap(d, em){ if(!saGrid) return; const o = ['','حضور','تأخر','غياب','بعذر'], cur = saGrid.marks[d][em]||'', nx = o[(o.indexOf(cur)+1)%o.length]; if(nx) saGrid.marks[d][em] = nx; else delete saGrid.marks[d][em]; saGrid.dirty.add(d); render(); }
+function saGAll(d){ if(!saGrid) return; const [type, bid] = saGrid.key.split('|'), sv = saSups(bid, type).map(x=>String(x.id).toLowerCase()), full = sv.length && sv.every(em=>saGrid.marks[d][em]); sv.forEach(em=>{ if(full) delete saGrid.marks[d][em]; else if(!saGrid.marks[d][em]) saGrid.marks[d][em] = 'حضور'; }); saGrid.cx[d] = false; saGrid.dirty.add(d); render(); }
+function saGCx(d){ if(!saGrid) return; saGrid.cx[d] = !saGrid.cx[d]; saGrid.dirty.add(d); render(); }
+async function saGSave(type, bid){
+  const al = document.getElementById('sa-alert'); if(!saGrid || !saGrid.dirty.size) return al && (al.innerHTML = `<div class="alert">ما في تغييرات</div>`);
+  let ok = 0, bad = 0;
+  for(const d of saGrid.dirty){ const id = type+'_'+(bid||'all')+'_'+d, ex = (cache.supAtt||[]).find(x=>x.id===id), cx = !!saGrid.cx[d], marks = cx ? {} : saGrid.marks[d];
+    try{
+      if(!cx && !Object.keys(marks).length){ if(ex){ await deleteDoc(doc(db,'supAtt',id)); cache.supAtt = cache.supAtt.filter(x=>x.id!==id); } ok++; continue; }
+      const rec = {type, bid:bid||'', date:d, title:(ex||{}).title||'', marks, cancelled:cx, respEmail:String((bid && getBranch(bid).supRespEmail)||'').toLowerCase(), by:state.personName||'', byEmail:state.personEmail||'', at:serverTimestamp()};
+      await setDoc(doc(db,'supAtt',id), rec); const o = {...rec, id}, i = (cache.supAtt||[]).findIndex(x=>x.id===id); if(i>=0) cache.supAtt[i] = o; else (cache.supAtt = cache.supAtt||[]).push(o); ok++;
+    }catch(e){ bad++; console.warn(e); } }
+  auditLog('حضور المشرفين — جدول شهري', SA_TYPES[type][0]+(bid?' · '+getBranch(bid).name:''), ok+' موعد');
+  saGrid.dirty = new Set(); render();
+  setTimeout(()=>{ const a = document.getElementById('sa-alert'); if(a) a.innerHTML = `<div class="alert ${bad?'error':'success'}">${bad?'تعذّر حفظ '+bad+' موعد':icon('check',16)+' تم حفظ '+ok+' موعد'}</div>`; }, 50);
+}
+Object.assign(window, {saGTap, saGAll, saGCx, saGSave});
+const saBidsFor = type => saRespBids().filter(x=>{ const t = isTajBr(x); return type==='taj' ? t : !t; });
+const SA_ST_CLS = {'حضور':'p','تأخر':'l','غياب':'a','بعذر':'e'};
+let saGrid = null;
 let saDraft = null;
 async function saLoad(force){
   if(cache.supAtt && !force) return cache.supAtt;
@@ -4836,21 +4887,24 @@ async function supAttView(){
   const head = subheader('شؤون المشرفين', supBack()) + supBar('supAtt');
   if(!canSA()) return head + `<div class="empty">لتسجيل حضور المشرفين لازم المدير يحددك مسؤول عن شعبة</div>`;
   await loadSupervisors(); await saLoad();
-  const P = {type:'branch', ...state.params}, bids = saRespBids();
-  let bid = P.bid!=null ? P.bid : (bids[0]||''); if(bid && !bids.includes(bid)) bid = bids[0]||''; if(!bid && !(state.role==='admin' && P.type==='committee')) bid = bids[0]||'';
+  const P = {type:'branch', ...state.params}, bids = saBidsFor(P.type);
+  let bid = P.type==='committee' && state.role==='admin' ? '' : (P.bid!=null ? P.bid : (bids[0]||'')); if(bid && !bids.includes(bid)) bid = bids[0]||''; if(!bid && !(state.role==='admin' && P.type==='committee')) bid = bids[0]||'';
+  const segs = `<div class="seg" style="margin-top:12px">${Object.entries(SA_TYPES).map(([k,v])=>`<button class="${P.type===k?'active':''}" onclick="window.goto('supAtt',{type:'${k}',view:'${P.view||''}'})">${({branch:'التحفيظ',taj:'التجويد',committee:'اللجنة'})[k]}</button>`).join('')}</div>
+  <div class="seg sa-vw" style="margin-top:8px"><button class="${P.view!=='grid'?'active':''}" onclick="window.goto('supAtt',{type:'${P.type}',bid:'${bid}'})">${icon('checksq',14)} تسجيل موعد</button><button class="${P.view==='grid'?'active':''}" onclick="window.goto('supAtt',{type:'${P.type}',bid:'${bid}',view:'grid'})">${icon('calendar',14)} الجدول الشهري</button></div>`;
+  if(!bids.length && !(P.type==='committee' && state.role==='admin')) return head + segs + `<div class="empty">${P.type==='taj'?'ما في شعب تجويد إنت مسؤول عنها':'ما في شعب تحفيظ إنت مسؤول عنها'}</div>`;
+  const brSel = (P.type==='committee' && state.role==='admin') ? `<div class="row-sub" style="margin:12px 4px 0">اجتماع اللجنة لكل مشرفي شعب التحفيظ (مشرفين التجويد فقط ما بيظهروا هون).</div>` : `<div class="field" style="margin-top:12px"><label>الشعبة</label><select onchange="window.goto('supAtt',{type:'${P.type}',bid:this.value,view:'${P.view||''}'})">${bids.map(x=>`<option value="${x}" ${x===bid?'selected':''}>${rpEsc(getBranch(x).name)}</option>`).join('')}</select></div>`;
+  if(P.view==='grid') return head + segs + brSel + saGridHTML(P.type, bid, P.month);
   const b = bid ? getBranch(bid) : null, kind = SA_TYPES[P.type][1];
   // اجتماع اللجنة: مرة كل أسبوع بدون يوم محدد، فالتسجيل على الأسبوع (بداية الأسبوع السبت)
   const isC = P.type==='committee';
   const date = isC ? wkOf(P.date || todayStr()) : (P.date || (b && kind ? (lastSessionDate(b, kind) || todayStr()) : todayStr()));
   const id = P.type+'_'+(bid||'all')+'_'+date, ex = (cache.supAtt||[]).find(x=>x.id===id);
-  const sups = saSups(bid);
+  const sups = saSups(bid, P.type);
   if(!saDraft || saDraft.id!==id) saDraft = {id, marks:{...((ex||{}).marks||{})}, title:(ex||{}).title||'', cancelled:!!(ex||{}).cancelled};
   const wkLbl = w => 'أسبوع '+(+w.slice(8))+'/'+(+w.slice(5,7))+' – '+(+addDaysStr(w,6).slice(8))+'/'+(+addDaysStr(w,6).slice(5,7));
   const go = o => `window.goto('supAtt',${JSON.stringify({type:P.type, bid, date, ...o}).replace(/"/g,"'")})`;
   const hist = (cache.supAtt||[]).filter(x=>x.type===P.type && (x.bid||'')===(bid||'')).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
-  return head + `
-  <div class="seg" style="margin-top:12px">${Object.entries(SA_TYPES).map(([k,v])=>`<button class="${P.type===k?'active':''}" onclick="window.goto('supAtt',{type:'${k}',bid:'${bid}'})">${({branch:'التحفيظ',taj:'التجويد',committee:'اللجنة'})[k]}</button>`).join('')}</div>
-  <div class="field" style="margin-top:12px"><label>الشعبة</label><select onchange="window.goto('supAtt',{type:'${P.type}',bid:this.value})">${state.role==='admin' && P.type==='committee' ? `<option value="" ${!bid?'selected':''}>كل المشرفين</option>` : ''}${bids.map(x=>`<option value="${x}" ${x===bid?'selected':''}>${rpEsc(getBranch(x).name)}</option>`).join('')}</select></div>
+  return head + segs + brSel + `
   ${isC ? `<div class="field"><label>الأسبوع</label><select onchange="window.goto('supAtt',{type:'committee',bid:'${bid}',date:this.value})">${Array.from({length:10},(_,i)=>addDaysStr(wkOf(todayStr()),-7*i)).map(w=>`<option value="${w}" ${w===date?'selected':''}>${wkLbl(w)}${w===wkOf(todayStr())?' (هالأسبوع)':''}${(cache.supAtt||[]).some(x=>x.id==='committee_'+(bid||'all')+'_'+w)?' ✓':''}</option>`).join('')}</select><div class="row-sub" style="margin-top:4px">اجتماع واحد كل أسبوع، بأي يوم.</div></div>
   <label class="pl-opt"><input type="checkbox" ${saDraft.cancelled?'checked':''} onchange="window.saCancel(this.checked)"><div><b>الاجتماع ملغي هالأسبوع</b><small>ما بيدخل بتقييم حدا</small></div></label>
   <div class="field"><label>عنوان الاجتماع (اختياري)</label><input id="sa-title" maxlength="80" value="${rpEsc(saDraft.title)}" placeholder="مثلًا: الاجتماع الشهري" oninput="window.saTitle(this.value)"></div>` : `<div class="field"><label>التاريخ</label><input type="date" value="${date}" max="${todayStr()}" onchange="window.goto('supAtt',{type:'${P.type}',bid:'${bid}',date:this.value})"></div>`}
@@ -4866,7 +4920,7 @@ async function supAttView(){
 `;
 }
 function saMark(em, s){ if(!saDraft) return; if(saDraft.marks[em]===s) delete saDraft.marks[em]; else saDraft.marks[em] = s; render(); }
-function saAll(){ if(!saDraft) return; const P = {type:'branch', ...state.params}; const bids = saRespBids(); const bid = P.bid!=null ? P.bid : (bids[0]||''); saSups(bid).forEach(sv=>{ const em = String(sv.id).toLowerCase(); if(!saDraft.marks[em]) saDraft.marks[em] = 'حضور'; }); render(); }
+function saAll(){ if(!saDraft) return; const P = {type:'branch', ...state.params}; const bids = saRespBids(); const bid = P.bid!=null ? P.bid : (bids[0]||''); saSups(P.type==='committee' && state.role==='admin' ? '' : bid, P.type).forEach(sv=>{ const em = String(sv.id).toLowerCase(); if(!saDraft.marks[em]) saDraft.marks[em] = 'حضور'; }); render(); }
 function saTitle(v){ if(saDraft) saDraft.title = v; }
 function saNone(){ if(saDraft){ saDraft.marks = {}; render(); } }
 function saCancel(on){ if(saDraft){ saDraft.cancelled = !!on; render(); } }
@@ -5618,6 +5672,7 @@ async function renderView(){
     case 'examForm': return examFormView();
     case 'supTrack': return await supTrackView();
     case 'certGrid': return certGridView();
+    case 'tajBulk': return tajBulkView();
     case 'supAtt': return await supAttView();
     case 'supEval': return await supEvalView();
     case 'auditView': return await auditView();
@@ -6568,7 +6623,9 @@ function gridOldOk(date, sid){
 const gpSym = v => v===undefined ? '' : v>=PAY_PRICE ? '✓' : v>0 ? fmtNum(v) : '✗';
 function gpRefresh(sid){ const el = document.getElementById('gp-'+sid); if(!el) return; const v = grid.pay.sel[sid]; el.className = 'ag-c ag-pc '+payClass(v); el.textContent = gpSym(v); const info = document.getElementById('g-info'); if(info){ const n = gridDirty(); info.textContent = n ? 'تغييرات غير محفوظة: '+n : ''; } }
 function gpTap(sid){ if(!grid.pay) return; const v = grid.pay.sel[sid]; if(v===undefined) grid.pay.sel[sid] = PAY_PRICE; else if(v>0) grid.pay.sel[sid] = 0; else delete grid.pay.sel[sid]; gpRefresh(sid); }
-function gpAll(){ if(!grid.pay) return; (grid.studs||[]).forEach(sid=>{ if(grid.pay.sel[sid]===undefined){ grid.pay.sel[sid] = PAY_PRICE; gpRefresh(sid); } }); }
+// «الكل»: ضغطة بتعلّم الكل دفع · ضغطة ثانية (لما ما في خانة فاضية) بتفضّيهم كلهم
+function gpAll(){ if(!grid.pay) return; const ids = grid.studs||[], P = grid.pay, full = ids.length && ids.every(sid=>P.sel[sid]!==undefined);
+  ids.forEach(sid=>{ if(full) delete P.sel[sid]; else if(P.sel[sid]===undefined) P.sel[sid] = PAY_PRICE; gpRefresh(sid); }); }
 window.gpTap = gpTap; window.gpAll = gpAll;
 function gridTap(sid, date){
   if(date>todayStr()) return;
@@ -6582,8 +6639,10 @@ function gridTap(sid, date){
 function gridAll(date){
   if(date>todayStr()) return;
   if(!gridOldOk(date)) return;
-  // بيعبّي الخانات الفاضية بس (ما بيمسح غياب أو تأخر مسجّل)
-  grid.studs.forEach(sid=>{ if(!grid.sel[sid+'|'+date]) grid.sel[sid+'|'+date] = 'حضور'; gridCellDom(sid, date); gridRefresh(sid); });
+  // «الكل»: ضغطة بتعبّي الفاضي حضور · ضغطة ثانية (لما ما في ولا خانة فاضية) بتفضّي العمود كله
+  const full = grid.studs.length && grid.studs.every(sid=>grid.sel[sid+'|'+date]);
+  grid.studs.forEach(sid=>{ const k = sid+'|'+date; if(full) delete grid.sel[k]; else if(!grid.sel[k]) grid.sel[k] = 'حضور'; gridCellDom(sid, date); gridRefresh(sid); });
+  if(full){ grid.absMode = null; document.querySelectorAll('.att-grid th.ag-on').forEach(x=>x.classList.remove('ag-on')); navToast('انلغى تحديد موعد '+(+date.slice(8))+'/'+(+date.slice(5,7))+' — احفظ لتثبيت الإلغاء'); return; }
   grid.absMode = date; gridAbsHint();
 }
 function gridAbsHint(){
@@ -6635,7 +6694,8 @@ function hijriMonthLabel(ym){
 }
 async function branchAttendanceView(){
   const b = getBranch(state.params.id);
-  const kinds = [['attendance','المواعيد',canDo('attendance') && b.type!=='taj'],['tajweed','حضور التجويد',canDo('tajweed')]].filter(k=>k[2]);
+  // شعب التحفيظ: المواعيد بس · شعب التجويد: حضور التجويد بس
+  const kinds = b.type==='taj' ? [['tajweed','حضور التجويد',canDo('tajweed')]].filter(k=>k[2]) : [['attendance','المواعيد',canDo('attendance')]].filter(k=>k[2]);
   const back = `<div class="subheader"><div class="back-btn" onclick="window.smartBack('branchDetail',{id:'${b.id}'})">${icon('chevronR',16)}</div><h1>${kinds.length===1 && kinds[0][0]==='tajweed' ? 'حضور التجويد' : 'تسجيل الحضور'} — ${b.name}</h1></div>`;
   if(!canEditBranch(b.id) || !kinds.length) return back + `<div class="empty">لا تملك صلاحية تسجيل الحضور لهذه الشعبة</div>`;
   if(state.params.fresh){ delete state.params.fresh; grid.bid = ''; }
@@ -6727,6 +6787,65 @@ async function saveGrid(){
 
 /* ===== إضافة طلاب موجودين (من الشعب الثانية) لشعبة ===== */
 let brAddSel = new Set(), brAddBid = '';
+// ===== طلاب التجويد فقط: إضافة أسماء بالجملة لشعبة تجويد (الموجود بيتجاوز أو بينربط) =====
+const canAddTaj = bid => isTajBr(bid) && (state.role==='admin' || (state.role==='supervisor' && (state.branchIds||[]).includes(bid)));
+const arKey = t => String(t||'').replace(/[ً-ْـ]/g,'').replace(/[أإآٱ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/(^| )(عبد|أبو|ابو|عز) +/g,'$1$2').replace(/[^ء-يa-z0-9 ]/gi,' ').replace(/\s+/g,' ').trim();
+function tjbMatch(name){
+  const k = arKey(name), w = k.split(' ');
+  let ex = cache.students.filter(s=>arKey(s.name)===k);
+  if(!ex.length && w.length>=2){ ex = cache.students.filter(s=>{ const z = arKey(s.name).split(' '); const [sh,lo] = z.length<=w.length ? [z,w] : [w,z]; return z.length>=2 && z[0]===w[0] && z[z.length-1]===w[w.length-1] && sh.slice(1,-1).every(x=>lo.includes(x)); }); }
+  return ex;
+}
+let tjb = {bid:'', rows:[]};
+function tajBulkView(){
+  const b = getBranch(state.params.id);
+  const head = `<div class="subheader"><div class="back-btn" onclick="window.smartBack('branchDetail',{id:'${b.id}'})">${icon('chevronR',16)}</div><h1>طلاب جدد — ${rpEsc(b.name)}</h1></div>`;
+  if(!canAddTaj(b.id)) return head + `<div class="empty">لا تملك صلاحية لهذه الشعبة</div>`;
+  if(tjb.bid!==b.id) tjb = {bid:b.id, rows:[]};
+  const A = state.role==='admin';
+  const rows = tjb.rows.map((r,i)=>{ const m = r.match;
+    const st = r.done ? `<span class="badge green">${r.done}</span>` : m ? (inBr(m,b.id) ? `<span class="badge">موجود بالشعبة</span>` : A ? `<label class="tjb-ck"><input type="checkbox" ${r.link?'checked':''} onchange="window.tjbSet(${i},'link',this.checked)"> اربطه بالشعبة</label>` : `<span class="badge gold">موجود بشعبة ثانية</span>`) : `<label class="tjb-ck"><input type="checkbox" ${r.add?'checked':''} onchange="window.tjbSet(${i},'add',this.checked)"> طالب جديد</label>`;
+    const info = [r.grade?'الصف '+r.grade:'', r.phone, r.bd?'مواليد '+r.bd.split('-').reverse().map(Number).join('/'):''].filter(Boolean).join(' · ');
+    return `<div class="row"><div style="min-width:0"><div class="row-title">${rpEsc(r.name)}</div>${info && !m?`<div class="row-sub">${rpEsc(info)}</div>`:''}${m?`<div class="row-sub">مسجّل باسم «${rpEsc(m.name)}» · ${rpEsc((getBranch(m.branchId)||{}).name||'بدون شعبة')}${m.tajBranchId&&getBranch(m.tajBranchId).name?' · تجويد: '+rpEsc(getBranch(m.tajBranchId).name):''}</div>`:''}</div>${st}</div>`; }).join('');
+  const nAdd = tjb.rows.filter(r=>!r.done && !r.match && r.add).length, nLink = tjb.rows.filter(r=>!r.done && r.match && r.link && !inBr(r.match,b.id)).length;
+  return head + `
+  <div class="row-sub" style="margin-top:12px;line-height:1.7">اكتب كل طالب بسطر: <b>الاسم | الصف | الهاتف | تاريخ الميلاد</b> (بس الاسم ضروري، والباقي اختياري). الطالب الجديد بينضاف «تجويد فقط» لهالشعبة وبيشوفه مشرف التجويد. الأسماء الموجودة بالموقع بتنكشف لحالها وما بتنضاف مرتين${A?'، وبتقدر تربطها بالشعبة':''}.</div>
+  <div class="field" style="margin-top:10px"><textarea id="tjb-txt" rows="7" placeholder="محمد أحمد العلي&#10;يوسف خالد&#10;...">${rpEsc(state.params.txt||'')}</textarea></div>
+  <button class="btn btn-outline" onclick="window.tjbCheck()">${icon('search',16)} افحص الأسماء</button>
+  ${tjb.rows.length ? `<div class="fn-cards" style="grid-template-columns:repeat(3,1fr)"><div class="fn-card"><span>جدد</span><b class="fn-pos">${tjb.rows.filter(r=>!r.match).length}</b></div><div class="fn-card"><span>موجودين</span><b>${tjb.rows.filter(r=>r.match).length}</b></div><div class="fn-card"><span>بالشعبة أصلًا</span><b>${tjb.rows.filter(r=>r.match&&inBr(r.match,b.id)).length}</b></div></div>
+  <div class="list" style="margin-top:10px">${rows}</div>
+  <button class="btn btn-primary" style="margin-top:14px" ${nAdd+nLink?'':'disabled'} onclick="window.tjbGo()">حفظ${nAdd?' · إضافة '+nAdd+' جديد':''}${nLink?' · ربط '+nLink:''}</button><div id="tjb-alert"></div>` : ''}`;
+}
+function tjbCheck(){
+  const txt = (document.getElementById('tjb-txt')||{}).value||''; state.params.txt = txt;
+  const seen = new Set();
+  const dg = t => String(t||'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+  tjb.rows = txt.split(/\n+/).map(line=>{ const p = dg(line).split(/\s*[|،,\t]\s*/); const name = (p[0]||'').replace(/^[\s\d.\-–—)(*•]+/,'').trim();
+      const g = +(p[1]||'').trim(), ph = (p[2]||'').replace(/\D/g,''), bm = (p[3]||'').match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/);
+      return {name, grade: g>=1 && g<=12 ? SCHOOL_GRADES[g-1] : '', phone: ph.length>=9 ? ph.replace(/^7/,'07') : '', bd: bm ? bm[1]+'-'+bm[2].padStart(2,'0')+'-'+bm[3].padStart(2,'0') : ''}; })
+    .filter(x=>x.name.length>1).filter(x=>{ const k = arKey(x.name); if(seen.has(k)) return false; seen.add(k); return true; })
+    .map(x=>{ const ex = tjbMatch(x.name); return {...x, match: ex[0]||null, add:!ex.length, link:false}; });
+  render();
+}
+function tjbSet(i, k, v){ if(tjb.rows[i]) tjb.rows[i][k] = v; render(); }
+async function tjbGo(){
+  const b = getBranch(tjb.bid); let ok = 0, bad = 0;
+  for(const r of tjb.rows){ if(r.done) continue;
+    try{
+      if(!r.match && r.add){
+        await addDoc(collection(db,'students'), {name:r.name, branchId:b.id, tajBranchId:'', tajweedLevels:Object.fromEntries(TAJWEED_LEVELS.map(l=>[l.key,0])), phones: r.phone ? [{type:'أب', number:r.phone}] : [], schoolGrade:r.grade||'', birthDate:r.bd||'', notes:'', points:0, gradeSY:curSY(), createdAt:serverTimestamp()});
+        r.done = 'انضاف'; ok++;
+      } else if(r.match && r.link && !inBr(r.match,b.id) && state.role==='admin'){
+        const u = isTajBr(r.match.branchId) || !r.match.branchId ? {branchId:b.id} : {tajBranchId:b.id};
+        await updateDoc(doc(db,'students',r.match.id), u); Object.assign(r.match, u); r.done = 'انربط'; ok++;
+      }
+    }catch(e){ bad++; r.done = ''; console.warn(e); }
+  }
+  auditLog('إضافة طلاب تجويد بالجملة', b.name, ok+' طالب');
+  await loadStudentsForRole(); render();
+  const al = document.getElementById('tjb-alert'); if(al) al.innerHTML = `<div class="alert ${bad?'error':'success'}">${ok} تم${bad?' · '+bad+' تعذّر (صلاحيات؟)':''}</div>`;
+}
+Object.assign(window, {tjbCheck, tjbSet, tjbGo});
 function brAddOpen(bid){
   brAddBid = bid; brAddSel = new Set();
   const old = document.getElementById('br-add'); if(old) old.remove();
@@ -6795,7 +6914,8 @@ function branchDetail(){
     const cnt = `<div class="stat-card br-cnt" style="text-align:center${wa?'':';margin-top:16px'}"><div class="stat-num">${students.length}</div><div class="stat-label">عدد الطلاب${tj && students.some(s=>s.tajBranchId===b.id) ? ` <small style="display:block;font-size:11.5px;margin-top:3px">منهم ${students.filter(s=>s.tajBranchId===b.id).length} من شعب التحفيظ</small>` : ''}</div></div>`;
     return wa ? `<div class="br-top">${cnt}<a class="stat-card br-wa" href="${rpEsc(b.waGroup)}" target="_blank" rel="noopener" aria-label="مجموعة التواصل" title="مجموعة التواصل"><span class="br-wa-ic" style="background:${bc}"><img src="data:image/png;base64,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" alt="" style="${lt?'filter:brightness(0)':''}"></span><span class="stat-label">مجموعة التواصل</span></a></div>` : cnt; })()}
   ${state.role==='admin' ? `<button class="btn btn-outline" style="margin-top:12px" onclick="window.brAddOpen('${b.id}')">${icon('plus',16)} إضافة طالب للشعبة</button>` : ''}
-  ${editable && (tj ? canDo('tajweed') : (canDo('attendance')||canDo('tajweed'))) ? `<button class="btn btn-primary" style="margin-top:12px" onclick="window.goto('branchAttendance',{id:'${b.id}',fresh:1${tj?",kind:'tajweed'":''}})">${icon('check',16)} ${tj?'تسجيل حضور التجويد':'تسجيل الحضور للشعبة'}</button>` : ''}
+  ${tj && canAddTaj(b.id) ? `<button class="btn btn-outline" style="margin-top:10px" onclick="window.goto('tajBulk',{id:'${b.id}'})">${icon('users',16)} طلاب جدد للتجويد فقط</button>` : ''}
+  ${editable && (tj ? canDo('tajweed') : canDo('attendance')) ? `<button class="btn btn-primary" style="margin-top:12px" onclick="window.goto('branchAttendance',{id:'${b.id}',fresh:1${tj?",kind:'tajweed'":''}})">${icon('check',16)} ${tj?'تسجيل حضور التجويد':'تسجيل الحضور للشعبة'}</button>` : ''}
   ${!tj && editable && canDo('hifz') && students.length ? `<button class="btn btn-outline hq-go" style="margin-top:10px" onclick="window.goto('halaqa',{id:'${b.id}',from:'branch'})">${icon('target',16)} وضع الشعبة</button>` : ''}
   ${tj && editable && students.length ? `<button class="btn btn-outline hq-go" style="margin-top:10px" onclick="window.goto('certGrid',{id:'${b.id}'})">${icon('award',16)} رفع الشهادات</button>` : ''}
   ${editable ? `<div class="br-acts">
@@ -6804,12 +6924,12 @@ function branchDetail(){
     <button onclick="window.openPresent('week','${b.id}')">${icon('eye',17)}<span>وضع العرض</span></button>
     ${!tj && canPayBr(b.id) ? `<button onclick="window.goto('branchPayments',{id:'${b.id}',fresh:1})">${icon('briefcase',17)}<span>دفع الطلاب</span></button>` : ''}
   </div>` : ''}
-  ${state.role!=='admin' && canBrSet(b.id) ? `<details class="br-set" ${brSaveBar(b)?'open':''}><summary>${icon('pencil',15)} <b>يوم دوام الشعبة</b><small>بيتغيّر بجدول الحضور والتنبيهات</small></summary>${(tj ? [['tajweed','التجويد']] : [['attendance','المواعيد'],['tajweed','التجويد']]).map(([k,l])=>brDaySel(b,k,l)).join('')}</details>` : ''}
+  ${state.role!=='admin' && canBrSet(b.id) ? `<details class="br-set" ${brSaveBar(b)?'open':''}><summary>${icon('pencil',15)} <b>يوم دوام الشعبة</b><small>بيتغيّر بجدول الحضور والتنبيهات</small></summary>${(tj ? [['tajweed','التجويد']] : [['attendance','المواعيد']]).map(([k,l])=>brDaySel(b,k,l)).join('')}</details>` : ''}
   ${state.role==='admin' ? `<details class="br-set" ${brSaveBar(b)?'open':''}><summary>${icon('pencil',15)} <b>إعدادات الشعبة</b><small>أيام الدوام ولون الشعبة</small></summary>` : ''}
   ${state.role==='admin' ? `<div class="field" style="margin-top:12px"><label>اسم الشعبة</label><input type="text" value="${rpEsc(b.name)}" onchange="window.brRename('${b.id}',this.value)"></div>` : ''}
   ${state.role==='admin' ? `<div class="field" style="margin-top:12px"><label>مسؤول تسجيل حضور المشرفين بهالشعبة</label><select onchange="window.brSetResp('${b.id}',this.value)"><option value="">بدون (المدير بس)</option>${(cache.supervisors||[]).map(sv=>`<option value="${String(sv.id).toLowerCase()}" ${String(b.supRespEmail||'').toLowerCase()===String(sv.id).toLowerCase()?'selected':''}>${rpEsc(sv.name||sv.id)}</option>`).join('')}</select><div class="row-sub" style="margin-top:4px">بيسجّل حضور مشرفي هالشعبة (موعد الشعبة والتجويد واجتماع اللجنة) وبيشوف تقييمهم.</div></div>` : ''}
   ${state.role==='admin' ? `<label class="pl-opt" style="margin-top:12px"><input type="checkbox" ${tj?'checked':''} onchange="window.brSetType('${b.id}',this.checked)"><div><b>شعبة تجويد</b><small>طلابها بيبيّن عندهم حضور التجويد ومستوياته بس، وإلها ترتيب لحالها. وبتقدر تحط فيها طلاب من شعب التحفيظ من «تعديل بيانات الطالب».</small></div></label>` : ''}
-  ${state.role==='admin' ? (tj ? [['tajweed','التجويد']] : [['attendance','المواعيد'],['tajweed','التجويد']]).map(([k,l])=>brDaySel(b,k,l)).join('') : ''}
+  ${state.role==='admin' ? (tj ? [['tajweed','التجويد']] : [['attendance','المواعيد']]).map(([k,l])=>brDaySel(b,k,l)).join('') : ''}
   ${state.role==='admin' ? `<div class="field" style="margin-top:12px"><label>لون الشعبة (يُستخدم في النقاط والإنجازات والعرض، والتدرّج يُصنع تلقائيًا)</label>
     <div class="br-sw">${BRANCH_COLORS.map(c=>`<button type="button" aria-label="${c}" class="${c.toLowerCase()===brVal(b,'color').toLowerCase()?'on':''}" style="background:${c}" onclick="window.brDraftSet('${b.id}','color','${c}')"></button>`).join('')}<label class="br-custom" title="لون آخر">${icon('plus',16)}<input type="color" value="${brVal(b,'color')}" onchange="window.brDraftSet('${b.id}','color',this.value)"></label></div>
     <div class="br-prev">${[0,1,2,3,4].map(i=>{ const t = ptsTone(b.id,i,5,brVal(b,'color')); return `<span style="background:${t[0]};color:${t[1]}">${i+1}</span>`; }).join('')}</div></div>` : ''}
