@@ -2822,15 +2822,17 @@ async function rpSliceToPdf(c, pdf, jsPDF, fresh){
     let w = 210, h = 210*total/794, x = 0; if(h > 297){ w = 210*297/h; h = 297; x = (210-w)/2; }
     pdf.addImage(cv.toDataURL('image/jpeg',0.92),'JPEG',x,0,w,h); return pdf;
   }
-  while(start < total - 2){
-    const room = n ? PH - TOP : PH; let end = start + room >= total ? total : rpPickCut(iv, start, start + room);
+  const segs = []; while(start < total - 2){ const room = (segs.length ? PH - TOP : PH) - 24; const end = start + room >= total ? total : rpPickCut(iv, start, start + room); segs.push([start,end]); start = end; }
+  const N = segs.length;
+  for(const [st,end] of segs){
     const pc = document.createElement('canvas'); pc.width = cv.width; pc.height = Math.round(PH*k);
     const g = pc.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0,0,pc.width,pc.height);
-    const sy = Math.round(start*k), sh = Math.max(1, Math.round((end-start)*k));
+    const sy = Math.round(st*k), sh = Math.max(1, Math.round((end-st)*k));
     g.drawImage(cv, 0, sy, cv.width, sh, 0, n ? Math.round(TOP*k) : 0, cv.width, sh);
+    if(N>1){ g.fillStyle = '#6B7280'; g.font = '600 '+Math.round(13*k)+'px IBM Plex Sans Arabic, sans-serif'; g.textAlign = 'center'; g.direction = 'ltr'; g.fillText((n+1)+' / '+N, pc.width/2, pc.height - Math.round(12*k)); }
     if(!pdf) pdf = new jsPDF({unit:'mm',format:'a4',orientation:'p'}); else if(!(fresh && n===0)) pdf.addPage('a4','p');
     pdf.addImage(pc.toDataURL('image/jpeg',0.92),'JPEG',0,0,210,297);
-    start = end; n++;
+    n++;
   }
   return pdf;
 }
@@ -3880,8 +3882,10 @@ function selfPlanHTML(s, from){
   const R = td && td.f!=null ? spRange(W.seq, td.f, td.t) : null;
   const todayBox = W.finished && !(td && td.rec) ? `<div class="sp-today"><b>أتممت الخطة كاملة، بارك الله فيك</b></div>`
     : R ? `<div class="sp-today"><small>${td.sched?'ورد اليوم':'اليوم ليس من أيام الخطة — الورد التالي'}</small><b>${R.txt}</b><small>${R.pages}</small>${btns(td)}${!mine?badge(td):''}</div>` : `<div class="sp-today"><b>تبدأ الخطة بتاريخ ${W.t.start}</b></div>`;
-  const rows = W.days.filter(d=>d.sched || d.rec).map(d=>{ const r = d.f!=null ? spRange(W.seq, d.f, d.t) : null;
-    return `<div class="sp-day ${d.today?'today':''}"><div class="sp-d"><b>${AR_DAYS[d.dow]}</b><small>${dm(d.date)}</small></div><div class="sp-w">${r?r.txt:(d.past?'—':'')}</div><div class="sp-s">${d.past && mine && d.canMark ? btns(d) : badge(d)}</div></div>`; }).join('');
+  const mk = d => d.rec ? (d.rec.v===1 ? '<span class="sp-ok" style="color:#1E9E5A;font-weight:800;font-size:18px">✓</span>' : '<span class="sp-no" style="color:#C0392B;font-weight:800;font-size:18px">✗</span>')
+    : d.sched && (d.past || d.today) ? (d.past ? '<span class="sp-no" style="color:#C0392B;font-weight:800;font-size:18px">✗</span>' : '') : '';
+  const rows = W.days.map(d=>{ const r = d.f!=null ? spRange(W.seq, d.f, d.t) : null;
+    return `<div class="sp-day ${d.today?'today':''}"><div class="sp-d"><b>${AR_DAYS[d.dow]}</b><small>${dm(d.date)}</small></div><div class="sp-w">${r?r.txt:(d.sched?(W.finished?'—':''):'<span style="color:var(--text-muted)">إجازة</span>')}</div><div class="sp-s" style="display:flex;align-items:center;gap:8px">${mine && d.canMark && d.past ? btns(d) : ''}${mk(d)}</div></div>`; }).join('');
   return `<div class="sp-card">${head}${todayBox}
     <div class="sp-sub"><span>هذا الأسبوع: حفظ ${yes} من ${sched.length} ${sched.length>2 && sched.length<11?'أيام':'يوم'}</span><span>المنجز من الخطة: ${fmtNum(Math.round(W.done*10)/10)} من ${fmtNum(Math.round(W.total))} صفحة</span></div>
     <div class="pl-bar"><i style="width:${Math.min(100, W.total ? W.done/W.total*100 : 0)}%"></i></div>
@@ -4827,11 +4831,36 @@ function saFill(sv, from, to){
       const recs = studs.flatMap(s=>((cache.details[s.id]||{})[coll]||[]).filter(r=>r.date===d)); if(recs.length && recs.some(r=>!r.recordedAt || tsMillis(r.recordedAt) <= new Date(addDaysStr(d,1)+'T23:59:59').getTime())) ok++; } });
   return tot ? Math.round(ok/tot*100) : null;
 }
+async function saRepsLoad(force){
+  if(cache.repsAll && !force) return cache.repsAll;
+  try{ const sn = await getDocs(collection(db,'reports')); cache.repsAll = sn.docs.map(xdoc); }catch(e){ cache.repsAll = []; }
+  return cache.repsAll;
+}
+const saTaskIds = () => { try{ return (repForms().committee||[]).filter(f=>f.type==='tasks').map(f=>f.id); }catch(e){ return ['tasks']; } };
+// مهام اللجنة المُسندة للمشرف (من تقارير اللجنة بالفترة) وهل أُنجزت
+function saTaskList(sv, from, to){
+  const em = String(sv.id).toLowerCase(), ids = saTaskIds(), out = [];
+  (cache.repsAll||[]).filter(r=>r.kind==='committee' && r.date>=from && r.date<=to).forEach(r=>ids.forEach(fid=>((r.values||{})[fid]||[]).forEach((t,i)=>{
+    if(String(t.who||'').toLowerCase()!==em) return; const key = fid+'_'+i; out.push({rid:r.id, key, task:t.task, dur:t.dur, date:r.date, done:!!(r.taskDone||{})[key]}); })));
+  return out;
+}
+// تسجيل الأوراد: نسبة طلاب شعب المشرف (التحفيظ) اللي انسجّل لهم ورد بالفترة + عدد الأوراد اللي سجّلها هو
+function saWird(sv, from, to){
+  const inP = r => r.date>=from && r.date<=to; let tot = 0, cov = 0;
+  (sv.branchIds||[]).forEach(bid=>{ const b = cache.branches.find(x=>x.id===bid); if(!b || b.private || b.type==='taj') return;
+    cache.students.filter(s=>s.branchId===bid && stStatus(s)==='active').forEach(s=>{ const d = cache.details[s.id]||{}; tot++; if(['hifzLog','reviewLog','recitationLog'].some(k=>(d[k]||[]).some(inP))) cov++; }); });
+  let cnt = 0; const nm = sv.name||sv.id;
+  cache.students.forEach(s=>{ const d = cache.details[s.id]||{}; ['hifzLog','reviewLog','recitationLog'].forEach(k=>(d[k]||[]).forEach(r=>{ if(inP(r) && r.recordedBy===nm) cnt++; })); });
+  return tot ? {pct:Math.round(cov/tot*100), tot, cov, cnt} : null;
+}
 function saScore(sv, from, to){
   const em = String(sv.id).toLowerCase(), out = {};
   Object.keys(SA_TYPES).forEach(t=>{ const v = (cache.supAtt||[]).filter(x=>x.type===t && x.date>=from && x.date<=to && x.marks && x.marks[em] && x.marks[em] in SA_VAL).map(x=>SA_VAL[x.marks[em]]); out[t] = v.length ? {pct:Math.round(v.reduce((a,b)=>a+b,0)/v.length*100), n:v.length, abs:(cache.supAtt||[]).filter(x=>x.type===t && x.date>=from && x.date<=to && x.marks && x.marks[em]==='غياب').length} : null; });
   out.fill = saFill(sv, from, to);
-  const parts = [out.branch&&out.branch.pct, out.taj&&out.taj.pct, out.committee&&out.committee.pct, out.fill].filter(x=>x!=null);
+  out.wird = saWird(sv, from, to);
+  const tl = saTaskList(sv, from, to); out.tasks = tl.length ? {n:tl.length, done:tl.filter(x=>x.done).length, pct:Math.round(tl.filter(x=>x.done).length/tl.length*100), list:tl} : null;
+  out.reps = (cache.repsAll||[]).filter(r=>String(r.byEmail||'').toLowerCase()===String(sv.id).toLowerCase() && r.date>=from && r.date<=to).length;
+  const parts = [out.branch&&out.branch.pct, out.taj&&out.taj.pct, out.committee&&out.committee.pct, out.fill, out.wird&&out.wird.pct, out.tasks&&out.tasks.pct].filter(x=>x!=null);
   out.total = parts.length ? Math.round(parts.reduce((a,b)=>a+b,0)/parts.length) : null;
   out.grade = out.total==null ? '—' : out.total>=90 ? 'ممتاز' : out.total>=80 ? 'جيد جدًا' : out.total>=70 ? 'جيد' : 'يحتاج متابعة';
   return out;
@@ -4840,7 +4869,7 @@ const saGradeColor = g => ({'ممتاز':'#2E9E5B','جيد جدًا':'#3E8E7E','
 async function supEvalView(){
   const head = subheader('تقييم المشرفين', 'supAtt');
   if(!canSA()) return head + `<div class="empty">للمدير ومسؤولي الشعب فقط</div>`;
-  await loadSupervisors(); await saLoad(); await loadAllDetails();
+  await loadSupervisors(); await saLoad(); await loadAllDetails(); await saRepsLoad();
   const cur = todayStr().slice(0,7), ym = state.params.ym || cur, months = Array.from({length:6},(_,i)=>ymShift(cur,-i));
   const from = ym+'-01', to = ym===cur ? todayStr() : addDaysStr(ymShift(ym,1)+'-01',-1);
   const bids = saRespBids(), sups = (cache.supervisors||[]).filter(sv=>state.role==='admin' || (sv.branchIds||[]).some(b=>bids.includes(b)));
@@ -4848,29 +4877,77 @@ async function supEvalView(){
   const bar = (l, x, sub) => `<div class="se-b"><span>${l}</span><div class="se-t"><i style="width:${x==null?0:x}%;background:${x==null?'#ccc':x>=80?'#2E9E5B':x>=70?'#C9A24B':'#B23A3A'}"></i></div><b>${x==null?'—':x+'%'}</b>${sub?`<small>${sub}</small>`:''}</div>`;
   return head + `
   <div class="field" style="margin-top:12px"><label>الشهر</label><select onchange="window.goto('supEval',{ym:this.value})">${months.map(m=>`<option value="${m}" ${m===ym?'selected':''}>${monthLabel(m, true)}</option>`).join('')}</select></div>
-  <div class="row-sub" style="margin:0 4px 10px;line-height:1.8">التقييم = متوسط النسب المتوفرة: حضور موعد الشعبة، حضور موعد التجويد، حضور اجتماع اللجنة، والالتزام بالتعبئة (مواعيد الشعبة اللي انسجل حضور طلابها بيومها أو تاني يوم). التأخر نص، والغياب بعذر ما بينحسب.</div>
+  <div class="row-sub" style="margin:0 4px 10px;line-height:1.8">التقييم = متوسط النسب المتوفرة: حضور موعد الشعبة، حضور موعد التجويد، حضور اجتماع اللجنة، الالتزام بالتعبئة (مواعيد الشعبة اللي انسجل حضور طلابها بيومها أو تاني يوم)، تسجيل الأوراد (نسبة طلاب شعبته اللي انسجّل لهم ورد بالشهر)، وإنجاز المهام (مهام تقارير اللجنة المُسندة له). التأخر نص، والغياب بعذر ما بينحسب.</div>
   ${rows.map(({sv, sc})=>`<div class="sp-card"><div class="sp-h">${supAv(sv,40,icon('briefcase',16))}<div style="flex:1"><b>${rpEsc(sv.name||sv.id)}</b><small>${(sv.branchIds||[]).map(id=>''+((getBranch(id)||{}).name||'؟')).join('، ')||'بدون شعبة'}</small></div><span class="badge" style="background:${saGradeColor(sc.grade)};color:#fff">${sc.total==null?'—':sc.total+'%'} · ${sc.grade}</span></div>
     ${bar('موعد الشعبة', sc.branch&&sc.branch.pct, sc.branch? sc.branch.n+' موعد'+(sc.branch.abs?' · غياب '+sc.branch.abs:'') : 'ما في تسجيل')}
     ${bar('موعد التجويد', sc.taj&&sc.taj.pct, sc.taj? sc.taj.n+' موعد'+(sc.taj.abs?' · غياب '+sc.taj.abs:'') : 'ما في تسجيل')}
     ${bar('اجتماع اللجنة', sc.committee&&sc.committee.pct, sc.committee? sc.committee.n+' أسبوع'+(sc.committee.abs?' · غياب '+sc.committee.abs:'') : 'ما في تسجيل')}
     ${bar('التعبئة على الموقع', sc.fill, '')}
+    ${bar('تسجيل الأوراد', sc.wird&&sc.wird.pct, sc.wird ? sc.wird.cnt+' ورد سجّله · '+sc.wird.cov+' من '+sc.wird.tot+' طالب' : 'ما في طلاب تحفيظ')}
+    ${bar('إنجاز المهام', sc.tasks&&sc.tasks.pct, sc.tasks ? sc.tasks.done+' من '+sc.tasks.n+' مهمة' : 'ما في مهام مُسندة')}
+    ${sc.tasks ? `<div class="se-tasks">${sc.tasks.list.map(t=>`<label class="pl-opt" style="margin-top:6px"><input type="checkbox" ${t.done?'checked':''} ${state.role==='admin'?'':'disabled'} onchange="window.saTaskToggle('${t.rid}','${t.key}',this.checked)"><div><b>${rpEsc(t.task)}</b><small>${rpEsc(t.date)}${t.dur?' · '+rpEsc(t.dur):''}</small></div></label>`).join('')}</div>` : ''}
+    <div class="row-sub" style="margin-top:8px">تقارير رفعها هالشهر: ${sc.reps}</div>
   </div>`).join('') || `<div class="empty">ما في مشرفين</div>`}
-  <button class="btn btn-outline" style="margin-top:12px" onclick="window.saXlsx('${ym}')">${icon('book',15)} تصدير Excel</button>`;
+  <button class="btn btn-primary" style="margin-top:12px" onclick="window.saReport('${ym}')">${icon('chart',16)} تقرير التقييم (طباعة / PDF)</button>
+  <button class="btn btn-outline" style="margin-top:10px" onclick="window.saXlsx('${ym}')">${icon('book',15)} تصدير Excel</button>`;
 }
 async function saXlsx(ym){
   const cur = todayStr().slice(0,7), from = ym+'-01', to = ym===cur ? todayStr() : addDaysStr(ymShift(ym,1)+'-01',-1);
   const bids = saRespBids(), sups = (cache.supervisors||[]).filter(sv=>state.role==='admin' || (sv.branchIds||[]).some(b=>bids.includes(b)));
   const p = x => x==null ? '' : x;
-  const sum = sups.map(sv=>{ const sc = saScore(sv, from, to); return {'المشرف':sv.name||sv.id, 'الشعب':(sv.branchIds||[]).map(id=>(getBranch(id)||{}).name||'').join('، '), 'موعد الشعبة %':p(sc.branch&&sc.branch.pct), 'موعد التجويد %':p(sc.taj&&sc.taj.pct), 'اجتماع اللجنة %':p(sc.committee&&sc.committee.pct), 'التعبئة %':p(sc.fill), 'التقييم %':p(sc.total), 'الدرجة':sc.grade}; });
+  const sum = sups.map(sv=>{ const sc = saScore(sv, from, to); return {'المشرف':sv.name||sv.id, 'الشعب':(sv.branchIds||[]).map(id=>(getBranch(id)||{}).name||'').join('، '), 'موعد الشعبة %':p(sc.branch&&sc.branch.pct), 'موعد التجويد %':p(sc.taj&&sc.taj.pct), 'اجتماع اللجنة %':p(sc.committee&&sc.committee.pct), 'التعبئة %':p(sc.fill), 'تسجيل الأوراد %':p(sc.wird&&sc.wird.pct), 'إنجاز المهام %':p(sc.tasks&&sc.tasks.pct), 'التقييم %':p(sc.total), 'الدرجة':sc.grade}; });
   const det = []; (cache.supAtt||[]).filter(x=>x.date>=from && x.date<=to).sort((a,b)=>a.date.localeCompare(b.date)).forEach(x=>Object.entries(x.marks||{}).forEach(([em,st])=>{ const sv = (cache.supervisors||[]).find(v=>String(v.id).toLowerCase()===em); if(!sv) return; if(state.role!=='admin' && !(sv.branchIds||[]).some(b=>bids.includes(b))) return; det.push({'التاريخ':x.type==='committee'?'أسبوع '+x.date:x.date, 'النوع':SA_TYPES[x.type][0], 'الشعبة':x.bid?getBranch(x.bid).name:'الكل', 'المشرف':sv.name||sv.id, 'الحالة':st, 'سجّله':x.by||''}); }));
   await downloadSheets('تقييم-المشرفين-'+ym, {'التقييم':sum, 'كل التسجيلات':det});
+}
+async function saTaskToggle(rid, key, v){
+  if(state.role!=='admin') return;
+  try{ await updateDoc(doc(db,'reports',rid), {['taskDone.'+key]: !!v}); const r = (cache.repsAll||[]).find(x=>x.id===rid); if(r){ r.taskDone = {...(r.taskDone||{}), [key]:!!v}; } auditLog('إنجاز مهمة مشرف', rid, v?'أُنجزت':'غير منجزة'); render(); }
+  catch(e){ alert('تعذّر الحفظ: '+e.message); render(); }
+}
+// تقرير تقييم المشرفين (A4): ترويسة + ملخص + جدول، والختم بآخر صفحة
+function saReportSheet(ym){
+  const cur = todayStr().slice(0,7), from = ym+'-01', to = ym===cur ? todayStr() : addDaysStr(ymShift(ym,1)+'-01',-1), esc = rpEsc;
+  const rows = (cache.supervisors||[]).map(sv=>({sv, sc:saScore(sv, from, to)})).sort((a,b)=>(b.sc.total??-1)-(a.sc.total??-1));
+  const c = hexRgb(admRepColor()), ink = finInk(admRepColor());
+  const vars = `--c1:${rgbCss(c)};--c2:${rgbCss(rgbMix(c,[0,0,0],.45))};--g1:${rgbCss(rgbMix(c,[255,255,255],.22))};--ink:${ink};--tint:${rgbCss(rgbMix(c,[255,255,255],.9))};--tint2:${rgbCss(rgbMix(c,[255,255,255],.72))};--bar:${rgbCss(c)}`;
+  const mName = AR_MONTHS[+ym.slice(5,7)-1]+' '+ym.slice(0,4), hj = hijriMonthLabel ? hijriMonthLabel(ym) : '';
+  const band = `<div class="sr-band"><div class="sr-logos"><img class="sr-em" src="${LOGO_EMBLEM}" alt=""><img class="sr-word" src="${LOGO_WORD}" alt=""></div><div class="sr-ttl"><b>تقرير تقييم المشرفين</b><small>${mName}${hj?' · '+hj+' هـ':''}</small></div>@@PGN@@</div>`;
+  const kpi = (v,l) => `<div class="mr-k"><b>${v}</b><span>${l}</span></div>`;
+  const tots = rows.map(r=>r.sc.total).filter(x=>x!=null), avg = tots.length ? Math.round(tots.reduce((a,b)=>a+b,0)/tots.length) : null;
+  const cell = (x, sub) => x==null ? '—' : x+'%'+(sub?`<small>${sub}</small>`:'');
+  const tbl = body => `<table class="tr-t"><thead><tr><th>#</th><th>المشرف</th><th>موعد الشعبة</th><th>موعد التجويد</th><th>اللجنة</th><th>التعبئة</th><th>الأوراد</th><th>المهام</th><th>التقييم</th></tr></thead><tbody>${body.join('') || '<tr><td colspan="9">لا يوجد مشرفون</td></tr>'}</tbody></table>`;
+  const tr = (r,i) => { const sc = r.sc; return `<tr><td>${i+1}</td><td><b>${esc(r.sv.name||r.sv.id)}</b><small>${esc((r.sv.branchIds||[]).map(id=>(getBranch(id)||{}).name||'').filter(Boolean).join('، ')||'بدون شعبة')}</small></td><td>${cell(sc.branch&&sc.branch.pct, sc.branch&&sc.branch.n+' موعد')}</td><td>${cell(sc.taj&&sc.taj.pct, sc.taj&&sc.taj.n+' موعد')}</td><td>${cell(sc.committee&&sc.committee.pct, sc.committee&&sc.committee.n+' أسبوع')}</td><td>${cell(sc.fill)}</td><td>${cell(sc.wird&&sc.wird.pct, sc.wird&&sc.wird.cnt+' ورد')}</td><td>${cell(sc.tasks&&sc.tasks.pct, sc.tasks&&sc.tasks.done+'/'+sc.tasks.n)}</td><td><b style="color:${saGradeColor(sc.grade)}">${sc.total==null?'—':sc.total+'%'}</b><small>${sc.grade}</small></td></tr>`; };
+  const stamp = `<div class="sr-foot"><div class="sr-sign"><div><span>المشرف</span><i></i></div><div><span>مدير المشروع</span><i></i></div></div><div class="rp-stamp sr-stamp" data-c="${admRepColor()}"><div class="rp-stamp-in"><img class="rp-stamp-e" alt="" src="${RP_WM_LOGO}"><img class="rp-stamp-w" alt="" src="${RP_WORD_LOGO}"></div><img class="rp-stamp-tex" alt="" src="${RP_STAMP_TEX}"></div></div>`;
+  const note = `<div class="sr-box" style="margin-top:12px"><h4>طريقة التقييم</h4><div class="row-sub" style="line-height:1.9">التقييم = متوسط النسب المتوفرة: حضور موعد الشعبة والتجويد واجتماع اللجنة (التأخر نصف والغياب صفر، والعذر لا يُحسب)، التعبئة (مواعيد الشعبة المسجّل حضورها بيومها أو اليوم التالي)، تسجيل الأوراد (نسبة طلاب شعبته الذين سُجّل لهم ورد بالشهر)، وإنجاز المهام المُسندة من تقارير اللجنة. الدرجات: ممتاز ٩٠٪ فأكثر، جيد جدًا ٨٠٪، جيد ٧٠٪، وأقل من ذلك يحتاج متابعة.</div></div>`;
+  const first = rows.slice(0,10), rest = []; for(let i=10;i<rows.length;i+=18) rest.push(rows.slice(i,i+18));
+  const pgs = [`<div class="sr-pg">${band}<div class="mr-meta"><span>عدد المشرفين: <b>${rows.length}</b></span><span>تاريخ الإصدار: <b>${srDate(todayStr())}</b></span></div>
+    <div class="mr-kpis">${kpi(avg==null?'—':avg+'%','متوسط التقييم')}${kpi(rows.filter(r=>r.sc.grade==='ممتاز').length,'ممتاز')}${kpi(rows.filter(r=>r.sc.grade==='جيد جدًا'||r.sc.grade==='جيد').length,'جيد / جيد جدًا')}${kpi(rows.filter(r=>r.sc.grade==='يحتاج متابعة').length,'يحتاج متابعة')}</div>
+    <div class="sr-box" style="margin-top:6px"><h4>تقييم المشرفين</h4>${tbl(first.map((r,i)=>tr(r,i)))}</div></div>`,
+    ...rest.map((ch,n)=>`<div class="sr-pg">${band}<div class="sr-box" style="margin-top:6px"><h4>تقييم المشرفين (تابع)</h4>${tbl(ch.map((r,i)=>tr(r,10+n*18+i)))}</div></div>`)];
+  const N = pgs.length; pgs[N-1] = pgs[N-1].replace(/<\/div>\s*$/, note+stamp+'</div>');
+  const body = pgs.map((h,i)=>h.replace('@@PGN@@', N>1 ? `<div class="sr-pgn">${i+1} / ${N}</div>` : '')).join('');
+  return {html:`<section class="rp-sheet sr-sheet mr-sheet" style="${vars}">${body}</section>`, n:rows.length, mName};
+}
+async function saReport(ym){
+  if(state.role!=='admin') return;
+  await loadSupervisors(); await saLoad(); await loadAllDetails(); await saRepsLoad();
+  const {html, n, mName} = saReportSheet(ym);
+  closePrint();
+  const el = document.createElement('div'); el.id = 'rp'; el.dir = 'rtl'; el.dataset.per = ''; el.dataset.kind = 'monthly'; el.dataset.fname = 'تقييم-المشرفين-'+ym;
+  el.innerHTML = `<div class="rp-bar"><div class="rp-bar-t"><b>تقييم المشرفين</b><span>${mName} · ${n} مشرف</span></div><div class="rp-bar-b">
+    <button class="rp-ib" title="طباعة" onclick="window.print()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9V3.5h10V9"/><rect x="3.5" y="9" width="17" height="8" rx="2"/><path d="M7 14h10v6.5H7z"/></svg><small>طباعة</small></button>
+    <button class="rp-ib" title="حفظ PDF" onclick="window.rpDownloadAll(this)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg><small>PDF</small></button>
+    <span class="rp-sep"></span><button class="rp-ib x" title="إغلاق" onclick="window.closePrint()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div></div>
+    <div class="rp-wrap">${html}</div>`;
+  document.body.appendChild(el);
+  el.querySelector('.rp-wrap').style.zoom = Math.min(1,(innerWidth-16)/794);
 }
 async function brSetResp(id, email){
   const b = cache.branches.find(x=>x.id===id); if(!b) return;
   try{ await updateDoc(doc(db,'branches',id), {supRespEmail: email||''}); b.supRespEmail = email||''; auditLog('مسؤول حضور المشرفين', ''+b.name, email||'بدون'); render(); }
   catch(e){ alert('تعذّر الحفظ: '+e.message); }
 }
-Object.assign(window, {saNone, saCancel, saMark, saAll, saTitle, saSave, saDel, saXlsx, brSetResp});
+Object.assign(window, {saNone, saCancel, saMark, saAll, saTitle, saSave, saDel, saXlsx, brSetResp, saTaskToggle, saReport});
 
 /* ===== نقاط الاستمرارية ===== */
 const STREAK = {attEvery:4, attPts:5, wkEvery:4, wkPts:10};
@@ -4953,14 +5030,14 @@ function tajStats(bid, pred){
 }
 // صفحة (أو أكثر) A4 لتقرير التجويد: title عنوان الشعبة، sub نص الفترة
 function tajSheetHTML(bid, S, sub, prev){
-  const esc = rpEsc, c = hexRgb('#1F3A5F'), ink = '#1F3A5F';
+  const esc = rpEsc, bcol = bid ? colorOfBranch(bid) : admRepColor(), c = hexRgb(bcol), ink = finInk(bcol);
   const vars = `--c1:${rgbCss(c)};--c2:${rgbCss(rgbMix(c,[0,0,0],.45))};--g1:${rgbCss(rgbMix(c,[255,255,255],.22))};--ink:${ink};--tint:${rgbCss(rgbMix(c,[255,255,255],.9))};--tint2:${rgbCss(rgbMix(c,[255,255,255],.72))};--bar:${rgbCss(c)}`;
   const name = bid ? esc(getBranch(bid).name) : 'كل شعب التجويد';
   const delta = (a,b,suf) => (!prev || a==null || b==null) ? '' : (a===b ? '<em class="mr-eq">= الشهر الماضي</em>' : `<em class="${a>b?'mr-up':'mr-dn'}">${a>b?'▲':'▼'} ${Math.abs(a-b)}${suf||''} عن الماضي</em>`);
   const kpi = (v,l,x) => `<div class="mr-k"><b>${v}</b><span>${l}</span>${x||''}</div>`;
   const tbl = (head, body) => `<table class="tr-t"><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${body.join('') || `<tr><td colspan="${head.length}">لا توجد بيانات</td></tr>`}</tbody></table>`;
-  const band = `<div class="sr-band"><div class="sr-logos"><img class="sr-em" src="${LOGO_EMBLEM}" alt=""><img class="sr-word" src="${LOGO_WORD}" alt=""></div><div class="sr-ttl"><b>تقرير التجويد — ${name}</b><small>${sub}</small></div></div>`;
-  const stamp = `<div class="sr-foot"><div class="sr-sign"><div><span>المشرف</span><i></i></div><div><span>مدير المشروع</span><i></i></div></div><div class="rp-stamp sr-stamp" data-c="#2A56A6"><div class="rp-stamp-in"><img class="rp-stamp-e" alt="" src="${RP_WM_LOGO}"><img class="rp-stamp-w" alt="" src="${RP_WORD_LOGO}"></div><img class="rp-stamp-tex" alt="" src="${RP_STAMP_TEX}"></div></div>`;
+  const band = `<div class="sr-band"><div class="sr-logos"><img class="sr-em" src="${LOGO_EMBLEM}" alt=""><img class="sr-word" src="${LOGO_WORD}" alt=""></div><div class="sr-ttl"><b>تقرير التجويد — ${name}</b><small>${sub}</small></div>@@PGN@@</div>`;
+  const stamp = `<div class="sr-foot"><div class="sr-sign"><div><span>المشرف</span><i></i></div><div><span>مدير المشروع</span><i></i></div></div><div class="rp-stamp sr-stamp" data-c="${bcol}"><div class="rp-stamp-in"><img class="rp-stamp-e" alt="" src="${RP_WM_LOGO}"><img class="rp-stamp-w" alt="" src="${RP_WORD_LOGO}"></div><img class="rp-stamp-tex" alt="" src="${RP_STAMP_TEX}"></div></div>`;
   const first = `<div class="sr-pg">${band}
     <div class="mr-meta"><span>طلاب التجويد: <b>${S.studs.length}</b></span><span>تاريخ الإصدار: <b>${srDate(todayStr())}</b></span></div>
     <div class="mr-kpis">
@@ -4977,12 +5054,15 @@ function tajSheetHTML(bid, S, sub, prev){
     <div class="sr-box" style="margin-top:12px"><h4>يحتاجون متابعة</h4><div class="mr-att">
       <div><small>غابوا مرتين أو أكثر</small>${S.absent.length ? S.absent.map(r=>`<span>${esc(r.s.name)} (${r.a})</span>`).join('') : '<span class="ok">لا أحد</span>'}</div>
       <div><small>اجتازوا ولم يستلموا الشهادة</small>${S.noCert.length ? S.noCert.map(x=>`<span>${esc(x.s.name)} — ${x.lv.short}</span>`).join('') : '<span class="ok">لا أحد</span>'}</div></div></div>
-    ${stamp}</div>`;
+    </div>`;
   const chunks = []; for(let i=0;i<S.rows.length;i+=22) chunks.push(S.rows.slice(i,i+22));
   const pages = chunks.map((ch,n)=>`<div class="sr-pg">${band}<div class="sr-box" style="margin-top:6px"><h4>الطلاب${chunks.length>1?' ('+(n+1)+' من '+chunks.length+')':''}</h4>${tbl(['#','الطالب','المستوى','حضور','تأخر','غياب','علامة المستوى','الشهادة'],
       ch.map((r,i)=>`<tr><td>${n*22+i+1}</td><td><b>${esc(r.s.name)}</b>${bid?'':`<small>${esc(tajBrName(r.s))}</small>`}</td><td>${r.cur?r.cur.short+'<small>'+TAJWEED_STATUS[r.curSt]+'</small>':'—'}</td><td>${r.p}</td><td>${r.l}</td><td>${r.a}</td><td>${tjMarkTxt(r.last)||'—'}</td><td>${r.cert?'استلم':'لم يستلم'}</td></tr>`))}</div></div>`);
   const examPg = S.exams.length ? [`<div class="sr-pg">${band}<div class="sr-box" style="margin-top:6px"><h4>اختبارات الفترة</h4>${tbl(['التاريخ','الطالب','المستوى','الاختبار','العلامة','النتيجة'], S.exams.slice(0,28).map(e=>`<tr><td>${e.date||''}</td><td>${esc(e.s.name)}</td><td>${tjxName(e.k)}</td><td>${esc(e.title||'—')}</td><td>${tjMarkTxt(e)||'—'}</td><td>${(TJX_RES[e.result]||['—'])[0]}</td></tr>`))}${S.exams.length>28?`<div class="sr-none">و${S.exams.length-28} اختبارًا آخر — كلها في ملف Excel</div>`:''}</div></div>`] : [];
-  return `<section class="rp-sheet sr-sheet mr-sheet" style="${vars}">${first}${pages.join('')}${examPg.join('')}</section>`;
+  const all = [first, ...pages, ...examPg], N = all.length;
+  all[N-1] = all[N-1].replace(/<\/div>\s*$/, stamp+'</div>');
+  const body = all.map((h,i)=>h.replace('@@PGN@@', N>1 ? `<div class="sr-pgn">${i+1} / ${N}</div>` : '')).join('');
+  return `<section class="rp-sheet sr-sheet mr-sheet" style="${vars}">${body}</section>`;
 }
 function mrTajSheet(bid, ym){
   const today = todayStr(), pm = m => d => !!d && d.startsWith(m) && d<=today, hj = hijriMonthLabel ? hijriMonthLabel(ym) : '';
@@ -5082,7 +5162,7 @@ function mrStats(bid, ym){
 function mrSheet(bid, ym){
   const S = mrStats(bid, ym), P = mrStats(bid, ymShift(ym,-1)), esc = rpEsc;
   // تقرير الإدارة بلون كحلي موحّد
-  const c = hexRgb('#1F3A5F'), C1 = rgbCss(c), C2 = rgbCss(rgbMix(c,[0,0,0],.45)), G1 = rgbCss(rgbMix(c,[255,255,255],.22)), TINT = rgbCss(rgbMix(c,[255,255,255],.9)), TINT2 = rgbCss(rgbMix(c,[255,255,255],.72)), ink = '#1F3A5F';
+  const c = hexRgb(admRepColor()), C1 = rgbCss(c), C2 = rgbCss(rgbMix(c,[0,0,0],.45)), G1 = rgbCss(rgbMix(c,[255,255,255],.22)), TINT = rgbCss(rgbMix(c,[255,255,255],.9)), TINT2 = rgbCss(rgbMix(c,[255,255,255],.72)), ink = finInk(admRepColor());
   const mName = AR_MONTHS[+ym.slice(5,7)-1]+' '+ym.slice(0,4), hj = hijriMonthLabel ? hijriMonthLabel(ym) : '';
   const delta = (a, b, suf) => (a==null || b==null) ? '' : (a===b ? `<em class="mr-eq">= الشهر الماضي</em>` : `<em class="${a>b?'mr-up':'mr-dn'}">${a>b?'▲':'▼'} ${Math.abs(Math.round((a-b)*10)/10)}${suf||''} عن الماضي</em>`);
   const kpi = (v, l, sub) => `<div class="mr-k"><b>${v}</b><span>${l}</span>${sub||''}</div>`;
@@ -5110,7 +5190,7 @@ function mrSheet(bid, ym){
       <div><small>غابوا مرتين أو أكثر</small>${S.absent.length ? S.absent.map(x=>`<span>${esc(x.s.name)} (${x.ab})</span>`).join('') : '<span class="ok">لا أحد</span>'}</div>
       <div><small>لم يسمّعوا أي ورد هذا الشهر</small>${S.silent.length ? S.silent.map(x=>`<span>${esc(x.s.name)}</span>`).join('') : '<span class="ok">لا أحد</span>'}</div></div></div>
     <div class="sr-foot"><div class="sr-sign"><div><span>المشرف</span><i></i></div><div><span>مدير المشروع</span><i></i></div></div>
-    <div class="rp-stamp sr-stamp" data-c="#2A56A6"><div class="rp-stamp-in"><img class="rp-stamp-e" alt="" src="${RP_WM_LOGO}"><img class="rp-stamp-w" alt="" src="${RP_WORD_LOGO}"></div><img class="rp-stamp-tex" alt="" src="${RP_STAMP_TEX}"></div></div>
+    <div class="rp-stamp sr-stamp" data-c="${admRepColor()}"><div class="rp-stamp-in"><img class="rp-stamp-e" alt="" src="${RP_WM_LOGO}"><img class="rp-stamp-w" alt="" src="${RP_WORD_LOGO}"></div><img class="rp-stamp-tex" alt="" src="${RP_STAMP_TEX}"></div></div>
   </div></section>`;
 }
 async function monthlyReportView(){
@@ -7006,7 +7086,9 @@ async function studentProfileView(mode){
       <div class="row"><span class="row-sub">النقاط</span><span class="row-title">${s.points||0}</span></div>
     </div>${s.notes? `<div class="alert" style="background:#FBF3DE;color:#8A6D1A;margin-top:12px">${icon('list',15)} ${s.notes}</div>`:''}`;
     body += `<div class="section-title"><span class="bar"></span>مستويات التجويد</div>
-    ${tjLevelsListHTML(s, tajCanEdit, from)}
+    ${tjActiveHTML(s)}
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-outline" style="flex:1" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'data',from:'${from}'${state.params.tjAll?'':",tjAll:1"}})">${icon('list',15)} مستويات التجويد</button>${tajCanEdit?`<button class="btn btn-outline" style="flex:1" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'data',from:'${from}',tjAll:1,tjEdit:1})">${icon('pencil',15)} تعديل</button>`:''}</div>
+    ${state.params.tjAll?`<div style="margin-top:10px">${tjLevelsListHTML(s, tajCanEdit && !!state.params.tjEdit, from)}</div>`:''}
     ${state.role==='student'?'':adjHtml}
     ${canEdit && canDo('editStudent')? `<button class="btn btn-outline" style="margin-top:14px" onclick="window.goto('adjustPointsForm',{id:'${s.id}',from:'${from}'})">${icon('star',15)} تعديل النقاط يدويًا</button>`:''}
     ${canEdit && canDo('editStudent')? `<div class="section-title"><span class="bar"></span>حالة الطالب: ${ST_STATUS[stStatus(s)][0]}</div><div class="st-acts">${['active','paused','left'].filter(k=>k!==stStatus(s)).map(k=>`<button class="td-btn ${k==='left'?'cx-del':''}" onclick="window.setStudentStatus('${s.id}','${k}','${from}')">${k==='active'?'إعادة تفعيل':k==='paused'?'إيقاف مؤقت':'نقل للأرشيف (منسحب)'}</button>`).join('')}</div>` : ''}`;
@@ -8002,16 +8084,15 @@ function applyLevelNames(){
   const c = lvCfg();
   TAJWEED_LEVELS.forEach((l,i)=>{ const o = c[l.key] || {}, d = LV_DEF[i];
     l.label = (typeof o.label==='string' && o.label.trim()) ? o.label.trim() : d.label;
-    l.short = (typeof o.short==='string' && o.short.trim()) ? o.short.trim() : ((typeof o.label==='string' && o.label.trim()) ? o.label.trim() : d.short); });
+    l.short = (typeof o.label==='string' && o.label.trim()) ? o.label.trim() : d.short; });
 }
 function levelNamesView(){
   const fk = state.params && state.params.focus, head = fk ? `<div class="subheader"><div class="back-btn" onclick="window.cancelEdit()">${icon('chevronR',16)}</div><h1>أسماء مستويات التجويد</h1></div>` : subheader('أسماء مستويات التجويد', homeRoute());
   if(!canEditContentPerm()) return head + `<div class="empty">لا تملك صلاحية التعديل</div>`;
   return head + `
-  <div class="row-sub" style="margin:4px 4px 12px;line-height:1.8">غيّر الاسم الكامل (بيظهر بملف الطالب والمشرف) والاسم المختصر (بالقوائم). اترك الخانة فاضية لإرجاع الاسم الأصلي. الأسماء داخل المواد المكتوبة جوّا المستويات ما بتتغير.</div>
+  <div class="row-sub" style="margin:4px 4px 12px;line-height:1.8">عدّل اسم المستوى وبيتغيّر بكل مكان (بيانات الطالب، خطة التجويد، القوائم والتقارير). لإرجاع الاسم الأصلي اضغط «إرجاع الأسماء الأصلية». الأسماء داخل المواد المكتوبة جوّا المستويات ما بتتغير.</div>
   ${TAJWEED_LEVELS.map((l,i)=>`<div class="field"><label>${rpEsc(LV_DEF[i].label)}</label>
-    <input id="lv-l-${l.key}" type="text" maxlength="50" placeholder="الاسم الكامل" value="${l.label!==LV_DEF[i].label?rpEsc(l.label):''}">
-    <input id="lv-s-${l.key}" type="text" maxlength="40" placeholder="الاسم المختصر" style="margin-top:6px" value="${l.short!==LV_DEF[i].short?rpEsc(l.short):''}"></div>`).join('')}
+    <input id="lv-l-${l.key}" type="text" maxlength="50" placeholder="اسم المستوى" value="${rpEsc(l.label)}"></div>`).join('')}
   <button class="btn btn-primary" onclick="window.lvSave()">${icon('check',16)} حفظ الأسماء</button>
   <button class="btn btn-outline" style="margin-top:10px" onclick="window.lvReset()">إرجاع الأسماء الأصلية</button>
   <div id="lv-alert"></div>`;
@@ -8026,8 +8107,8 @@ async function lvWrite(o){
 }
 async function lvSave(){
   const clean = v => String(v||'').replace(/[<>"'`\\]/g,'').trim();
-  const o = {}; LV_DEF.forEach(d=>{ const l = clean((document.getElementById('lv-l-'+d.key)||{}).value).slice(0,50), sh = clean((document.getElementById('lv-s-'+d.key)||{}).value).slice(0,40);
-    if((l && l!==d.label) || (sh && sh!==d.short)) o[d.key] = {label:l||'', short:sh||''}; });
+  const o = {}; LV_DEF.forEach(d=>{ const l = clean((document.getElementById('lv-l-'+d.key)||{}).value).slice(0,50);
+    if(l && l!==d.label) o[d.key] = {label:l}; });
   if(await lvWrite(o) && state.params && state.params.focus) cancelEdit();
 }
 async function lvReset(){ if(!await uiConfirm('إرجاع كل أسماء المستويات إلى الأصلية؟')) return; await lvWrite({}); }
@@ -8475,8 +8556,14 @@ Object.assign(window, {
 async function supervisorsListView(){
   if(!canViewSupervisors()) return `<div class="empty">لا تملك صلاحية عرض هذه الصفحة</div>`;
   await loadSupervisors(); await loadAdmins();
-  const list = [...(cache.admins||[]), ...cache.supervisors];
-  return subheader('تعريف المشرفين ('+list.length+')', homeRoute()) + (list.length? `<div class="list">${list.map(s=>supCard(s)).join('')}</div>` : `<div class="empty">لا يوجد مشرفون بعد</div>`);
+  const admins = cache.admins||[], sups = cache.supervisors||[], n = admins.length + sups.length;
+  const sec = (title, list, dot) => list.length ? `<div class="section-title"><span class="bar"></span>${dot?`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${dot};margin-inline-end:6px"></span>`:''}${rpEsc(title)} <small style="color:var(--text-muted);font-weight:500">(${list.length})</small></div><div class="list">${list.map(x=>supCard(x)).join('')}</div>` : '';
+  const brs = cache.branches.filter(b=>state.role==='admin' || !b.private);
+  const byBr = brs.map(b=>sec(b.name, sups.filter(sv=>(sv.branchIds||[]).includes(b.id)), colorOfBranch(b.id))).join('');
+  const known = new Set(brs.map(b=>b.id)), none = sups.filter(sv=>!(sv.branchIds||[]).some(id=>known.has(id)));
+  return subheader('تعريف المشرفين ('+n+')', homeRoute())
+    + (state.role==='admin' ? `<button class="btn btn-primary" style="margin-top:12px" onclick="window.goto('supEval',{})">${icon('chart',16)} تقييم المشرفين</button>` : '')
+    + (n ? sec('الإدارة', admins) + byBr + sec('بدون شعبة', none) : `<div class="empty">لا يوجد مشرفون بعد</div>`);
 }
 
 async function supervisorProfileView(){
@@ -8768,7 +8855,7 @@ function sdGroups(){
 function sdBody(){
   const cur = state.view;
   return `<div class="sd-head" role="button" tabindex="0" aria-label="ملفي" onclick="window.sdClose(); window.goto('${state.role==='admin'?'accountAdmin':'accountSup'}')" onkeydown="if(event.key==='Enter')this.click()"><div class="sd-av">${state.personPhoto?`<img src="${state.personPhoto}" alt="">`:initials(state.personName||'?')}</div><div><b>${rpEsc(state.personName||'')}</b><small>${rpEsc(state.role==='admin'?roleName('admin'):roleName(state.supKind||'halaqa'))}</small></div><span class="sd-go">${icon('chevronL',16)}</span></div>
-  ${sdGroups().map(([t,l])=>`<div class="sd-g"><div class="sd-gt">${t}</div>${l.map(x=>`<button class="sd-i ${x.view && x.view===cur?'on':''}" onclick="window.sdClose(); ${x.js}">${x.ic==='bell'?BELL_SOLID:icon(x.ic,17)}<span>${x.l}</span></button>`).join('')}</div>`).join('')}
+  ${sdGroups().map(([t,l])=>`<div class="sd-g"><div class="sd-gt">${t}</div>${l.map(x=>`<button class="sd-i ${x.view && x.view===cur?'on':''}" onclick="window.sdClose(); ${x.js}">${x.ic==='bell'?BELL_SOLID:x.ic==='idcard'?icon('stu',17,1.7):icon(x.ic,17)}<span>${x.l}</span></button>`).join('')}</div>`).join('')}
   <button class="sd-i sd-out" onclick="window.sdClose(); window.logoutAsk()">${icon('power',17)}<span>تسجيل الخروج</span></button>`;
 }
 function sdSideHTML(){ return (state.role==='admin'||state.role==='supervisor') ? `<aside class="sd-side" aria-label="القائمة">${sdBody()}</aside>` : ''; }
@@ -9090,7 +9177,23 @@ const TJ_GROUPS = [
   ['jam3ia','الجمعية','#1E7A4A',[['jam3ia_1','التمهيدي'],['jam3ia_2','المتوسط'],['jam3ia_3','المتقدم']]],
   ['awqaf','الأوقاف','#2F5B9A',[['awqaf_1','المستوى الأول'],['awqaf_2','المستوى الثاني'],['awqaf_3','المستوى الثالث']]],
 ];
+TJ_GROUPS.forEach(g=>g[3].forEach(pr=>Object.defineProperty(pr, 1, {get:()=>{ let n = (TAJWEED_LEVELS.find(l=>l.key===pr[0])||{label:'—'}).label.replace(/\s*\([^)]*\)\s*$/,'').trim(); if(pr[0].startsWith('jam3ia')) n = n.replace(/^المستوى\s+/,''); return n; }, enumerable:true})));
 Object.defineProperty(TJ_GROUPS[0], 2, {get:()=>tjCol('jam3ia')}); Object.defineProperty(TJ_GROUPS[1], 2, {get:()=>tjCol('awqaf')});
+const ADM_REP_DEF = '#1F3A5F';
+function admRepColor(){ const c = cache.content && cache.content.adm_rep_color; return isHex(c) ? c : ADM_REP_DEF; }
+async function admRepColSet(v){
+  const val = (v && isHex(v)) ? v.toUpperCase() : '';
+  try{ await setDoc(doc(db,'siteContent','adm_rep_color'), {text:val}, {merge:true}); cache.content.adm_rep_color = val; render(); }catch(e){ alert('تعذّر الحفظ: '+e.message); }
+}
+window.admRepColSet = admRepColSet;
+function admRepColCard(){
+  const cur = admRepColor(), custom = cur.toUpperCase()!==ADM_REP_DEF;
+  return `<div class="stat-card" style="margin:0 0 16px;text-align:right"><div style="font-weight:800;font-size:15px">ألوان التقارير الإدارية</div>
+  <div class="row-sub" style="margin-top:2px">لون الترويسة والأرقام والختم بالتقرير الشهري وتقرير تقييم المشرفين (تقرير التجويد بلون شعبته)</div>
+  <div class="br-sw" style="margin-top:10px">${[ADM_REP_DEF,'#0F6B3A','#2F5B9A','#4B3F72','#8C2F4B','#2F5D62','#7A5230','#2B2D42','#51606E'].map(x=>`<button type="button" aria-label="${x}" class="${x.toLowerCase()===cur.toLowerCase()?'on':''}" style="background:${x}" onclick="window.admRepColSet('${x}')"></button>`).join('')}<label class="br-custom" title="لون آخر">${icon('plus',16)}<input type="color" value="${cur}" onchange="window.admRepColSet(this.value)" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label></div>
+  <div style="margin-top:12px;border-radius:14px;padding:12px;background:linear-gradient(160deg,${rgbCss(rgbMix(hexRgb(cur),[255,255,255],.22))},${rgbCss(rgbMix(hexRgb(cur),[0,0,0],.45))});color:#fff;font-weight:800">التقرير الشهري للإدارة</div>
+  ${custom ? `<div class="row-sub" style="margin-top:10px;cursor:pointer;color:var(--text-muted)" onclick="window.admRepColSet('')">↺ رجوع للكحلي الافتراضي</div>` : ''}</div>`;
+}
 function tjColCard(){
   return `<div class="stat-card" style="margin:0 0 16px;text-align:right"><div style="font-weight:800;font-size:15px">ألوان التجويد</div>
   <div class="row-sub" style="margin-top:2px">لون قسم الجمعية وقسم الأوقاف بخطة التجويد</div>
@@ -9305,10 +9408,16 @@ function tjLvEditorHTML(s, k, from){
     <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-primary" style="flex:1" onclick="window.tjLvSave('${s.id}','${k}','${from}')">حفظ</button><button class="btn btn-outline" style="flex:1" onclick="window.goto('studentProfile',{id:'${s.id}',tab:'data',from:'${from}'})">إلغاء</button></div>
     <div id="tl-alert"></div></div>`;
 }
+function tjActiveHTML(s){
+  const L = TAJWEED_LEVELS.filter(l=>((s.tajweedLevels||{})[l.key]||0)>0);
+  if(!L.length) return `<div class="row-sub" style="padding:6px 4px">لم يبدأ أي مستوى بعد</div>`;
+  return `<div class="list">${L.map(l=>{ const st = (s.tajweedLevels||{})[l.key]||0, sum = tjSumLine(s,l.key);
+    return `<div class="row"><div style="min-width:0"><div class="row-title">${lvEd(l)}</div>${sum?`<div class="row-sub">${sum}</div>`:''}</div><span class="badge ${TAJWEED_STATUS_CLASS[st]}">${TAJWEED_STATUS[st]}</span></div>`; }).join('')}</div>`;
+}
 function tjLevelsListHTML(s, canW, from){
   return `<div class="list">${TAJWEED_LEVELS.map(l=>{
     const st = (s.tajweedLevels||{})[l.key]||0, open = canW && state.params.lv===l.key, sum = tjSumLine(s,l.key);
-    const go = `window.goto('studentProfile',{id:'${s.id}',tab:'data',from:'${from}'${open?'':`,lv:'${l.key}'`}})`;
+    const go = `window.goto('studentProfile',{id:'${s.id}',tab:'data',from:'${from}',tjAll:1,tjEdit:1${open?'':`,lv:'${l.key}'`}})`;
     return `<div class="row" id="tl-row-${l.key}" ${canW?`onclick="${go}" style="cursor:pointer"`:''}><div style="min-width:0"><div class="row-title">${lvEd(l)}</div>${sum?`<div class="row-sub">${sum}</div>`:''}</div><div style="display:flex;align-items:center;gap:8px;flex:none"><span class="badge ${TAJWEED_STATUS_CLASS[st]}">${TAJWEED_STATUS[st]}</span>${canW?`<span class="chevron">${icon('chevronL',13)}</span>`:''}</div></div>${open?tjLvEditorHTML(s,l.key,from):''}`;
   }).join('')}</div>`;
 }
@@ -9421,7 +9530,7 @@ function appearanceView(){
     html += `<div class="row-sub" style="margin:14px 2px 6px;font-weight:700">ألوان أيقونات الأقسام</div><div class="seg" id="kh-seg">${[['0','ملوّنة'],['1','أخضر موحّد']].map(([k,l])=>`<button data-k="${k}" class="${(kg?'1':'0')===k?'active':''}" onclick="window.setKh(${k==='1'})">${l}</button>`).join('')}</div>`; }
 
   if(state.role==='admin'){
-    html += `<div class="section-title" style="margin-top:24px"><span class="bar"></span>ألوان الموقع (للمدير — تظهر للجميع)</div>` + ntCard() + tjColCard() + revColCard() + tdcCard().replace('<details class="td-clr"','<details class="td-clr" open') + fcCard(true) +
+    html += `<div class="section-title" style="margin-top:24px"><span class="bar"></span>ألوان الموقع (للمدير — تظهر للجميع)</div>` + ntCard() + tjColCard() + admRepColCard() + revColCard() + tdcCard().replace('<details class="td-clr"','<details class="td-clr" open') + fcCard(true) +
       `<div class="row-sub" style="margin:10px 2px 0">لون كل شعبة بيتغيّر من صفحة الشعبة نفسها (الشعب ← اختر الشعبة ← خانة «لون الشعبة»).</div>`;
   }
   if(state.role==='admin'||state.role==='supervisor') html += `<div class="section-title" style="margin-top:24px"><span class="bar"></span>ترتيب الواجهة</div><button class="btn btn-outline" onclick="window.neOpen('me')">${icon('list',16)} تخصيص واجهتي (لجهازك أنت)</button>${state.role==='admin' ? `<button class="btn btn-outline" style="margin-top:10px" onclick="window.neOpen('default')">${icon('list',16)} تعديل الافتراضي (للكل)</button><div class="row-sub" style="margin:6px 2px 0">الافتراضي بيظهر لكل المستخدمين اللي ما خصصوا واجهتهم بنفسهم.</div>` : ''}`;
