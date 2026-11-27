@@ -9582,7 +9582,7 @@ async function tjLevelView(){
   let tjRes = '';
   const lk = k==='ijaza_awqaf' ? 'ijaza' : k, isLv = TAJWEED_LEVELS.some(l=>l.key===lk);
   if(isLv) await loadQuizzes();
-  if(staff && isLv){ await loadAllDetails(); tjRes = tjRosterHTML(lk); }
+  if(staff && isLv){ await loadAllDetails(); const rh = tjRosterHTML(lk).replace(/^<div class="section-title"[^]*?<\/div>/,''); tjRes = rh ? `<details class="br-set tj-roster" style="margin-top:14px"><summary>${icon('users',15)} <b>طلاب المستوى</b><small>${tjStudents(lk,1)} يدرسونه · ${tjStudents(lk,2)} اجتازوه — اكبس لعرضهم</small></summary>${rh}</details>` : ''; }
   if(state.role==='student' && isLv){ const me = findStudent(state.studentId); if(me){ await ensureStudentDetail(me.id); const st = (me.tajweedLevels||{})[lk]||0, sum = tjSumLine(me,lk); if(st || sum) tjRes = `<div class="list" style="margin-top:12px"><div class="row"><div><div class="row-title">وضعك في هذا المستوى</div>${sum?`<div class="row-sub">${sum}</div>`:''}</div><span class="badge ${TAJWEED_STATUS_CLASS[st]}">${TAJWEED_STATUS[st]}</span></div></div>`; } }
   const itemHTML = x => { const t = TJ_TYPES[x.type]||TJ_TYPES.file; const url = /^https?:\/\//i.test(x.url||'') ? x.url : '';
     return `<div class="tj-it"><div class="tj-ic" style="background:${t[2]};color:${t[1]}">${icon(t[3],18)}</div><div style="flex:1;min-width:0">
@@ -9591,11 +9591,11 @@ async function tjLevelView(){
       <div class="tj-btns">${url?`<a class="td-btn solid" href="${rpEsc(url)}" target="_blank" rel="noopener">${x.type==='video'?'مشاهدة':x.type==='test'?'ابدأ':'فتح'}</a>`:''}${ed?`<button class="td-btn" onclick="window.goto('tjItem',{k:'${k}',id:'${x.id}'})">${icon('pencil',13)}</button>`:''}</div></div>`; };
   return subheader(n+' — '+g[1], g[0]==='ijaza' ? "planDetail',{key:'ijaza'}" : "planDetail',{key:'tajweed'}") + `
   <div class="tj-hero" style="--tc:${g[2]}"><small>${g[1]}</small><b>${n}</b>${staff && g[0]!=='ijaza'?`<span>${tjStudents(k,1)} يدرسونه · ${tjStudents(k,2)} اجتازوه</span>`:''}</div>
+  ${isLv ? qzSectionHTML(lk) : ''}
   ${L.desc ? `<div class="level-card" style="margin-top:12px"><div class="level-text">${rpEsc(L.desc).replace(/\n/g,'<br>')}</div></div>` : ''}
   ${ed ? `<details class="br-set"${L.desc?'':' open'}><summary>${icon('pencil',15)} <b>وصف المستوى</b><small>شو بيدرس الطالب فيه</small></summary>
     <textarea id="tj-desc" rows="4" maxlength="1500" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:12px;padding:10px;font:inherit;font-size:14px;background:var(--card);color:var(--text)" placeholder="مثلًا: أحكام النون الساكنة والتنوين، والميم الساكنة…">${rpEsc(L.desc)}</textarea>
     <button class="td-btn solid" style="margin-top:8px" onclick="window.tjDescSave('${k}')">${icon('check',13)} حفظ الوصف</button></details>` : ''}
-  ${isLv ? qzSectionHTML(lk) : ''}
   ${g[0]!=='ijaza' ? tjfSectionHTML(k, tjFiles) : ''}
  ${libHTML}
   ${tjRes}
